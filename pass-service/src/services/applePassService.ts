@@ -91,6 +91,24 @@ export class ApplePassService {
     }
   }
 
+  private async downloadImage(url: string): Promise<Buffer | null> {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      return Buffer.from(await res.arrayBuffer());
+    } catch {
+      return null;
+    }
+  }
+
+  private createFallbackIcon(): Buffer {
+    // Minimal 1x1 white PNG (valid PNG file)
+    return Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
+      'base64'
+    );
+  }
+
   async generatePass(data: PassData): Promise<Buffer> {
     const passJson = this.createPassJson(data);
 
@@ -98,6 +116,24 @@ export class ApplePassService {
     const passJsonBuffer = Buffer.from(JSON.stringify(passJson, null, 2));
     files.set('pass.json', passJsonBuffer);
 
+    // Download and add image files
+    // icon.png is REQUIRED by Apple
+    const iconBuffer = data.iconUrl
+      ? await this.downloadImage(data.iconUrl)
+      : null;
+    files.set('icon.png', iconBuffer || this.createFallbackIcon());
+
+    if (data.logoUrl) {
+      const logoBuffer = await this.downloadImage(data.logoUrl);
+      if (logoBuffer) files.set('logo.png', logoBuffer);
+    }
+
+    if (data.heroImageUrl) {
+      const stripBuffer = await this.downloadImage(data.heroImageUrl);
+      if (stripBuffer) files.set('strip.png', stripBuffer);
+    }
+
+    // Build manifest from all content files (not manifest/signature themselves)
     const manifest: Record<string, string> = {};
     for (const [filename, content] of files) {
       const hash = crypto.createHash('sha1').update(content).digest('hex');
