@@ -10,7 +10,7 @@ const PASS_SERVICE_URL = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pa
 
 export async function POST(request: NextRequest) {
   try {
-    const { studioId, landingPageId, name, email, phone } = await request.json()
+    const { studioId, landingPageId, name, email, phone, platform } = await request.json()
 
     if (!studioId || !name) {
       return NextResponse.json({ error: 'studioId and name are required' }, { status: 400 })
@@ -65,12 +65,19 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           customerId: customer.id,
           studioId,
+          platform: platform || 'apple',
         }),
       })
 
       if (passRes.ok) {
         const passData = await passRes.json()
-        passUrl = passData.downloadUrl ?? `${PASS_SERVICE_URL}/api/passes/${passData.serialNumber}/download`
+        if (platform === 'google' && passData.saveUrl) {
+          const su = passData.saveUrl
+          passUrl = su.startsWith('http') ? su : `${PASS_SERVICE_URL}${su}`
+        } else {
+          const dl = passData.downloadUrl ?? `/api/passes/${passData.serialNumber}/download`
+          passUrl = dl.startsWith('http') ? dl : `${PASS_SERVICE_URL}${dl}`
+        }
       }
     } catch {
       // Pass generation failed — non-critical
