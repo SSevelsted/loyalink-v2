@@ -77,17 +77,84 @@ export class ApplePassService {
       const certBag = certBags[forge.pki.oids.certBag];
       const keyBag = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag];
 
-      if (certBag && certBag.length > 0 && certBag[0].cert) {
-        this.certificate = certBag[0].cert;
+      if (certBag && certBag.length > 0) {
+        // The first cert is usually the signing cert, additional ones may be WWDR
+        for (const bag of certBag) {
+          if (!bag.cert) continue;
+          const cn = bag.cert.subject.getField('CN')?.value || '';
+          if (cn.includes('Apple Worldwide Developer Relations') || cn.includes('WWDR')) {
+            this.wwdrCert = bag.cert;
+          } else {
+            this.certificate = bag.cert;
+          }
+        }
+        // If only one cert found, use it as signing cert
+        if (!this.certificate && certBag[0].cert) {
+          this.certificate = certBag[0].cert;
+        }
       }
 
       if (keyBag && keyBag.length > 0 && keyBag[0].key) {
         this.privateKey = keyBag[0].key;
       }
 
+      // Load WWDR cert from env if not found in P12
+      if (!this.wwdrCert) {
+        this.loadWwdrCert();
+      }
+
       console.log('Apple certificates loaded successfully');
     } catch (error) {
       console.error('Error loading Apple certificates:', error);
+    }
+  }
+
+  private loadWwdrCert(): void {
+    // Apple WWDR G4 certificate (used for signing Wallet passes)
+    // This is a PUBLIC certificate from Apple, not a secret
+    const WWDR_G4_PEM = `-----BEGIN CERTIFICATE-----
+MIIEVTCCAz2gAwIBAgIUE9x3lVJx5T3GMujM/+Uh88zFztIwDQYJKoZIhvcNAQEL
+BQAwYjELMAkGA1UEBhMCVVMxEzARBgNVBAoTCkFwcGxlIEluYy4xJjAkBgNVBAsT
+HUFwcGxlIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MRYwFAYDVQQDEw1BcHBsZSBS
+b290IENBMB4XDTIwMTIxNjE5MzYwNFoXDTMwMTIxMDAwMDAwMFowdTFEMEIGA1UE
+Aww7QXBwbGUgV29ybGR3aWRlIERldmVsb3BlciBSZWxhdGlvbnMgQ2VydGlmaWNh
+dGlvbiBBdXRob3JpdHkxCzAJBgNVBAsMAkc0MRMwEQYDVQQKDApBcHBsZSBJbmMu
+MQswCQYDVQQGEwJVUzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANAf
+eKp6JzKwRl/nF3bYoJ0OKY6tPTKlxGs3yeRBkWq3eXFdDDQEYHX3rkOPR8SGHgjo
+v9Y5Ui8eZ/xx8YJtPH4GUnadLLzVQ+mxtLxAOnhRXVGhJeG+bJGdayFZGEHVD41t
+QSo5SiHgkJ9OE0/QjJoyuNdqkh4laqQyziIZhQVg3AJK8lrrd3kCfcCXVGySjnYB
+5kaP5eYq+6KwrRitbTOFOCOL6oqW7Z+uZk+jDEAnbZXQYojZQykn/e2kv1MukBVl
+PNkuYmQzHWxq3Y4hqqRfFcYw7V/mjDaSlLfcOQIA+2SM1AyB8j/VNJeHdSbCb64D
+YyEMe9QbsWLFApy9/a8CAwEAAaOB7zCB7DASBgNVHRMBAf8ECDAGAQH/AgEAMB8G
+A1UdIwQYMBaAFCvQaUeUdgn+9GuNLkCm90dNfwheMEQGCCsGAQUFBwEBBDgwNjA0
+BggrBgEFBQcwAYYoaHR0cDovL29jc3AuYXBwbGUuY29tL29jc3AwMy1hcHBsZXJv
+b3RjYTAuBgNVHR8EJzAlMCOgIaAfhh1odHRwOi8vY3JsLmFwcGxlLmNvbS9yb290
+LmNybDAdBgNVHQ4EFgQUW9n6HeeaGgujmXYiUIY+kchbd6gwDgYDVR0PAQH/BAQD
+AgEGMBAGCiqGSIb3Y2QGAgEEAgUAMA0GCSqGSIb3DQEBCwUAA4IBAQA/Vj2e5bbD
+eeZFIGi9v3OLLBKeAuOugCKMBB7DUshwgKj7zqew1UJEggOCTwb8O0kU+9h0UoWv
+p50h5wESA5/NQFjQAde/MoMrU1goPO6cn1R2PWQnxn6NHThNLa6B5rmluJyJlPef
+x4elUWY0GzlxOSTjh2fvpbFoe4zuPfeutnvi0v/fYcZqdUmVIkSoBPyUuAsuORFJ
+EtHlgepZAE9bPFo22noicwkJac3AfOriJP6YRLj477JxPxpd1F1+M02cHSS+APCQ
+A1iZQT0xWmJArzmoUUOSqwSonMJNsUvSq3xKX+udO7xPiEAGE/+QF4oIRynoYpgp
+pU8RBWk6z/Kf
+-----END CERTIFICATE-----`;
+
+    if (process.env.APPLE_WWDR_CERTIFICATE_BASE64) {
+      try {
+        const wwdrPem = Buffer.from(process.env.APPLE_WWDR_CERTIFICATE_BASE64, 'base64').toString('utf-8');
+        this.wwdrCert = forge.pki.certificateFromPem(wwdrPem);
+        console.log('WWDR certificate loaded from env');
+        return;
+      } catch (e) {
+        console.warn('Failed to load WWDR cert from env:', e);
+      }
+    }
+
+    try {
+      this.wwdrCert = forge.pki.certificateFromPem(WWDR_G4_PEM);
+      console.log('WWDR G4 certificate loaded (built-in)');
+    } catch (e) {
+      console.warn('Failed to load built-in WWDR cert:', e);
     }
   }
 
