@@ -68,11 +68,17 @@ export function JoinForm({
   const [countryCode, setCountryCode] = useState('+45')
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [passUrl, setPassUrl] = useState<string | null>(null)
+  const [googlePassUrl, setGooglePassUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [platform, setPlatform] = useState<'apple' | 'google'>('apple')
+  const [isDesktop, setIsDesktop] = useState(false)
 
   useEffect(() => {
     setPlatform(detectPlatform())
+    if (typeof navigator !== 'undefined') {
+      const ua = navigator.userAgent || ''
+      setIsDesktop(!(/android|iphone|ipad|ipod/i.test(ua)))
+    }
   }, [])
 
   const inputStyle = textColor
@@ -94,7 +100,7 @@ export function JoinForm({
           studioId,
           landingPageId,
           name: form.name,
-          email: form.email || null,
+          email: form.email,
           phone: fullPhone,
           platform,
         }),
@@ -112,11 +118,43 @@ export function JoinForm({
         setPassUrl(data.passUrl)
         // On Apple devices, redirect directly to the .pkpass URL
         // Safari will automatically show the "Add to Wallet" prompt
-        if (platform === 'apple') {
+        if (platform === 'apple' && !isDesktop) {
           window.location.href = data.passUrl
         }
       } else {
         setPassUrl('failed')
+      }
+
+      // On desktop, also generate a Google Wallet pass
+      if (isDesktop && data.passUrl) {
+        try {
+          const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
+          const googlePassRes = await fetch(`${PASS_SERVICE}/api/passes/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customerId: data.customerId,
+              studioId,
+              platform: 'google',
+            }),
+          })
+          if (googlePassRes.ok) {
+            const googlePassData = await googlePassRes.json()
+            if (googlePassData.saveUrl) {
+              const saveUrl = googlePassData.saveUrl.startsWith('http')
+                ? googlePassData.saveUrl
+                : `${PASS_SERVICE}${googlePassData.saveUrl}`
+              // Fetch the actual Google Wallet JWT URL
+              const saveRes = await fetch(saveUrl)
+              if (saveRes.ok) {
+                const saveData = await saveRes.json()
+                if (saveData.saveUrl) setGooglePassUrl(saveData.saveUrl)
+              }
+            }
+          }
+        } catch {
+          // Non-critical
+        }
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -147,12 +185,19 @@ export function JoinForm({
                 Your card will be sent to you shortly.
               </p>
             ) : passUrl ? (
-              <>
-                {platform === 'apple' ? (
+              <div className="space-y-3">
+                {(platform === 'apple' || isDesktop) && (
                   <>
-                    <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.6 } : { color: 'var(--muted-foreground)' }}>
-                      Can&apos;t see your pass? Tap below to add it again
-                    </p>
+                    {isDesktop && (
+                      <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.6 } : { color: 'var(--muted-foreground)' }}>
+                        Choose your wallet
+                      </p>
+                    )}
+                    {platform === 'apple' && !isDesktop && (
+                      <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.6 } : { color: 'var(--muted-foreground)' }}>
+                        Can&apos;t see your pass? Tap below to add it again
+                      </p>
+                    )}
                     <a
                       href={passUrl}
                       className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-white font-semibold text-sm transition-transform active:scale-[0.98]"
@@ -164,26 +209,25 @@ export function JoinForm({
                       Add to Apple Wallet
                     </a>
                   </>
-                ) : (
-                  <>
-                    <a
-                      href={passUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-white font-semibold text-sm transition-transform active:scale-[0.98]"
-                      style={{ backgroundColor: '#4285F4' }}
-                    >
-                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M21.35 11.1h-9.18v2.73h5.51c-.24 1.23-.98 2.28-2.08 2.97l3.36 2.61c1.96-1.81 3.09-4.47 3.09-7.63 0-.64-.06-1.25-.17-1.84z" fill="#4285F4"/>
-                        <path d="M12.17 22c2.79 0 5.13-.92 6.84-2.5l-3.36-2.61c-.92.62-2.1.99-3.48.99-2.68 0-4.95-1.81-5.76-4.24l-3.44 2.66C4.73 19.78 8.17 22 12.17 22z" fill="#34A853"/>
-                        <path d="M6.41 13.64c-.21-.62-.33-1.28-.33-1.96s.12-1.35.33-1.96L2.97 7.06C2.06 8.87 1.5 10.87 1.5 13s.56 4.13 1.47 5.94l3.44-2.66z" fill="#FBBC05"/>
-                        <path d="M12.17 5.44c1.51 0 2.87.52 3.94 1.54l2.96-2.96C17.3 2.31 14.96 1.28 12.17 1.28 8.17 1.28 4.73 3.5 2.97 7.06l3.44 2.66c.81-2.43 3.08-4.28 5.76-4.28z" fill="#EA4335"/>
-                      </svg>
-                      Add to Google Wallet
-                    </a>
-                  </>
                 )}
-              </>
+                {(platform === 'google' || isDesktop) && (
+                  <a
+                    href={isDesktop ? (googlePassUrl || '#') : passUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-white font-semibold text-sm transition-transform active:scale-[0.98] ${isDesktop && !googlePassUrl ? 'opacity-50 pointer-events-none' : ''}`}
+                    style={{ backgroundColor: '#4285F4' }}
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M21.35 11.1h-9.18v2.73h5.51c-.24 1.23-.98 2.28-2.08 2.97l3.36 2.61c1.96-1.81 3.09-4.47 3.09-7.63 0-.64-.06-1.25-.17-1.84z" fill="#4285F4"/>
+                      <path d="M12.17 22c2.79 0 5.13-.92 6.84-2.5l-3.36-2.61c-.92.62-2.1.99-3.48.99-2.68 0-4.95-1.81-5.76-4.24l-3.44 2.66C4.73 19.78 8.17 22 12.17 22z" fill="#34A853"/>
+                      <path d="M6.41 13.64c-.21-.62-.33-1.28-.33-1.96s.12-1.35.33-1.96L2.97 7.06C2.06 8.87 1.5 10.87 1.5 13s.56 4.13 1.47 5.94l3.44-2.66z" fill="#FBBC05"/>
+                      <path d="M12.17 5.44c1.51 0 2.87.52 3.94 1.54l2.96-2.96C17.3 2.31 14.96 1.28 12.17 1.28 8.17 1.28 4.73 3.5 2.97 7.06l3.44 2.66c.81-2.43 3.08-4.28 5.76-4.28z" fill="#EA4335"/>
+                    </svg>
+                    {isDesktop && !googlePassUrl ? 'Loading Google Wallet...' : 'Add to Google Wallet'}
+                  </a>
+                )}
+              </div>
             ) : null}
           </div>
         </CardContent>
@@ -217,6 +261,7 @@ export function JoinForm({
                 placeholder="john@example.com"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
+                required
                 style={inputStyle}
               />
             </div>
@@ -248,6 +293,7 @@ export function JoinForm({
                   placeholder="12 34 56 78"
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  required
                   className="flex-1"
                   style={inputStyle}
                 />
@@ -258,7 +304,7 @@ export function JoinForm({
           <Button
             type="submit"
             className="w-full"
-            disabled={status === 'loading' || !form.name}
+            disabled={status === 'loading' || !form.name || (showEmail && !form.email) || (showPhone && !form.phone)}
             style={brandColor ? { backgroundColor: brandColor, color: '#FFFFFF' } : undefined}
           >
             {status === 'loading' ? 'Signing up...' : (buttonText || 'Join & Get Your Pass')}
