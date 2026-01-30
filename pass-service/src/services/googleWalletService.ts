@@ -224,19 +224,51 @@ export class GoogleWalletService {
       ).toString('utf-8');
       const credentials = JSON.parse(serviceAccountJson);
 
-      // Create the object first
-      await this.createOrUpdateObject(objectData);
+      // Create the class first (ignore errors - may already exist)
+      await this.createOrUpdateClass({
+        classId: objectData.classId,
+        studioName: 'Loyalty Program',
+      });
 
-      // Create JWT claims
+      // Include full object inline in JWT so Google creates it on save
       const claims = {
         iss: credentials.client_email,
         aud: 'google',
         origins: ['https://loyalink.ai'],
         typ: 'savetowallet',
         payload: {
+          loyaltyClasses: [
+            {
+              id: `${googleConfig.issuerId}.${objectData.classId}`,
+              issuerName: 'Loyalty Program',
+              reviewStatus: 'UNDER_REVIEW',
+              programName: 'Loyalty',
+            },
+          ],
           loyaltyObjects: [
             {
               id: `${googleConfig.issuerId}.${objectData.objectId}`,
+              classId: `${googleConfig.issuerId}.${objectData.classId}`,
+              state: 'ACTIVE',
+              accountId: objectData.memberId,
+              accountName: objectData.customerName,
+              loyaltyPoints: {
+                label: 'Balance',
+                balance: {
+                  money: {
+                    micros: objectData.balance * 1000000,
+                    currencyCode: objectData.currency,
+                  },
+                },
+              },
+              textModulesData: [
+                { header: 'Tier', body: objectData.loyaltyTier },
+                { header: 'Cashback Rate', body: `${objectData.cashbackRate}%` },
+              ],
+              barcode: {
+                type: 'QR_CODE',
+                value: objectData.memberId,
+              },
             },
           ],
         },
