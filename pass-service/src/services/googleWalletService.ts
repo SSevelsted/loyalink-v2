@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { GoogleAuth } from 'google-auth-library';
 import { googleConfig } from '../config.js';
 
@@ -241,13 +242,13 @@ export class GoogleWalletService {
         },
       };
 
-      // Sign JWT (simplified - in production use proper JWT library)
       const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
       const payload = Buffer.from(JSON.stringify(claims)).toString('base64url');
 
-      // Note: Actual signing would require the private key from credentials
-      // This is a placeholder - implement proper RS256 signing
-      const signature = 'placeholder_signature';
+      const sign = crypto.createSign('RSA-SHA256');
+      sign.update(`${header}.${payload}`);
+      sign.end();
+      const signature = sign.sign(credentials.private_key, 'base64url');
 
       return `${header}.${payload}.${signature}`;
     } catch (error) {

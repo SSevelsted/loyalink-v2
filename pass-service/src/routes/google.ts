@@ -37,7 +37,7 @@ googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) 
     const { data: studio } = await supabase
       .from('studios')
       .select('name')
-      .eq('studio_id', walletPass.studio_id)
+      .eq('id', walletPass.studio_id)
       .single();
 
     await googleWalletService.createOrUpdateClass({
@@ -123,11 +123,6 @@ googleRoutes.post('/update/:serialNumber', async (req: Request, res: Response) =
         .from('wallet_passes')
         .update({
           version: walletPass.version + 1,
-          last_value_snapshot: {
-            balance: customer.balance,
-            cashback_rate: customer.cashback_rate,
-            loyalty_stage: customer.loyalty_stage,
-          },
         })
         .eq('id', walletPass.id);
 
