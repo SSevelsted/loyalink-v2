@@ -211,7 +211,10 @@ pU8RBWk6z/Kf
 
     const signature = this.createSignature(manifestBuffer);
     if (signature) {
+      console.log(`[pass] Signature created (${signature.length} bytes)`);
       files.set('signature', signature);
+    } else {
+      console.error('[pass] SIGNATURE FAILED — pass will be rejected by Apple');
     }
 
     return this.createPkPassZip(files);

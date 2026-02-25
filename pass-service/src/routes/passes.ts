@@ -127,6 +127,7 @@ passRoutes.post('/generate', async (req: Request, res: Response) => {
 passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) => {
   try {
     const { serialNumber } = req.params;
+    console.log(`[download] Request for serial: ${serialNumber}`);
 
     // Fetch pass and customer data
     const { data: walletPass, error: passError } = await supabase
@@ -136,8 +137,10 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
       .single();
 
     if (passError || !walletPass) {
+      console.log(`[download] Pass not found: ${serialNumber}`, passError);
       return res.status(404).json({ error: 'Pass not found' });
     }
+    console.log(`[download] Pass found, generating pkpass...`);
 
     const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string };
 
@@ -187,6 +190,7 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
       },
     });
 
+    console.log(`[download] Pass generated, size: ${generatedPass.length} bytes`);
     res.setHeader('Content-Type', 'application/vnd.apple.pkpass');
     res.setHeader('Content-Disposition', `attachment; filename="${serialNumber}.pkpass"`);
     res.send(generatedPass);
