@@ -2,7 +2,40 @@ import archiver from 'archiver';
 import crypto from 'crypto';
 import forge from 'node-forge';
 import { PassThrough } from 'stream';
+import { execFileSync } from 'child_process';
+import { writeFileSync, unlinkSync, readFileSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
+import { randomBytes } from 'crypto';
 import { appleConfig, publicUrl } from '../config.js';
+
+// Apple WWDR G4 certificate (public cert from Apple, not a secret)
+const WWDR_G4_PEM = `-----BEGIN CERTIFICATE-----
+MIIEVTCCAz2gAwIBAgIUE9x3lVJx5T3GMujM/+Uh88zFztIwDQYJKoZIhvcNAQEL
+BQAwYjELMAkGA1UEBhMCVVMxEzARBgNVBAoTCkFwcGxlIEluYy4xJjAkBgNVBAsT
+HUFwcGxlIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MRYwFAYDVQQDEw1BcHBsZSBS
+b290IENBMB4XDTIwMTIxNjE5MzYwNFoXDTMwMTIxMDAwMDAwMFowdTFEMEIGA1UE
+Aww7QXBwbGUgV29ybGR3aWRlIERldmVsb3BlciBSZWxhdGlvbnMgQ2VydGlmaWNh
+dGlvbiBBdXRob3JpdHkxCzAJBgNVBAsMAkc0MRMwEQYDVQQKDApBcHBsZSBJbmMu
+MQswCQYDVQQGEwJVUzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANAf
+eKp6JzKwRl/nF3bYoJ0OKY6tPTKlxGs3yeRBkWq3eXFdDDQEYHX3rkOPR8SGHgjo
+v9Y5Ui8eZ/xx8YJtPH4GUnadLLzVQ+mxtLxAOnhRXVGhJeG+bJGdayFZGEHVD41t
+QSo5SiHgkJ9OE0/QjJoyuNdqkh4laqQyziIZhQVg3AJK8lrrd3kCfcCXVGySjnYB
+5kaP5eYq+6KwrRitbTOFOCOL6oqW7Z+uZk+jDEAnbZXQYojZQykn/e2kv1MukBVl
+PNkuYmQzHWxq3Y4hqqRfFcYw7V/mjDaSlLfcOQIA+2SM1AyB8j/VNJeHdSbCb64D
+YyEMe9QbsWLFApy9/a8CAwEAAaOB7zCB7DASBgNVHRMBAf8ECDAGAQH/AgEAMB8G
+A1UdIwQYMBaAFCvQaUeUdgn+9GuNLkCm90dNfwheMEQGCCsGAQUFBwEBBDgwNjA0
+BggrBgEFBQcwAYYoaHR0cDovL29jc3AuYXBwbGUuY29tL29jc3AwMy1hcHBsZXJv
+b3RjYTAuBgNVHR8EJzAlMCOgIaAfhh1odHRwOi8vY3JsLmFwcGxlLmNvbS9yb290
+LmNybDAdBgNVHQ4EFgQUW9n6HeeaGgujmXYiUIY+kchbd6gwDgYDVR0PAQH/BAQD
+AgEGMBAGCiqGSIb3Y2QGAgEEAgUAMA0GCSqGSIb3DQEBCwUAA4IBAQA/Vj2e5bbD
+eeZFIGi9v3OLLBKeAuOugCKMBB7DUshwgKj7zqew1UJEggOCTwb8O0kU+9h0UoWv
+p50h5wESA5/NQFjQAde/MoMrU1goPO6cn1R2PWQnxn6NHThNLa6B5rmluJyJlPef
+x4elUWY0GzlxOSTjh2fvpbFoe4zuPfeutnvi0v/fYcZqdUmVIkSoBPyUuAsuORFJ
+EtHlgepZAE9bPFo22noicwkJac3AfOriJP6YRLj477JxPxpd1F1+M02cHSS+APCQ
+A1iZQT0xWmJArzmoUUOSqwSonMJNsUvSq3xKX+udO7xPiEAGE/+QF4oIRynoYpgp
+pU8RBWk6z/Kf
+-----END CERTIFICATE-----`;
 
 interface PassData {
   serialNumber: string;
@@ -110,35 +143,6 @@ export class ApplePassService {
   }
 
   private loadWwdrCert(): void {
-    // Apple WWDR G4 certificate (used for signing Wallet passes)
-    // This is a PUBLIC certificate from Apple, not a secret
-    const WWDR_G4_PEM = `-----BEGIN CERTIFICATE-----
-MIIEVTCCAz2gAwIBAgIUE9x3lVJx5T3GMujM/+Uh88zFztIwDQYJKoZIhvcNAQEL
-BQAwYjELMAkGA1UEBhMCVVMxEzARBgNVBAoTCkFwcGxlIEluYy4xJjAkBgNVBAsT
-HUFwcGxlIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MRYwFAYDVQQDEw1BcHBsZSBS
-b290IENBMB4XDTIwMTIxNjE5MzYwNFoXDTMwMTIxMDAwMDAwMFowdTFEMEIGA1UE
-Aww7QXBwbGUgV29ybGR3aWRlIERldmVsb3BlciBSZWxhdGlvbnMgQ2VydGlmaWNh
-dGlvbiBBdXRob3JpdHkxCzAJBgNVBAsMAkc0MRMwEQYDVQQKDApBcHBsZSBJbmMu
-MQswCQYDVQQGEwJVUzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANAf
-eKp6JzKwRl/nF3bYoJ0OKY6tPTKlxGs3yeRBkWq3eXFdDDQEYHX3rkOPR8SGHgjo
-v9Y5Ui8eZ/xx8YJtPH4GUnadLLzVQ+mxtLxAOnhRXVGhJeG+bJGdayFZGEHVD41t
-QSo5SiHgkJ9OE0/QjJoyuNdqkh4laqQyziIZhQVg3AJK8lrrd3kCfcCXVGySjnYB
-5kaP5eYq+6KwrRitbTOFOCOL6oqW7Z+uZk+jDEAnbZXQYojZQykn/e2kv1MukBVl
-PNkuYmQzHWxq3Y4hqqRfFcYw7V/mjDaSlLfcOQIA+2SM1AyB8j/VNJeHdSbCb64D
-YyEMe9QbsWLFApy9/a8CAwEAAaOB7zCB7DASBgNVHRMBAf8ECDAGAQH/AgEAMB8G
-A1UdIwQYMBaAFCvQaUeUdgn+9GuNLkCm90dNfwheMEQGCCsGAQUFBwEBBDgwNjA0
-BggrBgEFBQcwAYYoaHR0cDovL29jc3AuYXBwbGUuY29tL29jc3AwMy1hcHBsZXJv
-b3RjYTAuBgNVHR8EJzAlMCOgIaAfhh1odHRwOi8vY3JsLmFwcGxlLmNvbS9yb290
-LmNybDAdBgNVHQ4EFgQUW9n6HeeaGgujmXYiUIY+kchbd6gwDgYDVR0PAQH/BAQD
-AgEGMBAGCiqGSIb3Y2QGAgEEAgUAMA0GCSqGSIb3DQEBCwUAA4IBAQA/Vj2e5bbD
-eeZFIGi9v3OLLBKeAuOugCKMBB7DUshwgKj7zqew1UJEggOCTwb8O0kU+9h0UoWv
-p50h5wESA5/NQFjQAde/MoMrU1goPO6cn1R2PWQnxn6NHThNLa6B5rmluJyJlPef
-x4elUWY0GzlxOSTjh2fvpbFoe4zuPfeutnvi0v/fYcZqdUmVIkSoBPyUuAsuORFJ
-EtHlgepZAE9bPFo22noicwkJac3AfOriJP6YRLj477JxPxpd1F1+M02cHSS+APCQ
-A1iZQT0xWmJArzmoUUOSqwSonMJNsUvSq3xKX+udO7xPiEAGE/+QF4oIRynoYpgp
-pU8RBWk6z/Kf
------END CERTIFICATE-----`;
-
     if (process.env.APPLE_WWDR_CERTIFICATE_BASE64) {
       try {
         const wwdrPem = Buffer.from(process.env.APPLE_WWDR_CERTIFICATE_BASE64, 'base64').toString('utf-8');
@@ -298,42 +302,43 @@ pU8RBWk6z/Kf
       return null;
     }
 
+    const id = randomBytes(8).toString('hex');
+    const tmp = tmpdir();
+    const manifestPath = join(tmp, `manifest-${id}.json`);
+    const certPath = join(tmp, `cert-${id}.pem`);
+    const keyPath = join(tmp, `key-${id}.pem`);
+    const wwdrPath = join(tmp, `wwdr-${id}.pem`);
+    const sigPath = join(tmp, `signature-${id}.der`);
+
     try {
-      const p7 = forge.pkcs7.createSignedData();
-      p7.content = forge.util.createBuffer(manifestBuffer.toString('binary'));
-      p7.addCertificate(this.certificate);
+      writeFileSync(manifestPath, manifestBuffer);
+      writeFileSync(certPath, forge.pki.certificateToPem(this.certificate));
+      writeFileSync(keyPath, forge.pki.privateKeyToPem(this.privateKey));
 
-      if (this.wwdrCert) {
-        p7.addCertificate(this.wwdrCert);
-      }
+      const wwdrPem = this.wwdrCert
+        ? forge.pki.certificateToPem(this.wwdrCert)
+        : WWDR_G4_PEM;
+      writeFileSync(wwdrPath, wwdrPem);
 
-      p7.addSigner({
-        key: this.privateKey,
-        certificate: this.certificate,
-        digestAlgorithm: forge.pki.oids.sha256,
-        authenticatedAttributes: [
-          {
-            type: forge.pki.oids.contentType,
-            value: forge.pki.oids.data,
-          },
-          {
-            type: forge.pki.oids.messageDigest,
-          },
-          {
-            type: forge.pki.oids.signingTime,
-            value: new Date(),
-          },
-        ],
-      });
+      execFileSync('openssl', [
+        'smime', '-binary', '-sign',
+        '-certfile', wwdrPath,
+        '-signer', certPath,
+        '-inkey', keyPath,
+        '-in', manifestPath,
+        '-out', sigPath,
+        '-outform', 'DER',
+        '-nodetach',
+      ]);
 
-      p7.sign({ detached: true });
-
-      const asn1 = p7.toAsn1();
-      const derBytes = forge.asn1.toDer(asn1).getBytes();
-      return Buffer.from(derBytes, 'binary');
+      return readFileSync(sigPath);
     } catch (error) {
-      console.error('Error creating signature:', error);
+      console.error('[pass] OpenSSL signing failed:', error);
       return null;
+    } finally {
+      for (const p of [manifestPath, certPath, keyPath, wwdrPath, sigPath]) {
+        try { unlinkSync(p); } catch { /* ignore */ }
+      }
     }
   }
 
