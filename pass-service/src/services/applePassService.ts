@@ -9,6 +9,17 @@ import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
 import { appleConfig, publicUrl } from '../config.js';
 
+// Convert hex color (#fff or #ffffff) to Apple-required rgb() format
+function toRgb(color: string): string {
+  if (!color.startsWith('#')) return color;
+  const hex = color.slice(1);
+  const full = hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex;
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 // Apple WWDR G4 certificate (public cert from Apple, not a secret)
 const WWDR_G4_PEM = `-----BEGIN CERTIFICATE-----
 MIIEVTCCAz2gAwIBAgIUE9x3lVJx5T3GMujM/+Uh88zFztIwDQYJKoZIhvcNAQEL
@@ -234,9 +245,9 @@ export class ApplePassService {
       authenticationToken: data.authenticationToken,
       organizationName: 'LoyaLink',
       description: 'Loyalty Card',
-      backgroundColor: data.backgroundColor,
-      foregroundColor: data.foregroundColor,
-      labelColor: data.labelColor,
+      backgroundColor: toRgb(data.backgroundColor),
+      foregroundColor: toRgb(data.foregroundColor),
+      labelColor: toRgb(data.labelColor),
       storeCard: {
         headerFields: [
           {
@@ -319,6 +330,16 @@ export class ApplePassService {
         ? forge.pki.certificateToPem(this.wwdrCert)
         : WWDR_G4_PEM;
       writeFileSync(wwdrPath, wwdrPem);
+
+      // Log cert details for diagnosis
+      try {
+        const certInfo = execFileSync('openssl', [
+          'x509', '-in', certPath, '-noout', '-subject', '-issuer', '-dates',
+        ], { encoding: 'utf8' });
+        console.log('[cert]', certInfo.replace(/\n/g, ' | ').trim());
+      } catch (e) {
+        console.warn('[cert] Could not read cert info:', e);
+      }
 
       execFileSync('openssl', [
         'smime', '-binary', '-sign',

@@ -241,7 +241,7 @@ appleWebServiceRoutes.post('/log', async (req: Request, res: Response) => {
 
     if (logs && Array.isArray(logs)) {
       logs.forEach((log: string) => {
-        console.log('Apple Wallet log:', log);
+        console.error('[Apple Wallet ERROR LOG]', log);
       });
     }
 
