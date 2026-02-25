@@ -200,6 +200,41 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
   }
 });
 
+// Diagnostic: return raw pass.json for a serial number (no packaging/signing)
+passRoutes.get('/:serialNumber/inspect', async (req: Request, res: Response) => {
+  try {
+    const { serialNumber } = req.params;
+    const { data: walletPass, error } = await supabase
+      .from('wallet_passes')
+      .select('*, customers(*)')
+      .eq('serial_number', serialNumber)
+      .single();
+    if (error || !walletPass) return res.status(404).json({ error: 'Pass not found' });
+    const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string };
+    const { data: template } = await supabase.from('pass_templates').select('*').eq('studio_id', walletPass.studio_id).eq('is_active', true).single();
+    const loyaltyTier = customer.loyalty_stage || 'base';
+    const tierThemes = template?.tier_themes as Record<string, { backgroundColor: string; foregroundColor: string; labelColor: string }> || {};
+    const tierTheme = tierThemes[loyaltyTier] || tierThemes['base'] || { backgroundColor: '#ffffff', foregroundColor: '#000000', labelColor: '#666666' };
+    const passJson = (applePassService as unknown as { createPassJson: (d: unknown) => unknown })['createPassJson']?.({
+      serialNumber: walletPass.serial_number,
+      authenticationToken: walletPass.authentication_token,
+      customerName: customer.name,
+      balance: customer.balance,
+      cashbackRate: customer.cashback_rate,
+      loyaltyTier,
+      memberId: customer.member_id || customer.id,
+      currency: customer.currency || 'DKK',
+      backgroundColor: tierTheme.backgroundColor,
+      foregroundColor: tierTheme.foregroundColor,
+      labelColor: tierTheme.labelColor,
+      staticTexts: { referral_program: '', how_it_works: '', announcement: '' },
+    });
+    res.json(passJson ?? { error: 'createPassJson not accessible' });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
 // Helper function to format tier name
 function formatTierName(tierId: string): string {
   return tierId

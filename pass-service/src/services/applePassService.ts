@@ -44,11 +44,11 @@ interface PassJson {
     secondaryFields: Array<{ key: string; label: string; value: string }>;
     backFields: Array<{ key: string; label: string; value: string }>;
   };
-  barcode: {
+  barcodes: Array<{
     format: string;
     message: string;
     messageEncoding: string;
-  };
+  }>;
 }
 
 export class ApplePassService {
@@ -220,7 +220,7 @@ pU8RBWk6z/Kf
     return this.createPkPassZip(files);
   }
 
-  private createPassJson(data: PassData): PassJson {
+  createPassJson(data: PassData): PassJson {
     return {
       formatVersion: 1,
       passTypeIdentifier: appleConfig.passTypeId,
@@ -282,11 +282,13 @@ pU8RBWk6z/Kf
             : []),
         ],
       },
-      barcode: {
-        format: 'PKBarcodeFormatQR',
-        message: data.memberId,
-        messageEncoding: 'iso-8859-1',
-      },
+      barcodes: [
+        {
+          format: 'PKBarcodeFormatQR',
+          message: data.memberId,
+          messageEncoding: 'iso-8859-1',
+        },
+      ],
     };
   }
 
