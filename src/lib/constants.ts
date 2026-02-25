@@ -5,4 +5,4 @@ export const ROLES = ['owner', 'admin', 'member'] as const
 export type Role = (typeof ROLES)[number]
 
 export const LOYALTY_STAGES = ['bronze', 'silver', 'gold', 'platinum'] as const
-export const TRANSACTION_TYPES = ['credit', 'debit', 'adjustment', 'cashback'] as const
+export const TRANSACTION_TYPES = ['credit', 'debit', 'adjustment', 'cashback', 'referral_commission'] as const

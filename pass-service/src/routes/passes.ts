@@ -39,7 +39,7 @@ passRoutes.post('/generate', async (req: Request, res: Response) => {
 
     // Determine tier colors
     const loyaltyTier = customer.loyalty_stage || 'base';
-    const tierThemes = template?.tier_themes as Record<string, any> || {};
+    const tierThemes = template?.tier_themes as Record<string, { backgroundColor: string; foregroundColor: string; labelColor: string }> || {};
     const tierTheme = tierThemes[loyaltyTier] || tierThemes['base'] || {
       backgroundColor: '#ffffff',
       foregroundColor: '#000000',
@@ -80,7 +80,7 @@ passRoutes.post('/generate', async (req: Request, res: Response) => {
         announcement: '',
       };
 
-      const passBuffer = await applePassService.generatePass({
+      await applePassService.generatePass({
         serialNumber,
         authenticationToken,
         customerName: customer.name,
@@ -139,7 +139,7 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
       return res.status(404).json({ error: 'Pass not found' });
     }
 
-    const customer = walletPass.customers as any;
+    const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string };
 
     // Fetch template
     const { data: template } = await supabase
@@ -151,7 +151,7 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
 
     // Get tier theme
     const loyaltyTier = customer.loyalty_stage || 'base';
-    const tierThemes = template?.tier_themes as Record<string, any> || {};
+    const tierThemes = template?.tier_themes as Record<string, { backgroundColor: string; foregroundColor: string; labelColor: string }> || {};
     const tierTheme = tierThemes[loyaltyTier] || tierThemes['base'] || {
       backgroundColor: '#ffffff',
       foregroundColor: '#000000',
@@ -165,7 +165,7 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
     };
 
     // Generate pass
-    const passBuffer = await applePassService.generatePass({
+    const generatedPass = await applePassService.generatePass({
       serialNumber: walletPass.serial_number,
       authenticationToken: walletPass.authentication_token,
       customerName: customer.name,
@@ -189,7 +189,7 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
 
     res.setHeader('Content-Type', 'application/vnd.apple.pkpass');
     res.setHeader('Content-Disposition', `attachment; filename="${serialNumber}.pkpass"`);
-    res.send(passBuffer);
+    res.send(generatedPass);
   } catch (error) {
     console.error('Error downloading pass:', error);
     res.status(500).json({ error: 'Failed to download pass' });

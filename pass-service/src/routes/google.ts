@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { supabase, googleConfig } from '../config.js';
+import { supabase } from '../config.js';
 import { googleWalletService } from '../services/googleWalletService.js';
 
 export const googleRoutes = Router();
@@ -20,7 +20,7 @@ googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) 
       return res.status(404).json({ error: 'Pass not found' });
     }
 
-    const customer = walletPass.customers as any;
+    const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string };
 
     // Fetch template
     const { data: template } = await supabase
@@ -100,7 +100,7 @@ googleRoutes.post('/update/:serialNumber', async (req: Request, res: Response) =
       return res.status(404).json({ error: 'Google pass not found' });
     }
 
-    const customer = walletPass.customers as any;
+    const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string };
     const classId = `loyalty_${walletPass.studio_id}`.replace(/-/g, '_');
     const objectId = serialNumber.replace(/-/g, '_');
 

@@ -12,6 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { AlertCircle, Loader2 } from 'lucide-react'
+import { formatPhone } from '@/lib/format'
 
 const COUNTRY_CODES = [
   { code: '+45', flag: '\u{1F1E9}\u{1F1F0}', country: 'DK' },
@@ -39,9 +41,10 @@ const COUNTRY_CODES = [
 function detectPlatform(): 'apple' | 'google' {
   if (typeof navigator === 'undefined') return 'apple'
   const ua = navigator.userAgent || ''
-  // Android devices get Google Wallet
   if (/android/i.test(ua)) return 'google'
-  // Everything else (iOS, iPadOS, macOS) gets Apple Wallet
+  if (/iphone|ipad|ipod/i.test(ua)) return 'apple'
+  if (/CrOS/i.test(ua)) return 'google'
+  if (/macintosh|mac os/i.test(ua)) return 'apple'
   return 'apple'
 }
 
@@ -54,6 +57,11 @@ export function JoinForm({
   buttonText,
   showEmail = true,
   showPhone = true,
+  referralCode,
+  customFields,
+  successHeading,
+  successMessage,
+  termsUrl,
 }: {
   studioId: string
   landingPageId: string
@@ -63,15 +71,22 @@ export function JoinForm({
   buttonText?: string
   showEmail?: boolean
   showPhone?: boolean
+  referralCode?: string
+  customFields?: { id: string; label: string; type: 'text' | 'select'; required: boolean; options?: string[] }[]
+  successHeading?: string
+  successMessage?: string
+  termsUrl?: string
 }) {
   const [form, setForm] = useState({ name: '', email: '', phone: '' })
+  const [customValues, setCustomValues] = useState<Record<string, string>>({})
   const [countryCode, setCountryCode] = useState('+45')
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [passUrl, setPassUrl] = useState<string | null>(null)
-  const [googlePassUrl, setGooglePassUrl] = useState<string | null>(null)
+  const [altPassUrl, setAltPassUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [platform, setPlatform] = useState<'apple' | 'google'>('apple')
   const [isDesktop, setIsDesktop] = useState(false)
+  const [shake, setShake] = useState(false)
 
   useEffect(() => {
     setPlatform(detectPlatform())
@@ -81,8 +96,20 @@ export function JoinForm({
     }
   }, [])
 
+  useEffect(() => {
+    if (status === 'error') {
+      setShake(true)
+      const t = setTimeout(() => setShake(false), 500)
+      return () => clearTimeout(t)
+    }
+  }, [status])
+
   const inputStyle = textColor
     ? { color: textColor, borderColor: `${textColor}30`, backgroundColor: `${textColor}08` }
+    : undefined
+
+  const focusRingStyle = brandColor
+    ? { '--tw-ring-color': brandColor } as React.CSSProperties
     : undefined
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -90,7 +117,8 @@ export function JoinForm({
     setStatus('loading')
     setError(null)
 
-    const fullPhone = form.phone ? `${countryCode}${form.phone.replace(/^0+/, '')}` : null
+    const rawPhone = form.phone.replace(/\s/g, '')
+    const fullPhone = rawPhone ? `${countryCode}${rawPhone.replace(/^0+/, '')}` : null
 
     try {
       const res = await fetch('/api/join', {
@@ -103,6 +131,8 @@ export function JoinForm({
           email: form.email,
           phone: fullPhone,
           platform,
+          referralCode: referralCode || undefined,
+          customFields: Object.keys(customValues).length > 0 ? customValues : undefined,
         }),
       })
 
@@ -112,12 +142,16 @@ export function JoinForm({
         throw new Error(data.error || 'Something went wrong')
       }
 
+      // Referral signups → redirect to dedicated success page
+      if (referralCode && data.customerId) {
+        window.location.href = `/referral-success/${studioId}?customerId=${data.customerId}`
+        return
+      }
+
       setStatus('success')
 
       if (data.passUrl) {
         setPassUrl(data.passUrl)
-        // On Apple devices, redirect directly to the .pkpass URL
-        // Safari will automatically show the "Add to Wallet" prompt
         if (platform === 'apple' && !isDesktop) {
           window.location.href = data.passUrl
         }
@@ -125,35 +159,40 @@ export function JoinForm({
         setPassUrl('failed')
       }
 
-      // On desktop, also generate a Google Wallet pass
-      if (isDesktop && data.passUrl) {
+      // Fetch alternate platform URL for fallback link
+      if (data.passUrl && data.customerId) {
         try {
           const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
-          const googlePassRes = await fetch(`${PASS_SERVICE}/api/passes/generate`, {
+          const altPlatform = platform === 'apple' ? 'google' : 'apple'
+          const altRes = await fetch(`${PASS_SERVICE}/api/passes/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               customerId: data.customerId,
               studioId,
-              platform: 'google',
+              platform: altPlatform,
             }),
           })
-          if (googlePassRes.ok) {
-            const googlePassData = await googlePassRes.json()
-            if (googlePassData.saveUrl) {
-              const saveUrl = googlePassData.saveUrl.startsWith('http')
-                ? googlePassData.saveUrl
-                : `${PASS_SERVICE}${googlePassData.saveUrl}`
-              // Fetch the actual Google Wallet JWT URL
+          if (altRes.ok) {
+            const altData = await altRes.json()
+            if (altPlatform === 'google' && altData.saveUrl) {
+              const saveUrl = altData.saveUrl.startsWith('http')
+                ? altData.saveUrl
+                : `${PASS_SERVICE}${altData.saveUrl}`
               const saveRes = await fetch(saveUrl)
               if (saveRes.ok) {
                 const saveData = await saveRes.json()
-                if (saveData.saveUrl) setGooglePassUrl(saveData.saveUrl)
+                if (saveData.saveUrl) setAltPassUrl(saveData.saveUrl)
               }
+            } else if (altPlatform === 'apple' && altData.passUrl) {
+              const url = altData.passUrl.startsWith('http')
+                ? altData.passUrl
+                : `${PASS_SERVICE}${altData.passUrl}`
+              setAltPassUrl(url)
             }
           }
         } catch {
-          // Non-critical
+          // Non-critical — fallback link just won't appear
         }
       }
     } catch (err: unknown) {
@@ -163,20 +202,24 @@ export function JoinForm({
   }
 
   if (status === 'success') {
+    const accent = brandColor || '#7C3AED'
     return (
-      <Card style={backgroundColor ? { backgroundColor, borderColor: `${textColor}20` } : undefined}>
+      <Card
+        className="animate-in zoom-in-95 duration-300"
+        style={backgroundColor ? { backgroundColor, borderColor: `${textColor}20` } : undefined}
+      >
         <CardContent className="py-10 text-center space-y-6">
-          <div className="mx-auto h-16 w-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
-            <svg className="h-8 w-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <div className="mx-auto h-16 w-16 rounded-full flex items-center justify-center" style={{ backgroundColor: `${accent}15`, border: `1px solid ${accent}30` }}>
+            <svg className="h-8 w-8" style={{ color: accent }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
           <div className="space-y-1.5">
-            <h2 className="text-2xl font-bold" style={textColor ? { color: textColor } : undefined}>
-              You&apos;re in!
+            <h2 className="text-2xl font-bold font-display" style={textColor ? { color: textColor } : undefined}>
+              {successHeading || "You're in!"}
             </h2>
             <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.6 } : { color: 'var(--muted-foreground)' }}>
-              Welcome, {form.name}. Your loyalty card is ready.
+              {(successMessage || 'Welcome, {name}. Your loyalty card is ready.').replace('{name}', form.name)}
             </p>
           </div>
           <div className="space-y-3 pt-2">
@@ -186,45 +229,48 @@ export function JoinForm({
               </p>
             ) : passUrl ? (
               <div className="space-y-3">
-                {(platform === 'apple' || isDesktop) && (
-                  <>
-                    {isDesktop && (
-                      <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.6 } : { color: 'var(--muted-foreground)' }}>
-                        Choose your wallet
-                      </p>
-                    )}
-                    {platform === 'apple' && !isDesktop && (
-                      <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.6 } : { color: 'var(--muted-foreground)' }}>
-                        Can&apos;t see your pass? Tap below to add it again
-                      </p>
-                    )}
-                    <a
-                      href={passUrl}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-white font-semibold text-sm transition-transform active:scale-[0.98]"
-                      style={{ backgroundColor: '#000000' }}
-                    >
-                      <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
-                      </svg>
-                      Add to Apple Wallet
-                    </a>
-                  </>
+                {platform === 'apple' && !isDesktop && (
+                  <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.6 } : { color: 'var(--muted-foreground)' }}>
+                    Can&apos;t see your pass? Tap below to add it again
+                  </p>
                 )}
-                {(platform === 'google' || isDesktop) && (
+                {platform === 'apple' ? (
                   <a
-                    href={isDesktop ? (googlePassUrl || '#') : passUrl}
+                    href={passUrl}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-white font-semibold text-sm transition-all active:scale-[0.98] hover:brightness-110 w-full"
+                    style={{ backgroundColor: accent }}
+                  >
+                    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+                    </svg>
+                    Add to Apple Wallet
+                  </a>
+                ) : (
+                  <a
+                    href={passUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-white font-semibold text-sm transition-transform active:scale-[0.98] ${isDesktop && !googlePassUrl ? 'opacity-50 pointer-events-none' : ''}`}
-                    style={{ backgroundColor: '#4285F4' }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-white font-semibold text-sm transition-all active:scale-[0.98] hover:brightness-110 w-full"
+                    style={{ backgroundColor: accent }}
                   >
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M21.35 11.1h-9.18v2.73h5.51c-.24 1.23-.98 2.28-2.08 2.97l3.36 2.61c1.96-1.81 3.09-4.47 3.09-7.63 0-.64-.06-1.25-.17-1.84z" fill="#4285F4"/>
-                      <path d="M12.17 22c2.79 0 5.13-.92 6.84-2.5l-3.36-2.61c-.92.62-2.1.99-3.48.99-2.68 0-4.95-1.81-5.76-4.24l-3.44 2.66C4.73 19.78 8.17 22 12.17 22z" fill="#34A853"/>
-                      <path d="M6.41 13.64c-.21-.62-.33-1.28-.33-1.96s.12-1.35.33-1.96L2.97 7.06C2.06 8.87 1.5 10.87 1.5 13s.56 4.13 1.47 5.94l3.44-2.66z" fill="#FBBC05"/>
-                      <path d="M12.17 5.44c1.51 0 2.87.52 3.94 1.54l2.96-2.96C17.3 2.31 14.96 1.28 12.17 1.28 8.17 1.28 4.73 3.5 2.97 7.06l3.44 2.66c.81-2.43 3.08-4.28 5.76-4.28z" fill="#EA4335"/>
+                    <svg className="h-5 w-5" viewBox="0 0 24 24">
+                      <path d="M21.35 11.1h-9.18v2.73h5.51c-.24 1.23-.98 2.28-2.08 2.97l3.36 2.61c1.96-1.81 3.09-4.47 3.09-7.63 0-.64-.06-1.25-.17-1.84z" fill="currentColor"/>
+                      <path d="M12.17 22c2.79 0 5.13-.92 6.84-2.5l-3.36-2.61c-.92.62-2.1.99-3.48.99-2.68 0-4.95-1.81-5.76-4.24l-3.44 2.66C4.73 19.78 8.17 22 12.17 22z" fill="currentColor"/>
+                      <path d="M6.41 13.64c-.21-.62-.33-1.28-.33-1.96s.12-1.35.33-1.96L2.97 7.06C2.06 8.87 1.5 10.87 1.5 13s.56 4.13 1.47 5.94l3.44-2.66z" fill="currentColor"/>
+                      <path d="M12.17 5.44c1.51 0 2.87.52 3.94 1.54l2.96-2.96C17.3 2.31 14.96 1.28 12.17 1.28 8.17 1.28 4.73 3.5 2.97 7.06l3.44 2.66c.81-2.43 3.08-4.28 5.76-4.28z" fill="currentColor"/>
                     </svg>
-                    {isDesktop && !googlePassUrl ? 'Loading Google Wallet...' : 'Add to Google Wallet'}
+                    Add to Google Wallet
+                  </a>
+                )}
+                {altPassUrl && (
+                  <a
+                    href={altPassUrl}
+                    target={platform === 'apple' ? '_blank' : undefined}
+                    rel={platform === 'apple' ? 'noopener noreferrer' : undefined}
+                    className="block text-center text-xs underline transition-opacity hover:opacity-80"
+                    style={textColor ? { color: textColor, opacity: 0.5 } : { color: 'var(--muted-foreground)' }}
+                  >
+                    {platform === 'apple' ? 'Add to Google Wallet' : 'Add to Apple Wallet'}
                   </a>
                 )}
               </div>
@@ -238,42 +284,49 @@ export function JoinForm({
   const selectedCountry = COUNTRY_CODES.find((c) => c.code === countryCode) ?? COUNTRY_CODES[0]
 
   return (
-    <Card style={backgroundColor ? { backgroundColor, borderColor: `${textColor}20` } : undefined}>
-      <CardContent className="py-6">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name" style={textColor ? { color: textColor } : undefined}>Name</Label>
+    <Card
+      className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+      style={backgroundColor ? { backgroundColor, borderColor: `${textColor}20` } : undefined}
+    >
+      <CardContent className="py-8">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
+            <Label htmlFor="name" style={textColor ? { color: textColor } : undefined}>Full name</Label>
             <Input
               id="name"
-              placeholder="John Doe"
+              placeholder="Your full name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
+              autoComplete="name"
               required
-              style={inputStyle}
+              className="transition-all duration-200"
+              style={{ ...inputStyle, ...focusRingStyle }}
             />
           </div>
           {showEmail && (
-            <div className="space-y-2">
+            <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both">
               <Label htmlFor="email" style={textColor ? { color: textColor } : undefined}>Email</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="john@example.com"
+                placeholder="you@email.com"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
+                autoComplete="email"
                 required
-                style={inputStyle}
+                className="transition-all duration-200"
+                style={{ ...inputStyle, ...focusRingStyle }}
               />
             </div>
           )}
           {showPhone && (
-            <div className="space-y-2">
+            <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300 fill-mode-both">
               <Label htmlFor="phone" style={textColor ? { color: textColor } : undefined}>Phone</Label>
               <div className="flex gap-2">
                 <Select value={countryCode} onValueChange={setCountryCode}>
                   <SelectTrigger
-                    className="w-[100px] shrink-0"
-                    style={inputStyle}
+                    className="w-[100px] shrink-0 transition-all duration-200"
+                    style={{ ...inputStyle, ...focusRingStyle }}
                   >
                     <SelectValue>
                       {selectedCountry.flag} {selectedCountry.code}
@@ -290,25 +343,88 @@ export function JoinForm({
                 <Input
                   id="phone"
                   type="tel"
+                  inputMode="numeric"
                   placeholder="12 34 56 78"
                   value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^\d\s]/g, '')
+                    setForm({ ...form, phone: formatPhone(raw) })
+                  }}
+                  autoComplete="tel-national"
                   required
-                  className="flex-1"
-                  style={inputStyle}
+                  className="flex-1 transition-all duration-200"
+                  style={{ ...inputStyle, ...focusRingStyle }}
                 />
               </div>
             </div>
           )}
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={status === 'loading' || !form.name || (showEmail && !form.email) || (showPhone && !form.phone)}
-            style={brandColor ? { backgroundColor: brandColor, color: '#FFFFFF' } : undefined}
-          >
-            {status === 'loading' ? 'Signing up...' : (buttonText || 'Join & Get Your Pass')}
-          </Button>
+          {customFields?.map((field) => (
+            <div key={field.id} className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300 fill-mode-both">
+              <Label htmlFor={field.id} style={textColor ? { color: textColor } : undefined}>{field.label}</Label>
+              {field.type === 'select' ? (
+                <Select
+                  value={customValues[field.id] ?? ''}
+                  onValueChange={(val) => setCustomValues((prev) => ({ ...prev, [field.id]: val }))}
+                >
+                  <SelectTrigger
+                    className="transition-all duration-200"
+                    style={{ ...inputStyle, ...focusRingStyle }}
+                  >
+                    <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {field.options?.filter(Boolean).map((opt) => (
+                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  id={field.id}
+                  value={customValues[field.id] ?? ''}
+                  onChange={(e) => setCustomValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                  required={field.required}
+                  className="transition-all duration-200"
+                  style={{ ...inputStyle, ...focusRingStyle }}
+                />
+              )}
+            </div>
+          ))}
+          {error && (
+            <div className={`flex items-center gap-2 text-sm text-destructive ${shake ? 'animate-shake' : ''}`}>
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <p>{error}</p>
+            </div>
+          )}
+          <div className="pt-2">
+            <Button
+              type="submit"
+              className="w-full h-12 text-base rounded-xl"
+              disabled={
+                status === 'loading' ||
+                !form.name ||
+                (showEmail && !form.email) ||
+                (showPhone && !form.phone) ||
+                (customFields?.some((f) => f.required && !customValues[f.id]) ?? false)
+              }
+              style={brandColor ? { backgroundColor: brandColor, color: '#FFFFFF' } : undefined}
+            >
+              {status === 'loading' ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Signing up...
+                </span>
+              ) : (buttonText || 'Join & Get Your Pass')}
+            </Button>
+            {termsUrl && (
+              <p className="text-center text-[11px] pt-1.5" style={textColor ? { color: textColor, opacity: 0.4 } : { color: 'var(--muted-foreground)' }}>
+                By signing up you agree to our{' '}
+                <a href={termsUrl} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">
+                  Terms & Privacy Policy
+                </a>
+              </p>
+            )}
+          </div>
         </form>
       </CardContent>
     </Card>

@@ -9,7 +9,7 @@ type TierListProps = {
   tiers: Record<string, TierTheme>
   selectedTier: string
   onSelect: (slug: string) => void
-  onAddTier: () => void
+  onAddTier?: () => void
 }
 
 export function TierList({ tiers, selectedTier, onSelect, onAddTier }: TierListProps) {
@@ -34,26 +34,30 @@ export function TierList({ tiers, selectedTier, onSelect, onAddTier }: TierListP
           )}
         >
           <div
-            className="h-4 w-4 rounded-full border border-border/50 shrink-0"
+            className="h-6 w-6 rounded-lg border border-border/50 shrink-0"
             style={{ backgroundColor: tier.backgroundColor }}
           />
-          <span className="text-sm font-medium text-foreground truncate">
-            {tier.name}
-          </span>
-          <span className="text-[10px] text-muted-foreground ml-auto">
-            {slug}
-          </span>
+          <div className="min-w-0 flex-1">
+            <span className="text-sm font-medium text-foreground truncate block">
+              {tier.name}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {slug}
+            </span>
+          </div>
         </button>
       ))}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onAddTier}
-        className="w-full mt-2 gap-1.5 text-muted-foreground"
-      >
-        <Plus className="h-3.5 w-3.5" />
-        Add tier
-      </Button>
+      {onAddTier && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onAddTier}
+          className="w-full mt-2 gap-1.5 text-muted-foreground"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add tier
+        </Button>
+      )}
     </div>
   )
 }

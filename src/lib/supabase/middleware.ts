@@ -13,7 +13,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
           supabaseResponse = NextResponse.next({ request })
@@ -36,6 +36,11 @@ export async function updateSession(request: NextRequest) {
     path.startsWith('/login') ||
     path.startsWith('/invite') ||
     path.startsWith('/join') ||
+    path.startsWith('/loyalty') ||
+    path.startsWith('/refer') ||
+    path.startsWith('/referral-success') ||
+    path.startsWith('/auth/callback') ||
+    path.startsWith('/reset-password') ||
     path.startsWith('/api/')
 
   if (!user && !isPublicRoute) {

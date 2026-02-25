@@ -38,7 +38,8 @@ pushRoutes.post('/customer/:customerId', async (req: Request, res: Response) => 
     // Update Google passes
     const googlePasses = registrations.filter((r) => r.platform === 'google');
     let googleUpdated = 0;
-    for (const pass of googlePasses) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    for (const _pass of googlePasses) {
       // Trigger update via Google API
       // Google passes don't need push - they sync automatically when object is updated
       googleUpdated++;
@@ -65,7 +66,7 @@ pushRoutes.post('/customer/:customerId', async (req: Request, res: Response) => 
 pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
   try {
     const { studioId } = req.params;
-    const { segmentFilter, changeMessage } = req.body;
+    const { segmentFilter, campaignId, automationId } = req.body;
 
     // Build customer query
     let customerQuery = supabase
@@ -74,13 +75,31 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
       .eq('studio_id', studioId)
       .eq('pass_provider', 'self_hosted');
 
-    // Apply segment filters
+    // Apply segment filters (supports full AudienceFilter)
     if (segmentFilter) {
+      if (segmentFilter.customer_ids && segmentFilter.customer_ids.length > 0) {
+        customerQuery = customerQuery.in('id', segmentFilter.customer_ids);
+      }
       if (segmentFilter.loyalty_stages && segmentFilter.loyalty_stages.length > 0) {
         customerQuery = customerQuery.in('loyalty_stage', segmentFilter.loyalty_stages);
       }
+      if (segmentFilter.tags && segmentFilter.tags.length > 0) {
+        customerQuery = customerQuery.overlaps('tags', segmentFilter.tags);
+      }
       if (segmentFilter.min_balance) {
         customerQuery = customerQuery.gte('balance', segmentFilter.min_balance);
+      }
+      if (segmentFilter.min_spend) {
+        customerQuery = customerQuery.gte('total_real_spend', segmentFilter.min_spend);
+      }
+      if (segmentFilter.has_purchased != null) {
+        customerQuery = customerQuery.eq('has_purchased', segmentFilter.has_purchased);
+      }
+      if (segmentFilter.joined_after) {
+        customerQuery = customerQuery.gte('created_at', segmentFilter.joined_after);
+      }
+      if (segmentFilter.joined_before) {
+        customerQuery = customerQuery.lte('created_at', segmentFilter.joined_before);
       }
     }
 
@@ -155,6 +174,18 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
       }
     }
 
+    // Log the push with optional campaign/automation reference
+    await supabase.from('wallet_push_logs').insert({
+      studio_id: studioId,
+      target_type: 'all',
+      total_devices: registrations.length,
+      sent_count: appleResults.sent + googleUpdated,
+      failed_count: appleResults.failed,
+      status: 'completed',
+      campaign_id: campaignId || null,
+      automation_id: automationId || null,
+    });
+
     res.json({
       success: true,
       totalCustomers: customers.length,
@@ -206,14 +237,33 @@ pushRoutes.post('/process-queue', async (req: Request, res: Response) => {
             .eq('studio_id', log.studio_id)
             .eq('pass_provider', 'self_hosted');
 
-          // Apply segment filter
-          const filter = log.segment_filter as any;
+          // Apply segment filter (supports full AudienceFilter)
+          type SegmentFilter = { customer_ids?: string[]; loyalty_stages?: string[]; tags?: string[]; min_balance?: number; min_spend?: number; has_purchased?: boolean; joined_after?: string; joined_before?: string }
+          const filter = log.segment_filter as SegmentFilter | null;
           if (filter) {
+            if (filter.customer_ids && filter.customer_ids.length > 0) {
+              query = query.in('id', filter.customer_ids);
+            }
             if (filter.loyalty_stages && filter.loyalty_stages.length > 0) {
               query = query.in('loyalty_stage', filter.loyalty_stages);
             }
+            if (filter.tags && filter.tags.length > 0) {
+              query = query.overlaps('tags', filter.tags);
+            }
             if (filter.min_balance) {
               query = query.gte('balance', filter.min_balance);
+            }
+            if (filter.min_spend) {
+              query = query.gte('total_real_spend', filter.min_spend);
+            }
+            if (filter.has_purchased != null) {
+              query = query.eq('has_purchased', filter.has_purchased);
+            }
+            if (filter.joined_after) {
+              query = query.gte('created_at', filter.joined_after);
+            }
+            if (filter.joined_before) {
+              query = query.lte('created_at', filter.joined_before);
             }
           }
 

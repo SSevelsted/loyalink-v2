@@ -1,7 +1,7 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
-import type { Customer } from '@/types/database'
+import type { Customer, CustomerEvent } from '@/types/database'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useStudio } from './use-studio'
 
@@ -67,6 +67,25 @@ export function useCreateCustomer() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] })
     },
+  })
+}
+
+export function useCustomerEvents(customerId: string) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['customer_events', customerId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('analytics_events')
+        .select('*')
+        .eq('customer_id', customerId)
+        .in('event_type', ['tier_change', 'pass_created', 'pass_installed', 'pass_uninstalled'])
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data as CustomerEvent[]
+    },
+    enabled: !!customerId,
   })
 }
 

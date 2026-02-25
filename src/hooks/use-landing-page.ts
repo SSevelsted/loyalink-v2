@@ -5,6 +5,20 @@ import type { StudioLandingPage } from '@/types/database'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useStudio } from './use-studio'
 
+export type CustomField = {
+  id: string
+  label: string
+  type: 'text' | 'select'
+  required: boolean
+  options?: string[] // for select type
+}
+
+export type Benefit = {
+  id: string
+  text: string
+  icon: string // lucide icon key
+}
+
 export type LandingPageSettings = {
   brandColor: string
   backgroundColor: string
@@ -13,6 +27,12 @@ export type LandingPageSettings = {
   buttonText: string
   showPhone: boolean
   showEmail: boolean
+  customFields?: CustomField[]
+  benefits?: Benefit[]
+  showTierProgression?: boolean
+  successHeading?: string
+  successMessage?: string
+  termsUrl?: string
 }
 
 export const DEFAULT_LANDING_SETTINGS: LandingPageSettings = {
@@ -23,6 +43,9 @@ export const DEFAULT_LANDING_SETTINGS: LandingPageSettings = {
   buttonText: 'Join & Get Your Pass',
   showPhone: true,
   showEmail: true,
+  successHeading: "You're in!",
+  successMessage: 'Welcome, {name}. Your loyalty card is ready.',
+  termsUrl: '',
 }
 
 export function useLandingPage() {

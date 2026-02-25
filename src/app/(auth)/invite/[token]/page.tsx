@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Loader2 } from 'lucide-react'
 import type { Invitation, Studio } from '@/types/database'
 
 export default function AcceptInvitePage() {
@@ -51,7 +51,8 @@ export default function AcceptInvitePage() {
     load()
   }, [params.token, supabase])
 
-  const handleAccept = async () => {
+  const handleAccept = async (e: React.FormEvent) => {
+    e.preventDefault()
     setAccepting(true)
     setError(null)
 
@@ -78,61 +79,114 @@ export default function AcceptInvitePage() {
     }
   }
 
+  const shell = (content: React.ReactNode) => (
+    <div className="flex min-h-screen items-center justify-center px-4 bg-background">
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-primary/8 blur-[150px]" />
+      </div>
+      <div className="relative w-full max-w-sm animate-fade-up">
+        <div className="text-center mb-8">
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 mb-4 glow-primary">
+            <span className="text-primary text-2xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>L</span>
+          </div>
+        </div>
+        {content}
+      </div>
+    </div>
+  )
+
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-muted-foreground">Loading invitation...</p>
+    return shell(
+      <div className="flex justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   if (error && !invitation) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <CardTitle>Invalid Invitation</CardTitle>
-            <CardDescription>{error}</CardDescription>
-          </CardHeader>
-        </Card>
+    return shell(
+      <div className="rounded-2xl glass-card p-6 text-center space-y-3">
+        <h2 className="text-lg font-semibold text-foreground">Invalid invitation</h2>
+        <p className="text-sm text-muted-foreground">{error}</p>
+        <Button variant="ghost" size="sm" onClick={() => router.push('/login')} className="mt-2">
+          Go to sign in
+        </Button>
       </div>
     )
   }
 
-  return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle>Join {invitation?.studios?.name}</CardTitle>
-          <CardDescription>
-            You&apos;ve been invited as {invitation?.role}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+  return shell(
+    <>
+      <div className="text-center mb-6 -mt-4">
+        <h1 className="text-display-lg text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
+          Join {invitation?.studios?.name}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          You&apos;ve been invited as <span className="font-medium text-foreground">{invitation?.role}</span>
+        </p>
+      </div>
+
+      <div className="rounded-2xl glass-card p-6">
+        <form onSubmit={handleAccept} className="space-y-4">
           {!user && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={email} disabled />
+                <Label htmlFor="email" className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  className="bg-secondary/50 h-12"
+                  autoComplete="email"
+                  disabled
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Create password</Label>
+                <Label htmlFor="password" className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Create password
+                </Label>
                 <Input
                   id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  className="bg-secondary/50 h-12"
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                  minLength={8}
                   required
                 />
               </div>
             </>
           )}
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button onClick={handleAccept} className="w-full" disabled={accepting}>
-            {accepting ? 'Accepting...' : 'Accept Invitation'}
+          {user && (
+            <p className="text-sm text-muted-foreground text-center">
+              Signed in as <span className="font-medium text-foreground">{user.email}</span>
+            </p>
+          )}
+          {error && (
+            <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2">
+              <p className="text-sm text-destructive">{error}</p>
+            </div>
+          )}
+          <Button
+            type="submit"
+            variant="glow"
+            size="lg"
+            className="w-full font-medium"
+            disabled={accepting || (!user && password.length < 8)}
+          >
+            {accepting ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Joining...
+              </span>
+            ) : 'Accept invitation'}
           </Button>
-        </CardContent>
-      </Card>
-    </div>
+        </form>
+      </div>
+    </>
   )
 }

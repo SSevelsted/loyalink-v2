@@ -52,9 +52,9 @@ interface PassJson {
 }
 
 export class ApplePassService {
-  private certificate: any = null;
-  private privateKey: any = null;
-  private wwdrCert: any = null;
+  private certificate: forge.pki.Certificate | null = null;
+  private privateKey: forge.pki.PrivateKey | null = null;
+  private wwdrCert: forge.pki.Certificate | null = null;
 
   constructor() {
     this.loadCertificates();

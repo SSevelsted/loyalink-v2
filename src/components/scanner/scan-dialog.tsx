@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -43,7 +44,7 @@ export function ScanDialog({
   const handleScan = useCallback((result: string) => {
     setScanResult(result)
     lookupCustomer(result)
-  }, [])
+  }, [lookupCustomer])
 
   const handleManualLookup = () => {
     if (manualInput.trim()) {
@@ -76,7 +77,7 @@ export function ScanDialog({
 
   if (!open) return null
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] bg-black">
       {/* Fullscreen camera */}
       <div className="absolute inset-0">
@@ -161,6 +162,7 @@ export function ScanDialog({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

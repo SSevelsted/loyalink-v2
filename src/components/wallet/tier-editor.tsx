@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { ImageUpload } from '@/components/wallet/image-upload'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Paintbrush } from 'lucide-react'
 
 type TierEditorProps = {
   slug: string
@@ -18,6 +18,17 @@ type TierEditorProps = {
   onLogoOverrideRemove: () => void
   uploading?: boolean
 }
+
+const COLOR_PRESETS = [
+  { name: 'Midnight', bg: '#0F0F0F', fg: '#FFFFFF', label: '#888888' },
+  { name: 'Charcoal', bg: '#2D2D2D', fg: '#F5F5F5', label: '#999999' },
+  { name: 'Navy', bg: '#1B2A4A', fg: '#E8ECF1', label: '#8096B8' },
+  { name: 'Forest', bg: '#1A3A2A', fg: '#E8F1EC', label: '#7BAF8E' },
+  { name: 'Wine', bg: '#3A1A2A', fg: '#F1E8EC', label: '#AF7B8E' },
+  { name: 'Gold', bg: '#D4AF37', fg: '#1A1A1A', label: '#4A3B00' },
+  { name: 'Silver', bg: '#C0C0C0', fg: '#1A1A1A', label: '#4A4A4A' },
+  { name: 'Pearl', bg: '#F5F0EB', fg: '#2D2A26', label: '#8A857F' },
+]
 
 function ColorInput({
   label,
@@ -87,52 +98,80 @@ export function TierEditor({
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <ColorInput
-          label="Background"
-          value={tier.backgroundColor}
-          onChange={(v) => onChange({ backgroundColor: v })}
-        />
-        <ColorInput
-          label="Foreground"
-          value={tier.foregroundColor}
-          onChange={(v) => onChange({ foregroundColor: v })}
-        />
-        <ColorInput
-          label="Label"
-          value={tier.labelColor}
-          onChange={(v) => onChange({ labelColor: v })}
-        />
+      {/* Color presets */}
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <Paintbrush className="h-3 w-3" />
+          Quick Presets
+        </Label>
+        <div className="flex flex-wrap gap-1.5">
+          {COLOR_PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              onClick={() => onChange({
+                backgroundColor: preset.bg,
+                foregroundColor: preset.fg,
+                labelColor: preset.label,
+              })}
+              className="group relative flex items-center gap-1.5 rounded-lg border border-border/30 px-2 py-1.5 text-[11px] hover:border-primary/30 hover:bg-secondary/50 transition-colors"
+            >
+              <div
+                className="h-3.5 w-3.5 rounded-full border border-border/50 shrink-0"
+                style={{ backgroundColor: preset.bg }}
+              />
+              <span className="text-muted-foreground group-hover:text-foreground transition-colors">
+                {preset.name}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Cashback Rate (%)</Label>
-          <Input
-            type="number"
-            min={0}
-            max={100}
-            value={tier.cashbackRate}
-            onChange={(e) => onChange({ cashbackRate: Number(e.target.value) })}
-            className="bg-secondary/50 h-8"
+      {/* Custom colors */}
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground">Custom Colors</Label>
+        <div className="grid grid-cols-3 gap-3">
+          <ColorInput
+            label="Background"
+            value={tier.backgroundColor}
+            onChange={(v) => onChange({ backgroundColor: v })}
+          />
+          <ColorInput
+            label="Text"
+            value={tier.foregroundColor}
+            onChange={(v) => onChange({ foregroundColor: v })}
+          />
+          <ColorInput
+            label="Labels"
+            value={tier.labelColor}
+            onChange={(v) => onChange({ labelColor: v })}
           />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Min Spend</Label>
-          <Input
-            type="number"
-            min={0}
-            value={tier.minSpend}
-            onChange={(e) => onChange({ minSpend: Number(e.target.value) })}
-            className="bg-secondary/50 h-8"
-          />
+      </div>
+
+      {/* Color mapping hint */}
+      <div className="rounded-xl border border-border/30 bg-secondary/20 p-3 space-y-2">
+        <p className="text-xs text-muted-foreground font-medium">Color mapping</p>
+        <div className="flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-1.5">
+            <div className="h-3 w-3 rounded" style={{ backgroundColor: tier.backgroundColor }} />
+            <span className="text-muted-foreground">Card background</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-3 w-3 rounded" style={{ backgroundColor: tier.foregroundColor }} />
+            <span className="text-muted-foreground">Name & values</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-3 w-3 rounded" style={{ backgroundColor: tier.labelColor }} />
+            <span className="text-muted-foreground">Field labels</span>
+          </div>
         </div>
       </div>
 
       {/* Per-tier logo override */}
       <ImageUpload
         label="Logo override (this tier only)"
-        hint="PNG, 480×150 px — use if default logo doesn't fit this background"
+        hint="PNG, 480x150 px - use if default logo doesn't fit this background"
         aspect={480 / 150}
         targetWidth={480}
         targetHeight={150}

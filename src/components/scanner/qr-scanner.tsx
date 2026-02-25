@@ -17,39 +17,6 @@ export function QrScanner({ onScan, active, fullscreen }: QrScannerProps) {
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
 
-  useEffect(() => {
-    if (!active) {
-      stop()
-      return
-    }
-    start()
-    return () => { stop() }
-  }, [active])
-
-  async function start() {
-    setError(null)
-    setReady(false)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 640 } },
-      })
-      streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-        setError(null)
-        setReady(true)
-        scan()
-      }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        // play() was interrupted (e.g. by React Strict Mode remount) – ignore
-        return
-      }
-      setError('Camera access denied. Allow camera in browser settings.')
-    }
-  }
-
   function stop() {
     cancelAnimationFrame(rafRef.current)
     if (streamRef.current) {
@@ -80,6 +47,40 @@ export function QrScanner({ onScan, active, fullscreen }: QrScannerProps) {
       onScan(code.data)
     }
     rafRef.current = requestAnimationFrame(scan)
+  }
+
+  useEffect(() => {
+    if (!active) {
+      stop()
+      return
+    }
+    start()
+    return () => { stop() }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active])
+
+  async function start() {
+    setError(null)
+    setReady(false)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 640 } },
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+        setError(null)
+        setReady(true)
+        scan()
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        // play() was interrupted (e.g. by React Strict Mode remount) – ignore
+        return
+      }
+      setError('Camera access denied. Allow camera in browser settings.')
+    }
   }
 
   return (

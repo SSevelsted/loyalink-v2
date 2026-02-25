@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { supabase, appleConfig } from '../config.js';
+import { supabase } from '../config.js';
 
 export const appleWebServiceRoutes = Router();
 
@@ -22,6 +22,7 @@ const verifyAuthToken = async (
 
 // Extend Express Request type
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       authToken?: string;
@@ -36,7 +37,7 @@ appleWebServiceRoutes.post(
   verifyAuthToken,
   async (req: Request, res: Response) => {
     try {
-      const { deviceId, passTypeId, serialNumber } = req.params;
+      const { deviceId, serialNumber } = req.params;
       const { pushToken } = req.body;
 
       console.log(`Device registration: ${deviceId} for pass ${serialNumber}`);
@@ -147,13 +148,13 @@ appleWebServiceRoutes.get(
   '/devices/:deviceId/registrations/:passTypeId',
   async (req: Request, res: Response) => {
     try {
-      const { deviceId, passTypeId } = req.params;
+      const { deviceId } = req.params;
       const { passesUpdatedSince } = req.query;
 
       console.log(`Getting passes for device: ${deviceId}`);
 
       // Get all active registrations for this device
-      let query = supabase
+      const query = supabase
         .from('wallet_device_registrations')
         .select('serial_number, wallet_passes(updated_at)')
         .eq('device_library_identifier', deviceId)
@@ -173,13 +174,13 @@ appleWebServiceRoutes.get(
 
       // Filter by update time if provided
       let serialNumbers = registrations.map((r) => r.serial_number);
-      let lastUpdated = new Date().toISOString();
+      const lastUpdated = new Date().toISOString();
 
       if (passesUpdatedSince) {
         const since = new Date(passesUpdatedSince as string);
         serialNumbers = registrations
           .filter((r) => {
-            const pass = r.wallet_passes as any;
+            const pass = r.wallet_passes as { updated_at: string } | null;
             return pass && new Date(pass.updated_at) > since;
           })
           .map((r) => r.serial_number);

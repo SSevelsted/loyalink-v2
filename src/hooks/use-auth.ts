@@ -31,11 +31,28 @@ export function useAuth() {
     return { error }
   }
 
+  const resetPasswordForEmail = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+    })
+    return { error }
+  }
+
+  const updatePassword = async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password })
+    return { error }
+  }
+
+  const updateEmail = async (email: string) => {
+    const { error } = await supabase.auth.updateUser({ email })
+    return { error }
+  }
+
   const signOut = async () => {
     await supabase.auth.signOut()
   }
 
-  return { user, loading, signInWithEmail, signUp, signOut }
+  return { user, loading, signInWithEmail, signUp, signOut, resetPasswordForEmail, updatePassword, updateEmail }
 }
 
 export function useUserRole(studioId: string | null) {
@@ -46,6 +63,7 @@ export function useUserRole(studioId: string | null) {
 
   useEffect(() => {
     if (!user || !studioId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRole(null)
       setLoading(false)
       return

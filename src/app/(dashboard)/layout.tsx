@@ -1,10 +1,13 @@
 'use client'
 
+import Link from 'next/link'
+import Image from 'next/image'
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/layout/sidebar'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { useStudio } from '@/hooks/use-studio'
 import { useAuth } from '@/hooks/use-auth'
+import { usePassTemplates } from '@/hooks/use-wallet'
 import { Building2, Menu } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
@@ -14,10 +17,19 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { loading: authLoading } = useAuth()
-  const { loading: studioLoading, currentStudio } = useStudio()
+  const { user, loading: authLoading } = useAuth()
+  const { loading: studioLoading, currentStudio, membership } = useStudio()
+  const { data: templates } = usePassTemplates()
   const pathname = usePathname()
   const router = useRouter()
+  const studioLogo = templates?.[0]?.icon_url ?? templates?.[0]?.logo_url
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`)
+    }
+  }, [authLoading, user, pathname, router])
 
   // Onboarding guard
   useEffect(() => {
@@ -26,10 +38,10 @@ export default function DashboardLayout({
     const completed = settings?.onboarding_completed === true
     const isSetupPage = pathname === '/setup'
 
-    if (!completed && !isSetupPage) {
+    if (!completed && !isSetupPage && membership?.role !== 'super_admin') {
       router.replace('/setup')
     }
-  }, [authLoading, studioLoading, currentStudio, pathname, router])
+  }, [authLoading, studioLoading, currentStudio, membership, pathname, router])
 
   if (authLoading || studioLoading) {
     return (
@@ -63,12 +75,31 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto h-svh">
         <div className="flex items-center gap-3 glass-card border-0 border-b border-white/[0.08] px-4 py-3 md:hidden">
           <SidebarTrigger>
             <Menu className="h-5 w-5" />
           </SidebarTrigger>
-          <span className="font-semibold text-foreground tracking-tight">Loyalink</span>
+          <Link href="/" className="flex items-center gap-2 min-w-0">
+            {studioLogo ? (
+              <Image
+                src={studioLogo}
+                alt={currentStudio?.name ?? 'Studio'}
+                width={24}
+                height={24}
+                className="h-6 w-6 rounded-full object-cover shrink-0"
+              />
+            ) : (
+              <div className="h-6 w-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <span className="text-primary font-bold text-[10px]" style={{ fontFamily: 'var(--font-display)' }}>
+                  {currentStudio?.name?.charAt(0) ?? 'S'}
+                </span>
+              </div>
+            )}
+            <span className="font-semibold text-foreground tracking-tight truncate">
+              {currentStudio?.name ?? 'Loyalink'}
+            </span>
+          </Link>
         </div>
         <div className="p-4 pb-24 md:p-8 md:pb-8 max-w-7xl">
           {children}

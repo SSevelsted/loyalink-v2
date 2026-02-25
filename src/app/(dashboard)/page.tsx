@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useStudio } from '@/hooks/use-studio'
 import { useCustomers } from '@/hooks/use-customers'
 import { createClient } from '@/lib/supabase/client'
@@ -75,10 +76,10 @@ export default function DashboardPage() {
   const totalBalance = customers?.reduce((sum, c) => sum + Number(c.balance), 0) ?? 0
 
   const stats = [
-    { title: 'Customers', value: customers?.length ?? 0, icon: Users, color: 'text-blue-400' },
-    { title: 'Active Passes', value: passCount ?? 0, icon: Wallet, color: 'text-emerald-400' },
-    { title: 'Total Balance', value: `${totalBalance.toFixed(0)} kr`, icon: TrendingUp, color: 'text-primary' },
-    { title: 'Transactions', value: recentTransactions?.length ?? 0, icon: ArrowLeftRight, color: 'text-violet-400' },
+    { title: 'Customers', value: customers?.length ?? 0, icon: Users, color: 'text-blue-400', href: '/customers' },
+    { title: 'Active Passes', value: passCount ?? 0, icon: Wallet, color: 'text-emerald-400', href: null },
+    { title: 'Total Balance', value: `${totalBalance.toFixed(0)} kr`, icon: TrendingUp, color: 'text-primary', href: null },
+    { title: 'Transactions', value: recentTransactions?.length ?? 0, icon: ArrowLeftRight, color: 'text-violet-400', href: '/transactions' },
   ]
 
   return (
@@ -96,8 +97,8 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-5">
         <ScanButton />
         <div className="md:col-span-4 grid gap-3 grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => (
-            <Card key={stat.title} variant="glass-hover" className="rounded-2xl">
+          {stats.map((stat) => {
+            const content = (
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <stat.icon className={`h-4 w-4 ${stat.color}`} />
@@ -105,8 +106,19 @@ export default function DashboardPage() {
                 <p className="text-display-lg text-foreground">{stat.value}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{stat.title}</p>
               </CardContent>
-            </Card>
-          ))}
+            )
+            return stat.href ? (
+              <Link key={stat.title} href={stat.href}>
+                <Card variant="glass-hover" className="rounded-2xl cursor-pointer">
+                  {content}
+                </Card>
+              </Link>
+            ) : (
+              <Card key={stat.title} variant="glass-hover" className="rounded-2xl">
+                {content}
+              </Card>
+            )
+          })}
         </div>
       </div>
 
@@ -167,7 +179,7 @@ export default function DashboardPage() {
             <div className="py-12 text-center">
               <ArrowLeftRight className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">No transactions yet</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Transactions will appear here as they happen</p>
+              <p className="text-xs text-muted-foreground mt-1">Transactions will appear here as they happen</p>
             </div>
           ) : (
             <div className="space-y-1">
@@ -196,7 +208,7 @@ export default function DashboardPage() {
                       {tx.type === 'credit' || tx.type === 'cashback' ? '+' : '-'}
                       {Math.abs(Number(tx.amount)).toFixed(2)} kr
                     </span>
-                    <p className="text-xs text-muted-foreground/60">
+                    <p className="text-xs text-muted-foreground">
                       {new Date(tx.created_at).toLocaleDateString()}
                     </p>
                   </div>

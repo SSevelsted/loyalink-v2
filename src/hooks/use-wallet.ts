@@ -1,7 +1,7 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
-import type { PassTemplate, WalletPass, WalletPushLog } from '@/types/database'
+import type { PassTemplate, WalletPass, WalletPushLog, WalletDeviceRegistration } from '@/types/database'
 import { DEFAULT_TIER_THEMES, DEFAULT_CARD_FIELDS, DEFAULT_STATIC_TEXTS } from '@/types/database'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useStudio } from './use-studio'
@@ -130,6 +130,24 @@ export function useEnsureDefaultTemplate() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pass_templates'] })
     },
+  })
+}
+
+export function usePassDeviceRegistrations(serialNumbers: string[]) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['device_registrations', serialNumbers],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('wallet_device_registrations')
+        .select('*')
+        .in('serial_number', serialNumbers)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data as WalletDeviceRegistration[]
+    },
+    enabled: serialNumbers.length > 0,
   })
 }
 

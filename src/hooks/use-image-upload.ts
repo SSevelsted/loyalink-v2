@@ -21,7 +21,8 @@ export function useImageUpload() {
       const { data } = supabase.storage
         .from('studio-assets')
         .getPublicUrl(filePath)
-      return data.publicUrl
+      // Cache-bust: same path returns same URL, so browser/React won't refresh
+      return `${data.publicUrl}?t=${Date.now()}`
     } catch (err) {
       console.error('Upload failed:', err)
       return null
