@@ -275,22 +275,16 @@ export class ApplePassService {
             value: `${data.balance} ${data.currency}`,
           },
         ],
-        primaryFields: [
+        primaryFields: [],
+        secondaryFields: [
           {
             key: 'member',
             label: 'MEMBER',
             value: data.customerName,
           },
-        ],
-        secondaryFields: [
-          {
-            key: 'tier',
-            label: 'TIER',
-            value: data.loyaltyTier,
-          },
           {
             key: 'cashback',
-            label: 'CASHBACK',
+            label: 'LOYALTY CASH BACK DEAL',
             value: `${data.cashbackRate}%`,
           },
         ],
