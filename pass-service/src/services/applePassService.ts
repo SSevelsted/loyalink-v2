@@ -88,11 +88,8 @@ interface PassJson {
     secondaryFields: Array<{ key: string; label: string; value: string }>;
     backFields: Array<{ key: string; label: string; value: string }>;
   };
-  barcodes: Array<{
-    format: string;
-    message: string;
-    messageEncoding: string;
-  }>;
+  barcode: { format: string; message: string; messageEncoding: string };
+  barcodes: Array<{ format: string; message: string; messageEncoding: string }>;
 }
 
 export class ApplePassService {
@@ -297,6 +294,13 @@ export class ApplePassService {
             : []),
         ],
       },
+      // Legacy field for iOS < 9 compatibility
+      barcode: {
+        format: 'PKBarcodeFormatQR',
+        message: data.memberId,
+        messageEncoding: 'iso-8859-1',
+      },
+      // Modern field (iOS 9+)
       barcodes: [
         {
           format: 'PKBarcodeFormatQR',
@@ -331,7 +335,11 @@ export class ApplePassService {
         : WWDR_G4_PEM;
       writeFileSync(wwdrPath, wwdrPem);
 
-      // Log cert details for diagnosis
+      // Log OpenSSL version + cert details for diagnosis
+      try {
+        const ver = execFileSync('openssl', ['version'], { encoding: 'utf8' });
+        console.log('[openssl]', ver.trim());
+      } catch { /* ignore */ }
       try {
         const certInfo = execFileSync('openssl', [
           'x509', '-in', certPath, '-noout', '-subject', '-issuer', '-dates',
