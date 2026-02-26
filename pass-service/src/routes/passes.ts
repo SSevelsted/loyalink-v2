@@ -31,7 +31,9 @@ passRoutes.post('/generate', async (req: Request, res: Response) => {
       .select('*')
       .eq('studio_id', customer.studio_id)
       .eq('is_active', true)
-      .single();
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     // Generate serial number and auth token
     const serialNumber = `PASS-${uuidv4()}`;
@@ -147,7 +149,9 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
       .select('*')
       .eq('studio_id', walletPass.studio_id)
       .eq('is_active', true)
-      .single();
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
     if (templateError) console.log(`[download] template query error: ${templateError.message}`);
 
     // Get tier theme
