@@ -28,7 +28,9 @@ googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) 
       .select('*')
       .eq('studio_id', walletPass.studio_id)
       .eq('is_active', true)
-      .single();
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     // Create/update Google Wallet class for this studio
     const classId = `loyalty_${walletPass.studio_id}`.replace(/-/g, '_');
@@ -40,11 +42,15 @@ googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) 
       .eq('id', walletPass.studio_id)
       .single();
 
+    const loyaltyTier = customer.loyalty_stage || 'base';
+    const tierThemes = template?.tier_themes as Record<string, { stripImage?: string | null; logoOverride?: string | null }> || {};
+    const tierTheme = tierThemes[loyaltyTier] || tierThemes['base'] || {};
+
     await googleWalletService.createOrUpdateClass({
       classId,
       studioName: studio?.name || 'Studio',
-      logoUrl: template?.logo_url || undefined,
-      heroImageUrl: template?.hero_image_url || undefined,
+      logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
+      heroImageUrl: tierTheme.stripImage || undefined,
     });
 
     // Create object ID from serial number

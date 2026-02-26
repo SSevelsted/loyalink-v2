@@ -567,7 +567,7 @@ export default function CustomerDetailPage() {
                         </DialogHeader>
                         <div className="space-y-5 pt-2">
                           <p className="text-sm text-muted-foreground">
-                            Share this link with the customer so they can add the pass to their wallet.
+                            Share this link with the customer. It works for both Apple Wallet (iPhone) and Google Wallet (Android).
                           </p>
 
                           {/* QR Code */}
@@ -581,7 +581,7 @@ export default function CustomerDetailPage() {
                           <div className="flex items-center gap-2">
                             <Input
                               readOnly
-                              value={passUrl}
+                              value={`${typeof window !== 'undefined' ? window.location.origin : ''}${passUrl}`}
                               className="bg-secondary/50 text-xs font-mono"
                               onFocus={(e) => e.target.select()}
                             />
@@ -590,7 +590,7 @@ export default function CustomerDetailPage() {
                               variant={linkCopied ? 'default' : 'outline'}
                               className="shrink-0 gap-1.5"
                               onClick={() => {
-                                navigator.clipboard.writeText(passUrl)
+                                navigator.clipboard.writeText(`${window.location.origin}${passUrl}`)
                                 setLinkCopied(true)
                                 toast.success('Link copied to clipboard')
                                 setTimeout(() => setLinkCopied(false), 2000)
@@ -611,7 +611,7 @@ export default function CustomerDetailPage() {
                           </div>
 
                           <p className="text-xs text-muted-foreground text-center">
-                            The customer can scan the QR code or open the link to add the pass.
+                            iPhone opens Apple Wallet · Android opens Google Wallet · Desktop shows QR codes
                           </p>
                         </div>
                       </DialogContent>
