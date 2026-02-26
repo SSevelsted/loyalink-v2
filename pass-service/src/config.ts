@@ -8,7 +8,7 @@ export const supabase = createClient(
 
 // Apple configuration
 export const appleConfig = {
-  passTypeId: process.env.APPLE_PASS_TYPE_ID || 'YDBX8M7WAF.pass.com.loyaltycard.studio',
+  passTypeId: process.env.APPLE_PASS_TYPE_ID || 'pass.com.loyaltycard.studio',
   teamId: process.env.APPLE_TEAM_ID || '',
   certificateBase64: process.env.APPLE_PASS_CERTIFICATE_BASE64 || '',
   certificatePassword: process.env.APPLE_PASS_CERTIFICATE_PASSWORD || '',
