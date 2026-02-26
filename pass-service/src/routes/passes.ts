@@ -39,7 +39,7 @@ passRoutes.post('/generate', async (req: Request, res: Response) => {
 
     // Determine tier colors
     const loyaltyTier = customer.loyalty_stage || 'base';
-    const tierThemes = template?.tier_themes as Record<string, { backgroundColor: string; foregroundColor: string; labelColor: string }> || {};
+    const tierThemes = template?.tier_themes as Record<string, { backgroundColor: string; foregroundColor: string; labelColor: string; stripImage?: string | null; logoOverride?: string | null }> || {};
     const tierTheme = tierThemes[loyaltyTier] || tierThemes['base'] || {
       backgroundColor: '#ffffff',
       foregroundColor: '#000000',
@@ -74,11 +74,7 @@ passRoutes.post('/generate', async (req: Request, res: Response) => {
 
     if (platform === 'apple') {
       // Generate Apple Wallet pass
-      const staticTexts = template?.static_texts as Record<string, string> || {
-        referral_program: 'Refer Friends. Both Earn Cashback.',
-        how_it_works: '1. Scan your card when visiting\n2. Earn cashback on purchases',
-        announcement: '',
-      };
+      const staticTexts = template?.static_texts as Record<string, string> || {};
 
       await applePassService.generatePass({
         serialNumber,
@@ -89,15 +85,15 @@ passRoutes.post('/generate', async (req: Request, res: Response) => {
         loyaltyTier: formatTierName(loyaltyTier),
         memberId: customer.member_id || customerId,
         currency: customer.currency || 'DKK',
-        logoUrl: template?.logo_url || undefined,
+        logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
         iconUrl: template?.icon_url || undefined,
-        heroImageUrl: template?.hero_image_url || undefined,
+        heroImageUrl: tierTheme.stripImage || undefined,
         backgroundColor: tierTheme.backgroundColor,
         foregroundColor: tierTheme.foregroundColor,
         labelColor: tierTheme.labelColor,
         staticTexts: {
-          referral_program: staticTexts.referral_program || '',
-          how_it_works: staticTexts.how_it_works || '',
+          referral_program: staticTexts.referralText || '',
+          how_it_works: staticTexts.howItWorks || '',
           announcement: staticTexts.announcement || '',
         },
       });
@@ -154,18 +150,14 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
 
     // Get tier theme
     const loyaltyTier = customer.loyalty_stage || 'base';
-    const tierThemes = template?.tier_themes as Record<string, { backgroundColor: string; foregroundColor: string; labelColor: string }> || {};
+    const tierThemes = template?.tier_themes as Record<string, { backgroundColor: string; foregroundColor: string; labelColor: string; stripImage?: string | null; logoOverride?: string | null }> || {};
     const tierTheme = tierThemes[loyaltyTier] || tierThemes['base'] || {
       backgroundColor: '#ffffff',
       foregroundColor: '#000000',
       labelColor: '#666666',
     };
 
-    const staticTexts = template?.static_texts as Record<string, string> || {
-      referral_program: '',
-      how_it_works: '',
-      announcement: '',
-    };
+    const staticTexts = template?.static_texts as Record<string, string> || {};
 
     // Generate pass
     const generatedPass = await applePassService.generatePass({
@@ -177,15 +169,15 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
       loyaltyTier: formatTierName(loyaltyTier),
       memberId: customer.member_id || customer.id,
       currency: customer.currency || 'DKK',
-      logoUrl: template?.logo_url || undefined,
+      logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
       iconUrl: template?.icon_url || undefined,
-      heroImageUrl: template?.hero_image_url || undefined,
+      heroImageUrl: tierTheme.stripImage || undefined,
       backgroundColor: tierTheme.backgroundColor,
       foregroundColor: tierTheme.foregroundColor,
       labelColor: tierTheme.labelColor,
       staticTexts: {
-        referral_program: staticTexts.referral_program || '',
-        how_it_works: staticTexts.how_it_works || '',
+        referral_program: staticTexts.referralText || '',
+        how_it_works: staticTexts.howItWorks || '',
         announcement: staticTexts.announcement || '',
       },
     });
