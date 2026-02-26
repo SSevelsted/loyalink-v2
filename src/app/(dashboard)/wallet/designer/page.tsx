@@ -124,9 +124,13 @@ export default function DesignerPage() {
   const handleSave = async () => {
     if (!template) return
     try {
+      // Apply the shared strip image to all tier themes before saving
+      const themesWithStrip = Object.fromEntries(
+        Object.entries(tierThemes).map(([key, theme]) => [key, { ...theme, stripImage: stripUrl }])
+      )
       await updateTemplate.mutateAsync({
         id: template.id,
-        tier_themes: tierThemes as unknown as Record<string, unknown>,
+        tier_themes: themesWithStrip as unknown as Record<string, unknown>,
         card_fields: cardFields as unknown[],
         logo_url: logoUrl,
       })
