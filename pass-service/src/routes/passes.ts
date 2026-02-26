@@ -141,12 +141,14 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
     const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string };
 
     // Fetch template
-    const { data: template } = await supabase
+    console.log(`[download] studio_id on walletPass: ${walletPass.studio_id ?? 'NULL'}`);
+    const { data: template, error: templateError } = await supabase
       .from('pass_templates')
       .select('*')
       .eq('studio_id', walletPass.studio_id)
       .eq('is_active', true)
       .single();
+    if (templateError) console.log(`[download] template query error: ${templateError.message}`);
 
     // Get tier theme
     const loyaltyTier = customer.loyalty_stage || 'base';
