@@ -41,7 +41,8 @@ export async function updateSession(request: NextRequest) {
     path.startsWith('/referral-success') ||
     path.startsWith('/auth/callback') ||
     path.startsWith('/reset-password') ||
-    path.startsWith('/api/')
+    path.startsWith('/api/') ||
+    path.startsWith('/pass/')
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone()

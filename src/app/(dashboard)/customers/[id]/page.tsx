@@ -543,7 +543,7 @@ export default function CustomerDetailPage() {
           </CardHeader>
           <CardContent>
             {passes?.length ? (() => {
-              const passUrl = `${PASS_SERVICE_URL}/api/passes/${passes[0].serial_number}/download`
+              const passUrl = `/pass/${passes[0].serial_number}`
               return (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
