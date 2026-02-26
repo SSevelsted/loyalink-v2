@@ -1,8 +1,11 @@
 import { PKPass } from 'passkit-generator';
 import { execFileSync } from 'child_process';
 import { writeFileSync, unlinkSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import { tmpdir } from 'os';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 import { randomBytes } from 'crypto';
 import { appleConfig, publicUrl } from '../config.js';
 
@@ -233,9 +236,12 @@ export class ApplePassService {
       if (logoBuffer) files['logo.png'] = logoBuffer;
     }
 
-    if (data.heroImageUrl) {
-      const stripBuffer = await this.downloadImage(data.heroImageUrl);
-      if (stripBuffer) files['strip.png'] = stripBuffer;
+    const stripUrl = data.heroImageUrl || null;
+    if (stripUrl) {
+      const stripBuffer = await this.downloadImage(stripUrl);
+      files['strip.png'] = stripBuffer || readFileSync(join(__dirname, '../assets/default-strip.png'));
+    } else {
+      files['strip.png'] = readFileSync(join(__dirname, '../assets/default-strip.png'));
     }
 
     // passkit-generator handles manifest hashing, CMS signing, and ZIP creation
