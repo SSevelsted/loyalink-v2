@@ -349,7 +349,7 @@ export class ApplePassService {
         '-in', manifestPath,
         '-out', sigPath,
         '-outform', 'DER',
-        '-nodetach',
+        // Apple requires a DETACHED signature (manifest not embedded in DER)
       ]);
 
       return readFileSync(sigPath);
