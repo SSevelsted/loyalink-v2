@@ -1,7 +1,4 @@
-import archiver from 'archiver';
-import crypto from 'crypto';
-import forge from 'node-forge';
-import { PassThrough } from 'stream';
+import { PKPass } from 'passkit-generator';
 import { execFileSync } from 'child_process';
 import { writeFileSync, unlinkSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -93,9 +90,8 @@ interface PassJson {
 }
 
 export class ApplePassService {
-  // Raw P12 buffer — used for OpenSSL extraction to preserve Apple-specific cert extensions
-  private p12Buffer: Buffer | null = null;
-  private p12Password: string = '';
+  private certPem: string | null = null;
+  private keyPem: string | null = null;
   private isLoaded: boolean = false;
 
   constructor() {
@@ -109,17 +105,84 @@ export class ApplePassService {
         return;
       }
 
-      this.p12Buffer = Buffer.from(appleConfig.certificateBase64, 'base64');
-      this.p12Password = appleConfig.certificatePassword;
+      const p12Buffer = Buffer.from(appleConfig.certificateBase64, 'base64');
+      const extracted = this.extractFromP12(p12Buffer, appleConfig.certificatePassword);
+      if (!extracted) return;
 
-      // Use node-forge only to validate the P12 parses correctly
-      const p12Asn1 = forge.asn1.fromDer(forge.util.createBuffer(this.p12Buffer.toString('binary')));
-      forge.pkcs12.pkcs12FromAsn1(p12Asn1, this.p12Password);
-
+      this.certPem = extracted.certPem;
+      this.keyPem = extracted.keyPem;
       this.isLoaded = true;
       console.log('Apple certificates loaded successfully');
     } catch (error) {
       console.error('Error loading Apple certificates:', error);
+    }
+  }
+
+  // Extract cert and key PEMs from P12 using OpenSSL — preserves ALL Apple-specific
+  // certificate extensions (e.g. 1.2.840.113635.100.6.1.16 passTypeIdentifier).
+  private extractFromP12(p12Buffer: Buffer, password: string): { certPem: string; keyPem: string } | null {
+    const id = randomBytes(8).toString('hex');
+    const tmp = tmpdir();
+    const p12Path = join(tmp, `p12-${id}.p12`);
+    const certPath = join(tmp, `cert-${id}.pem`);
+    const keyPath = join(tmp, `key-${id}.pem`);
+
+    try {
+      writeFileSync(p12Path, p12Buffer);
+
+      try {
+        const ver = execFileSync('openssl', ['version'], { encoding: 'utf8' });
+        console.log('[openssl]', ver.trim());
+      } catch { /* ignore */ }
+
+      const passArg = password ? `pass:${password}` : 'pass:';
+
+      let extracted = false;
+      for (const legacyFlag of [[], ['-legacy']]) {
+        try {
+          execFileSync('openssl', [
+            'pkcs12', '-in', p12Path, '-nokeys', '-clcerts',
+            '-passin', passArg, '-out', certPath, ...legacyFlag,
+          ]);
+          execFileSync('openssl', [
+            'pkcs12', '-in', p12Path, '-nocerts', '-nodes',
+            '-passin', passArg, '-out', keyPath, ...legacyFlag,
+          ]);
+          extracted = true;
+          if (legacyFlag.length) console.log('[pass] P12 extracted with -legacy flag');
+          break;
+        } catch { /* try next option */ }
+      }
+
+      if (!extracted) {
+        console.error('[pass] Failed to extract cert/key from P12');
+        return null;
+      }
+
+      // Log cert details — verify Apple extension is present
+      try {
+        const certInfo = execFileSync('openssl', [
+          'x509', '-in', certPath, '-noout', '-subject', '-issuer', '-dates',
+        ], { encoding: 'utf8' });
+        console.log('[cert]', certInfo.replace(/\n/g, ' | ').trim());
+
+        const hasAppleExt = execFileSync('openssl', [
+          'x509', '-in', certPath, '-noout', '-text',
+        ], { encoding: 'utf8' }).includes('1.2.840.113635.100.6.1.16');
+        console.log(`[cert] Apple passType extension present: ${hasAppleExt}`);
+      } catch { /* ignore */ }
+
+      return {
+        certPem: readFileSync(certPath, 'utf8'),
+        keyPem: readFileSync(keyPath, 'utf8'),
+      };
+    } catch (error) {
+      console.error('[pass] P12 extraction failed:', error);
+      return null;
+    } finally {
+      for (const p of [p12Path, certPath, keyPath]) {
+        try { unlinkSync(p); } catch { /* ignore */ }
+      }
     }
   }
 
@@ -142,46 +205,39 @@ export class ApplePassService {
   }
 
   async generatePass(data: PassData): Promise<Buffer> {
-    const passJson = this.createPassJson(data);
+    if (!this.isLoaded || !this.certPem || !this.keyPem) {
+      throw new Error('Apple certificates not loaded');
+    }
 
-    const files: Map<string, Buffer> = new Map();
+    const passJson = this.createPassJson(data);
     const passJsonBuffer = Buffer.from(JSON.stringify(passJson, null, 2));
-    files.set('pass.json', passJsonBuffer);
+
+    const files: Record<string, Buffer> = {
+      'pass.json': passJsonBuffer,
+    };
 
     // icon.png is REQUIRED by Apple
-    const iconBuffer = data.iconUrl
-      ? await this.downloadImage(data.iconUrl)
-      : null;
-    files.set('icon.png', iconBuffer || this.createFallbackIcon());
+    const iconBuffer = data.iconUrl ? await this.downloadImage(data.iconUrl) : null;
+    files['icon.png'] = iconBuffer || this.createFallbackIcon();
 
     if (data.logoUrl) {
       const logoBuffer = await this.downloadImage(data.logoUrl);
-      if (logoBuffer) files.set('logo.png', logoBuffer);
+      if (logoBuffer) files['logo.png'] = logoBuffer;
     }
 
     if (data.heroImageUrl) {
       const stripBuffer = await this.downloadImage(data.heroImageUrl);
-      if (stripBuffer) files.set('strip.png', stripBuffer);
+      if (stripBuffer) files['strip.png'] = stripBuffer;
     }
 
-    // Build manifest (SHA1 hashes of all content files)
-    const manifest: Record<string, string> = {};
-    for (const [filename, content] of files) {
-      const hash = crypto.createHash('sha1').update(content).digest('hex');
-      manifest[filename] = hash;
-    }
-    const manifestBuffer = Buffer.from(JSON.stringify(manifest, null, 2));
-    files.set('manifest.json', manifestBuffer);
+    // passkit-generator handles manifest hashing, CMS signing, and ZIP creation
+    const pass = new PKPass(files, {
+      wwdr: WWDR_G4_PEM,
+      signerCert: this.certPem,
+      signerKey: this.keyPem,
+    });
 
-    const signature = this.createSignature(manifestBuffer);
-    if (signature) {
-      console.log(`[pass] Signature created (${signature.length} bytes)`);
-      files.set('signature', signature);
-    } else {
-      console.error('[pass] SIGNATURE FAILED — pass will be rejected by Apple');
-    }
-
-    return this.createPkPassZip(files);
+    return pass.getAsBuffer();
   }
 
   createPassJson(data: PassData): PassJson {
@@ -261,113 +317,6 @@ export class ApplePassService {
         },
       ],
     };
-  }
-
-  private createSignature(manifestBuffer: Buffer): Buffer | null {
-    if (!this.isLoaded || !this.p12Buffer) {
-      console.warn('Cannot create signature: certificates not loaded');
-      return null;
-    }
-
-    const id = randomBytes(8).toString('hex');
-    const tmp = tmpdir();
-    const p12Path = join(tmp, `p12-${id}.p12`);
-    const certPath = join(tmp, `cert-${id}.pem`);
-    const keyPath = join(tmp, `key-${id}.pem`);
-    const wwdrPath = join(tmp, `wwdr-${id}.pem`);
-    const manifestPath = join(tmp, `manifest-${id}.json`);
-    const sigPath = join(tmp, `signature-${id}.der`);
-
-    try {
-      writeFileSync(p12Path, this.p12Buffer);
-      writeFileSync(wwdrPath, WWDR_G4_PEM);
-      writeFileSync(manifestPath, manifestBuffer);
-
-      try {
-        const ver = execFileSync('openssl', ['version'], { encoding: 'utf8' });
-        console.log('[openssl]', ver.trim());
-      } catch { /* ignore */ }
-
-      const passArg = this.p12Password ? `pass:${this.p12Password}` : 'pass:';
-
-      // Extract cert and key from P12 using OpenSSL — this preserves ALL Apple-specific
-      // certificate extensions (e.g. 1.2.840.113635.100.6.1.16 passTypeIdentifier).
-      // node-forge.certificateToPem() strips unknown OIDs, breaking Apple's validator.
-      let extracted = false;
-      for (const legacyFlag of [[], ['-legacy']]) {
-        try {
-          execFileSync('openssl', [
-            'pkcs12', '-in', p12Path, '-nokeys', '-clcerts',
-            '-passin', passArg, '-out', certPath, ...legacyFlag,
-          ]);
-          execFileSync('openssl', [
-            'pkcs12', '-in', p12Path, '-nocerts', '-nodes',
-            '-passin', passArg, '-out', keyPath, ...legacyFlag,
-          ]);
-          extracted = true;
-          if (legacyFlag.length) console.log('[pass] P12 extracted with -legacy flag');
-          break;
-        } catch { /* try next option */ }
-      }
-
-      if (!extracted) {
-        console.error('[pass] Failed to extract cert/key from P12');
-        return null;
-      }
-
-      // Log cert details — verify Apple extension is present
-      try {
-        const certInfo = execFileSync('openssl', [
-          'x509', '-in', certPath, '-noout', '-subject', '-issuer', '-dates',
-        ], { encoding: 'utf8' });
-        console.log('[cert]', certInfo.replace(/\n/g, ' | ').trim());
-
-        const hasAppleExt = execFileSync('openssl', [
-          'x509', '-in', certPath, '-noout', '-text',
-        ], { encoding: 'utf8' }).includes('1.2.840.113635.100.6.1.16');
-        console.log(`[cert] Apple passType extension present: ${hasAppleExt}`);
-      } catch { /* ignore */ }
-
-      // Sign with detached CMS signature (no -nodetach = detached per Apple spec)
-      execFileSync('openssl', [
-        'smime', '-binary', '-sign',
-        '-certfile', wwdrPath,
-        '-signer', certPath,
-        '-inkey', keyPath,
-        '-in', manifestPath,
-        '-out', sigPath,
-        '-outform', 'DER',
-      ]);
-
-      return readFileSync(sigPath);
-    } catch (error) {
-      console.error('[pass] OpenSSL signing failed:', error);
-      return null;
-    } finally {
-      for (const p of [p12Path, certPath, keyPath, wwdrPath, manifestPath, sigPath]) {
-        try { unlinkSync(p); } catch { /* ignore */ }
-      }
-    }
-  }
-
-  private async createPkPassZip(files: Map<string, Buffer>): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-      const chunks: Buffer[] = [];
-      const passThrough = new PassThrough();
-      const archive = archiver('zip', { zlib: { level: 9 } });
-
-      passThrough.on('data', (chunk) => chunks.push(chunk));
-      passThrough.on('end', () => resolve(Buffer.concat(chunks)));
-      passThrough.on('error', reject);
-
-      archive.pipe(passThrough);
-
-      for (const [filename, content] of files) {
-        archive.append(content, { name: filename });
-      }
-
-      archive.finalize();
-    });
   }
 }
 
