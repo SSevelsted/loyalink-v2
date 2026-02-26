@@ -93,9 +93,10 @@ interface PassJson {
 }
 
 export class ApplePassService {
-  private certificate: forge.pki.Certificate | null = null;
-  private privateKey: forge.pki.PrivateKey | null = null;
-  private wwdrCert: forge.pki.Certificate | null = null;
+  // Raw P12 buffer — used for OpenSSL extraction to preserve Apple-specific cert extensions
+  private p12Buffer: Buffer | null = null;
+  private p12Password: string = '';
+  private isLoaded: boolean = false;
 
   constructor() {
     this.loadCertificates();
@@ -108,65 +109,17 @@ export class ApplePassService {
         return;
       }
 
-      const p12Der = Buffer.from(appleConfig.certificateBase64, 'base64');
-      const p12Asn1 = forge.asn1.fromDer(forge.util.createBuffer(p12Der.toString('binary')));
-      const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, appleConfig.certificatePassword);
+      this.p12Buffer = Buffer.from(appleConfig.certificateBase64, 'base64');
+      this.p12Password = appleConfig.certificatePassword;
 
-      const certBags = p12.getBags({ bagType: forge.pki.oids.certBag });
-      const keyBags = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag });
+      // Use node-forge only to validate the P12 parses correctly
+      const p12Asn1 = forge.asn1.fromDer(forge.util.createBuffer(this.p12Buffer.toString('binary')));
+      forge.pkcs12.pkcs12FromAsn1(p12Asn1, this.p12Password);
 
-      const certBag = certBags[forge.pki.oids.certBag];
-      const keyBag = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag];
-
-      if (certBag && certBag.length > 0) {
-        // The first cert is usually the signing cert, additional ones may be WWDR
-        for (const bag of certBag) {
-          if (!bag.cert) continue;
-          const cn = bag.cert.subject.getField('CN')?.value || '';
-          if (cn.includes('Apple Worldwide Developer Relations') || cn.includes('WWDR')) {
-            this.wwdrCert = bag.cert;
-          } else {
-            this.certificate = bag.cert;
-          }
-        }
-        // If only one cert found, use it as signing cert
-        if (!this.certificate && certBag[0].cert) {
-          this.certificate = certBag[0].cert;
-        }
-      }
-
-      if (keyBag && keyBag.length > 0 && keyBag[0].key) {
-        this.privateKey = keyBag[0].key;
-      }
-
-      // Load WWDR cert from env if not found in P12
-      if (!this.wwdrCert) {
-        this.loadWwdrCert();
-      }
-
+      this.isLoaded = true;
       console.log('Apple certificates loaded successfully');
     } catch (error) {
       console.error('Error loading Apple certificates:', error);
-    }
-  }
-
-  private loadWwdrCert(): void {
-    if (process.env.APPLE_WWDR_CERTIFICATE_BASE64) {
-      try {
-        const wwdrPem = Buffer.from(process.env.APPLE_WWDR_CERTIFICATE_BASE64, 'base64').toString('utf-8');
-        this.wwdrCert = forge.pki.certificateFromPem(wwdrPem);
-        console.log('WWDR certificate loaded from env');
-        return;
-      } catch (e) {
-        console.warn('Failed to load WWDR cert from env:', e);
-      }
-    }
-
-    try {
-      this.wwdrCert = forge.pki.certificateFromPem(WWDR_G4_PEM);
-      console.log('WWDR G4 certificate loaded (built-in)');
-    } catch (e) {
-      console.warn('Failed to load built-in WWDR cert:', e);
     }
   }
 
@@ -195,7 +148,6 @@ export class ApplePassService {
     const passJsonBuffer = Buffer.from(JSON.stringify(passJson, null, 2));
     files.set('pass.json', passJsonBuffer);
 
-    // Download and add image files
     // icon.png is REQUIRED by Apple
     const iconBuffer = data.iconUrl
       ? await this.downloadImage(data.iconUrl)
@@ -212,7 +164,7 @@ export class ApplePassService {
       if (stripBuffer) files.set('strip.png', stripBuffer);
     }
 
-    // Build manifest from all content files (not manifest/signature themselves)
+    // Build manifest (SHA1 hashes of all content files)
     const manifest: Record<string, string> = {};
     for (const [filename, content] of files) {
       const hash = crypto.createHash('sha1').update(content).digest('hex');
@@ -312,43 +264,71 @@ export class ApplePassService {
   }
 
   private createSignature(manifestBuffer: Buffer): Buffer | null {
-    if (!this.certificate || !this.privateKey) {
+    if (!this.isLoaded || !this.p12Buffer) {
       console.warn('Cannot create signature: certificates not loaded');
       return null;
     }
 
     const id = randomBytes(8).toString('hex');
     const tmp = tmpdir();
-    const manifestPath = join(tmp, `manifest-${id}.json`);
+    const p12Path = join(tmp, `p12-${id}.p12`);
     const certPath = join(tmp, `cert-${id}.pem`);
     const keyPath = join(tmp, `key-${id}.pem`);
     const wwdrPath = join(tmp, `wwdr-${id}.pem`);
+    const manifestPath = join(tmp, `manifest-${id}.json`);
     const sigPath = join(tmp, `signature-${id}.der`);
 
     try {
+      writeFileSync(p12Path, this.p12Buffer);
+      writeFileSync(wwdrPath, WWDR_G4_PEM);
       writeFileSync(manifestPath, manifestBuffer);
-      writeFileSync(certPath, forge.pki.certificateToPem(this.certificate));
-      writeFileSync(keyPath, forge.pki.privateKeyToPem(this.privateKey));
 
-      const wwdrPem = this.wwdrCert
-        ? forge.pki.certificateToPem(this.wwdrCert)
-        : WWDR_G4_PEM;
-      writeFileSync(wwdrPath, wwdrPem);
-
-      // Log OpenSSL version + cert details for diagnosis
       try {
         const ver = execFileSync('openssl', ['version'], { encoding: 'utf8' });
         console.log('[openssl]', ver.trim());
       } catch { /* ignore */ }
+
+      const passArg = this.p12Password ? `pass:${this.p12Password}` : 'pass:';
+
+      // Extract cert and key from P12 using OpenSSL — this preserves ALL Apple-specific
+      // certificate extensions (e.g. 1.2.840.113635.100.6.1.16 passTypeIdentifier).
+      // node-forge.certificateToPem() strips unknown OIDs, breaking Apple's validator.
+      let extracted = false;
+      for (const legacyFlag of [[], ['-legacy']]) {
+        try {
+          execFileSync('openssl', [
+            'pkcs12', '-in', p12Path, '-nokeys', '-clcerts',
+            '-passin', passArg, '-out', certPath, ...legacyFlag,
+          ]);
+          execFileSync('openssl', [
+            'pkcs12', '-in', p12Path, '-nocerts', '-nodes',
+            '-passin', passArg, '-out', keyPath, ...legacyFlag,
+          ]);
+          extracted = true;
+          if (legacyFlag.length) console.log('[pass] P12 extracted with -legacy flag');
+          break;
+        } catch { /* try next option */ }
+      }
+
+      if (!extracted) {
+        console.error('[pass] Failed to extract cert/key from P12');
+        return null;
+      }
+
+      // Log cert details — verify Apple extension is present
       try {
         const certInfo = execFileSync('openssl', [
           'x509', '-in', certPath, '-noout', '-subject', '-issuer', '-dates',
         ], { encoding: 'utf8' });
         console.log('[cert]', certInfo.replace(/\n/g, ' | ').trim());
-      } catch (e) {
-        console.warn('[cert] Could not read cert info:', e);
-      }
 
+        const hasAppleExt = execFileSync('openssl', [
+          'x509', '-in', certPath, '-noout', '-text',
+        ], { encoding: 'utf8' }).includes('1.2.840.113635.100.6.1.16');
+        console.log(`[cert] Apple passType extension present: ${hasAppleExt}`);
+      } catch { /* ignore */ }
+
+      // Sign with detached CMS signature (no -nodetach = detached per Apple spec)
       execFileSync('openssl', [
         'smime', '-binary', '-sign',
         '-certfile', wwdrPath,
@@ -357,7 +337,6 @@ export class ApplePassService {
         '-in', manifestPath,
         '-out', sigPath,
         '-outform', 'DER',
-        // Apple requires a DETACHED signature (manifest not embedded in DER)
       ]);
 
       return readFileSync(sigPath);
@@ -365,7 +344,7 @@ export class ApplePassService {
       console.error('[pass] OpenSSL signing failed:', error);
       return null;
     } finally {
-      for (const p of [manifestPath, certPath, keyPath, wwdrPath, sigPath]) {
+      for (const p of [p12Path, certPath, keyPath, wwdrPath, manifestPath, sigPath]) {
         try { unlinkSync(p); } catch { /* ignore */ }
       }
     }
