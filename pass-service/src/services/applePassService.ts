@@ -189,9 +189,15 @@ export class ApplePassService {
   private async downloadImage(url: string): Promise<Buffer | null> {
     try {
       const res = await fetch(url);
-      if (!res.ok) return null;
-      return Buffer.from(await res.arrayBuffer());
-    } catch {
+      if (!res.ok) {
+        console.warn(`[pass] Image download failed: ${res.status} ${res.statusText} — ${url}`);
+        return null;
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      console.log(`[pass] Image downloaded: ${buf.length} bytes — ${url}`);
+      return buf;
+    } catch (err) {
+      console.warn(`[pass] Image download error: ${err} — ${url}`);
       return null;
     }
   }
@@ -215,6 +221,8 @@ export class ApplePassService {
     const files: Record<string, Buffer> = {
       'pass.json': passJsonBuffer,
     };
+
+    console.log(`[pass] Images — icon: ${data.iconUrl || 'none'} | logo: ${data.logoUrl || 'none'} | strip: ${data.heroImageUrl || 'none'}`);
 
     // icon.png is REQUIRED by Apple
     const iconBuffer = data.iconUrl ? await this.downloadImage(data.iconUrl) : null;
