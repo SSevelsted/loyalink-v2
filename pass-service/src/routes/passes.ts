@@ -150,12 +150,14 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
 
     // Get tier theme
     const loyaltyTier = customer.loyalty_stage || 'base';
+    console.log(`[download] template id: ${template?.id ?? 'NOT FOUND'} | logo_url: ${template?.logo_url ?? 'null'} | tier: ${loyaltyTier}`);
     const tierThemes = template?.tier_themes as Record<string, { backgroundColor: string; foregroundColor: string; labelColor: string; stripImage?: string | null; logoOverride?: string | null }> || {};
     const tierTheme = tierThemes[loyaltyTier] || tierThemes['base'] || {
       backgroundColor: '#ffffff',
       foregroundColor: '#000000',
       labelColor: '#666666',
     };
+    console.log(`[download] tierTheme keys: ${Object.keys(tierThemes).join(', ')} | stripImage: ${tierTheme.stripImage ?? 'null'} | logoOverride: ${tierTheme.logoOverride ?? 'null'}`);
 
     const staticTexts = template?.static_texts as Record<string, string> || {};
 
