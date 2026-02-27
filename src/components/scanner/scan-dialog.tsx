@@ -26,7 +26,7 @@ export function ScanDialog({
     const { data } = await supabase
       .from('customers')
       .select('id')
-      .or(`member_id.eq.${value},phone.eq.${value}`)
+      .or(`id.eq.${value},member_id.eq.${value},phone.eq.${value}`)
       .limit(1)
       .single()
 
