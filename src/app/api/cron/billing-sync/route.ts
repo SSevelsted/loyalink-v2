@@ -8,7 +8,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,15 +50,15 @@ export async function GET(request: NextRequest) {
       const quantity = count ?? 0
 
       // Update Stripe subscription quantity (no proration — new period only)
-      await stripe.subscriptions.update(studio.stripe_subscription_id!, {
+      await getStripe().subscriptions.update(studio.stripe_subscription_id!, {
         items: [], // will be resolved from the existing subscription
         proration_behavior: 'none',
       })
 
       // Update each item's quantity
-      const sub = await stripe.subscriptions.retrieve(studio.stripe_subscription_id!)
+      const sub = await getStripe().subscriptions.retrieve(studio.stripe_subscription_id!)
       for (const item of sub.items.data) {
-        await stripe.subscriptionItems.update(item.id, { quantity })
+        await getStripe().subscriptionItems.update(item.id, { quantity })
       }
 
       results.push({ studioId: studio.id, name: studio.name, quantity, status: 'updated' })
