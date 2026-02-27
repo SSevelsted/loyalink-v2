@@ -3,6 +3,12 @@ export type Studio = {
   name: string
   slug: string
   settings: Record<string, unknown>
+  // Billing
+  subscription_status: 'trial' | 'active' | 'past_due' | 'cancelled' | 'agency' | null
+  trial_ends_at: string | null
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  is_agency: boolean
   created_at: string
   updated_at: string
 }

@@ -10,6 +10,7 @@ import {
   ArrowLeftRight,
   Bell,
   Wallet,
+  Sparkles,
   Settings,
   Shield,
   Eye,
@@ -39,6 +40,7 @@ const navItems = [
   { title: 'Transactions', href: '/transactions', icon: ArrowLeftRight },
   { title: 'Notifications', href: '/notifications', icon: Bell },
   { title: 'Wallet', href: '/wallet', icon: Wallet },
+  { title: 'Stories', href: '/stories', icon: Sparkles },
   { title: 'Settings', href: '/settings', icon: Settings },
   { title: 'Support', href: '/support', icon: LifeBuoy },
 ]

@@ -1,7 +1,7 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useStudio } from './use-studio'
 import type { Studio, Transaction } from '@/types/database'
 import type { AdminTicket } from './use-support'
@@ -147,5 +147,50 @@ export function useAdminTicketStats() {
       return stats
     },
     enabled: isSuperAdmin,
+  })
+}
+
+export function useCreateStudio() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: { name: string; ownerEmail: string; type: 'trial' | 'agency' }) => {
+      const res = await fetch('/api/admin/studios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error ?? `Error ${res.status}`)
+      }
+      return res.json() as Promise<{ success: boolean; studio: Studio; inviteUrl: string }>
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin_studios'] })
+      queryClient.invalidateQueries({ queryKey: ['admin_stats'] })
+    },
+  })
+}
+
+export function useUpdateStudioSubscription() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ studioId, action }: { studioId: string; action: 'remove_agency' | 'cancel' }) => {
+      const res = await fetch(`/api/admin/studios/${studioId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error ?? `Error ${res.status}`)
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin_studios'] })
+    },
   })
 }
