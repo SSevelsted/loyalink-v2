@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -52,10 +52,10 @@ export async function PATCH(
     if (stripeEnabled && studio.stripe_subscription_id) {
       try {
         // Remove discount
-        await stripe.subscriptions.deleteDiscount(studio.stripe_subscription_id)
+        await getStripe().subscriptions.deleteDiscount(studio.stripe_subscription_id)
         // Add a 30-day trial from now
         const trialEnd = Math.floor(Date.now() / 1000) + TRIAL_DAYS * 24 * 60 * 60
-        await stripe.subscriptions.update(studio.stripe_subscription_id, {
+        await getStripe().subscriptions.update(studio.stripe_subscription_id, {
           trial_end: trialEnd,
         })
       } catch (err) {
@@ -75,7 +75,7 @@ export async function PATCH(
   if (action === 'cancel') {
     if (stripeEnabled && studio.stripe_subscription_id) {
       try {
-        await stripe.subscriptions.update(studio.stripe_subscription_id, {
+        await getStripe().subscriptions.update(studio.stripe_subscription_id, {
           cancel_at_period_end: true,
         })
       } catch (err) {

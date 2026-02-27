@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
 import crypto from 'crypto'
 
 const supabase = createAdminClient(
@@ -35,12 +35,12 @@ async function getAgencyCouponId(): Promise<string> {
 
   // Create it once — subsequent calls will find it by name lookup
   try {
-    const coupons = await stripe.coupons.list({ limit: 100 })
+    const coupons = await getStripe().coupons.list({ limit: 100 })
     const existing = coupons.data.find((c) => c.name === 'Agency Partner')
     if (existing) return existing.id
   } catch { /* ignore */ }
 
-  const coupon = await stripe.coupons.create({
+  const coupon = await getStripe().coupons.create({
     name: 'Agency Partner',
     percent_off: 100,
     duration: 'forever',
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
   // 2. Stripe customer + subscription (if Stripe is configured)
   if (stripeEnabled) {
     try {
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         name: name.trim(),
         email: ownerEmail.trim(),
         metadata: { studio_id: studio.id, studio_slug: slug },
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
 
       const couponId = type === 'agency' ? await getAgencyCouponId() : undefined
 
-      const subscription = await stripe.subscriptions.create({
+      const subscription = await getStripe().subscriptions.create({
         customer: customer.id,
         items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 0 }],
         metadata: { studio_id: studio.id },
