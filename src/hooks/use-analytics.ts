@@ -74,6 +74,7 @@ export type AnalyticsDashboard = {
     revenueComposition: Array<{ date: string; returning: number; new: number }>
     dealSizeTrend: Array<{ date: string; avgDealSize: number }>
     tierDistribution: Array<{ tier: string; count: number }>
+    transactionBreakdown: Array<{ type: string; count: number; total: number }>
   }
   insights: {
     peakDay: string | null

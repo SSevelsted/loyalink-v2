@@ -315,6 +315,15 @@ export async function POST(request: NextRequest) {
     }
     const tierDistribution = [...tierCounts.entries()].map(([tier, count]) => ({ tier, count }))
 
+    // Transaction breakdown by type
+    const txnTypeCounts = new Map<string, { count: number; total: number }>()
+    for (const t of txns) {
+      const key = t.type ?? 'unknown'
+      const existing = txnTypeCounts.get(key) ?? { count: 0, total: 0 }
+      txnTypeCounts.set(key, { count: existing.count + 1, total: existing.total + Math.abs(Number(t.amount)) })
+    }
+    const transactionBreakdown = [...txnTypeCounts.entries()].map(([type, vals]) => ({ type, ...vals }))
+
     // ── Insights ──
 
     // Peak day of week
@@ -571,6 +580,7 @@ export async function POST(request: NextRequest) {
         revenueComposition,
         dealSizeTrend,
         tierDistribution,
+        transactionBreakdown,
       },
       insights: {
         peakDay,
