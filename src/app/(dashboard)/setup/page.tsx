@@ -27,9 +27,10 @@ import {
 } from '@/components/ui/dialog'
 import { EmbedCode } from '@/components/landing/embed-code'
 import { Switch } from '@/components/ui/switch'
-import { ArrowRight, Check, ChevronRight, ChevronLeft, Rocket, Palette, CreditCard, Eye, Copy, PartyPopper, Link as LinkIcon, Gift, Plus, Trash2, RotateCcw } from 'lucide-react'
+import { ArrowRight, Check, ChevronRight, ChevronLeft, Rocket, Palette, CreditCard, Eye, Copy, PartyPopper, Link as LinkIcon, Gift, Plus, Trash2, RotateCcw, Building2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { APP_URL } from '@/lib/constants'
+import { CURRENCY_MAP } from '@/lib/currency'
 import type { CustomField, Benefit } from '@/hooks/use-landing-page'
 import { generateDefaultBenefits, BENEFIT_ICON_MAP, BENEFIT_ICON_OPTIONS } from '@/components/landing/value-stack'
 import {
@@ -45,7 +46,44 @@ import { RewardsConfigForm, getTriggerLabel } from '@/components/rewards/rewards
 import { ProgramOverview } from '@/components/rewards/program-overview'
 import { ReferralProgram } from '@/components/rewards/referral-program'
 
+const CURRENCY_OPTIONS = Object.entries(CURRENCY_MAP)
+  .filter(([key]) => key !== 'kr')
+  .map(([key, cfg]) => ({ value: key, label: `${key.toUpperCase()} (${cfg.symbol})` }))
+
+const LANGUAGE_OPTIONS = [
+  { value: 'en', label: 'English' },
+  { value: 'da', label: 'Danish (Dansk)' },
+  { value: 'sv', label: 'Swedish (Svenska)' },
+  { value: 'no', label: 'Norwegian (Norsk)' },
+  { value: 'de', label: 'German (Deutsch)' },
+  { value: 'fr', label: 'French (Français)' },
+  { value: 'es', label: 'Spanish (Español)' },
+  { value: 'nl', label: 'Dutch (Nederlands)' },
+  { value: 'pl', label: 'Polish (Polski)' },
+]
+
+const COUNTRY_OPTIONS = [
+  { value: 'DK', label: 'Denmark' },
+  { value: 'SE', label: 'Sweden' },
+  { value: 'NO', label: 'Norway' },
+  { value: 'FI', label: 'Finland' },
+  { value: 'DE', label: 'Germany' },
+  { value: 'GB', label: 'United Kingdom' },
+  { value: 'US', label: 'United States' },
+  { value: 'FR', label: 'France' },
+  { value: 'ES', label: 'Spain' },
+  { value: 'NL', label: 'Netherlands' },
+  { value: 'BE', label: 'Belgium' },
+  { value: 'CH', label: 'Switzerland' },
+  { value: 'AT', label: 'Austria' },
+  { value: 'PL', label: 'Poland' },
+  { value: 'CZ', label: 'Czech Republic' },
+  { value: 'AU', label: 'Australia' },
+  { value: 'CA', label: 'Canada' },
+]
+
 const STEPS = [
+  { label: 'Studio Info', icon: Building2 },
   { label: 'Rewards Program', icon: Gift },
   { label: 'Card Designer', icon: CreditCard },
   { label: 'Landing Page', icon: Palette },
@@ -60,6 +98,17 @@ export default function SetupPage() {
   const [step, setStep] = useState(0)
   const [showLiveDialog, setShowLiveDialog] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
+
+  // --- Studio Info state ---
+  const [studioName, setStudioName] = useState(currentStudio?.name ?? '')
+  const [studioEmail, setStudioEmail] = useState('')
+  const [studioPhone, setStudioPhone] = useState('')
+  const [addressStreet, setAddressStreet] = useState('')
+  const [addressCity, setAddressCity] = useState('')
+  const [addressPostalCode, setAddressPostalCode] = useState('')
+  const [addressCountry, setAddressCountry] = useState('DK')
+  const [selectedCurrency, setSelectedCurrency] = useState('dkk')
+  const [selectedLanguage, setSelectedLanguage] = useState('en')
 
   // --- Landing Page state ---
   const { data: landingPage, isLoading: lpLoading } = useLandingPage()
@@ -144,13 +193,32 @@ export default function SetupPage() {
     const s = currentStudio?.settings as Record<string, unknown> | undefined
     if (typeof s?.onboarding_step === 'number') {
       const restored = s.onboarding_step as number
-      // Clamp to max step (3) in case coming from a previous 5-step version
+      // Clamp to max step (4) in case coming from a previous version
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setStep(Math.min(restored, 3))
+      setStep(Math.min(restored, 4))
     }
     if (s?.rewards_config) {
       setRewardsConfig(migrateRewardsConfig(s.rewards_config))
     }
+    // Load studio info state
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (currentStudio?.name) setStudioName(currentStudio.name)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (s?.email) setStudioEmail(s.email as string)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (s?.phone) setStudioPhone(s.phone as string)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (s?.address_street) setAddressStreet(s.address_street as string)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (s?.address_city) setAddressCity(s.address_city as string)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (s?.address_postal_code) setAddressPostalCode(s.address_postal_code as string)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (s?.address_country) setAddressCountry(s.address_country as string)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (s?.currency) setSelectedCurrency(s.currency as string)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (s?.language) setSelectedLanguage(s.language as string)
   }, [currentStudio?.id])
 
   // Auto-generate tier themes for new tier slugs
@@ -249,6 +317,28 @@ export default function SetupPage() {
     if (url) handleTierChange({ logoOverride: url })
   }
 
+  const saveStudioInfo = async () => {
+    if (!currentStudio) return
+    const { error } = await supabase
+      .from('studios')
+      .update({
+        name: studioName,
+        settings: {
+          ...(currentStudio.settings as Record<string, unknown>),
+          email: studioEmail,
+          phone: studioPhone,
+          address_street: addressStreet,
+          address_city: addressCity,
+          address_postal_code: addressPostalCode,
+          address_country: addressCountry,
+          currency: selectedCurrency,
+          language: selectedLanguage,
+        },
+      })
+      .eq('id', currentStudio.id)
+    if (error) throw error
+  }
+
   const saveLandingPage = async () => {
     if (!landingPage) return
     await updateLandingPage.mutateAsync({
@@ -300,9 +390,10 @@ export default function SetupPage() {
 
   const handleNext = async () => {
     try {
-      if (step === 0) await saveRewardsConfig()
-      if (step === 1) await saveCardDesigner()
-      if (step === 2) await saveLandingPage()
+      if (step === 0) await saveStudioInfo()
+      if (step === 1) await saveRewardsConfig()
+      if (step === 2) await saveCardDesigner()
+      if (step === 3) await saveLandingPage()
       const nextStep = step + 1
       await saveStepProgress(nextStep)
       setStep(nextStep)
@@ -317,6 +408,7 @@ export default function SetupPage() {
 
   const handleGoLive = async () => {
     try {
+      await saveStudioInfo()
       await saveLandingPage()
       await saveCardDesigner()
       await saveRewardsConfig()
@@ -328,7 +420,7 @@ export default function SetupPage() {
             ...(currentStudio.settings as Record<string, unknown>),
             rewards_config: rewardsConfig,
             onboarding_completed: true,
-            onboarding_step: 3,
+            onboarding_step: 4,
             onboarding_version: 2,
           },
         })
@@ -426,7 +518,7 @@ export default function SetupPage() {
       </div>
 
       {/* Step Content */}
-      {step === 2 && (
+      {step === 3 && (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
           <Card variant="glass" className="rounded-2xl">
             <CardContent className="pt-0 space-y-6">
@@ -848,6 +940,147 @@ export default function SetupPage() {
       )}
 
       {step === 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Studio Identity */}
+          <Card variant="glass" className="rounded-2xl">
+            <CardContent className="pt-0 space-y-5">
+              <div>
+                <h2 className="text-base font-semibold">Studio Identity</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Basic information about your studio</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="setup-studio-name">Studio Name</Label>
+                <Input
+                  id="setup-studio-name"
+                  value={studioName}
+                  onChange={(e) => setStudioName(e.target.value)}
+                  placeholder="e.g. StreamInk Studio"
+                  autoComplete="organization"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="setup-studio-email">Business Email</Label>
+                <Input
+                  id="setup-studio-email"
+                  type="email"
+                  value={studioEmail}
+                  onChange={(e) => setStudioEmail(e.target.value)}
+                  placeholder="hello@yourstudio.com"
+                  autoComplete="email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="setup-studio-phone">Phone</Label>
+                <Input
+                  id="setup-studio-phone"
+                  type="tel"
+                  value={studioPhone}
+                  onChange={(e) => setStudioPhone(e.target.value)}
+                  placeholder="+45 12 34 56 78"
+                  autoComplete="tel"
+                />
+              </div>
+              <Separator />
+              <div>
+                <h3 className="text-sm font-medium mb-3">Address</h3>
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="setup-street">Street Address</Label>
+                    <Input
+                      id="setup-street"
+                      value={addressStreet}
+                      onChange={(e) => setAddressStreet(e.target.value)}
+                      placeholder="Nørregade 1"
+                      autoComplete="street-address"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="setup-city">City</Label>
+                      <Input
+                        id="setup-city"
+                        value={addressCity}
+                        onChange={(e) => setAddressCity(e.target.value)}
+                        placeholder="Copenhagen"
+                        autoComplete="address-level2"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="setup-postal">Postal Code</Label>
+                      <Input
+                        id="setup-postal"
+                        value={addressPostalCode}
+                        onChange={(e) => setAddressPostalCode(e.target.value)}
+                        placeholder="1234"
+                        autoComplete="postal-code"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="setup-country">Country</Label>
+                    <Select value={addressCountry} onValueChange={setAddressCountry}>
+                      <SelectTrigger id="setup-country">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COUNTRY_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Regional Settings */}
+          <Card variant="glass" className="rounded-2xl">
+            <CardContent className="pt-0 space-y-5">
+              <div>
+                <h2 className="text-base font-semibold">Regional Settings</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">How amounts and text are displayed to customers</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="setup-currency">Currency</Label>
+                <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
+                  <SelectTrigger id="setup-currency" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCY_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Used for displaying amounts in rewards and customer views</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="setup-language">Language</Label>
+                <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                  <SelectTrigger id="setup-language" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Language used on your customer-facing loyalty page</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {step === 1 && (
         <div className="space-y-8">
           <ProgramOverview
             config={rewardsConfig}
@@ -866,7 +1099,7 @@ export default function SetupPage() {
         </div>
       )}
 
-      {step === 1 && (
+      {step === 2 && (
         <div className="space-y-6">
           <Card variant="glass" className="rounded-2xl">
             <CardContent className="pt-0">
@@ -958,7 +1191,7 @@ export default function SetupPage() {
         </div>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <div className="space-y-6">
           <Card variant="glass" className="rounded-2xl">
             <CardContent className="pt-0 space-y-6">
@@ -1061,7 +1294,7 @@ export default function SetupPage() {
           <ChevronLeft className="h-4 w-4" />
           Back
         </Button>
-        {step < 3 ? (
+        {step < 4 ? (
           <Button variant="glow" onClick={handleNext} className="gap-2">
             Next
             <ChevronRight className="h-4 w-4" />

@@ -23,10 +23,25 @@ export function ScanDialog({
   const supabase = createClient()
 
   const lookupCustomer = async (value: string) => {
+    const raw = value.trim()
+    const stripped = raw.replace(/\s+/g, '') // "51 14 82 34" → "51148234"
+
+    // Only match against the UUID column when the input is actually a UUID —
+    // passing a non-UUID to id.eq. causes a Postgres cast error that fails the
+    // entire query, even if phone/member_id would have matched.
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)
+
+    const conditions: string[] = []
+    if (isUuid) conditions.push(`id.eq.${raw}`)
+    conditions.push(`member_id.eq.${raw}`, `phone.eq.${raw}`)
+    if (stripped !== raw) {
+      conditions.push(`member_id.eq.${stripped}`, `phone.eq.${stripped}`)
+    }
+
     const { data } = await supabase
       .from('customers')
       .select('id')
-      .or(`id.eq.${value},member_id.eq.${value},phone.eq.${value}`)
+      .or(conditions.join(','))
       .limit(1)
       .single()
 
@@ -35,7 +50,7 @@ export function ScanDialog({
       setScanResult(null)
       setManualInput('')
       setManualMode(false)
-      router.push(`/customers/${data.id}`)
+      router.push(`/customers/${data.id}/transaction`)
     } else {
       setScanResult(`No customer found for "${value}"`)
     }

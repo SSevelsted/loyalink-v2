@@ -5,7 +5,7 @@ import { useCustomer, useCustomerEvents, useUpdateCustomer } from '@/hooks/use-c
 import { useCustomerPasses, useGeneratePass, usePassDeviceRegistrations } from '@/hooks/use-wallet'
 import { useStudio } from '@/hooks/use-studio'
 import { createClient } from '@/lib/supabase/client'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,10 +19,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { useMemo, useState } from 'react'
-import { PASS_SERVICE_URL } from '@/lib/constants'
 import type { Transaction } from '@/types/database'
 import { TIER_COLOR_PALETTE } from '@/types/database'
-import { useProcessTransaction, useCustomerReferrals, useRewardsConfig } from '@/hooks/use-rewards'
+import { useCustomerReferrals, useRewardsConfig } from '@/hooks/use-rewards'
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -44,7 +43,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
-import { getTierDisplayName, getTierIndex, TRANSACTION_LABELS, MANUAL_TRANSACTION_TYPES } from '@/lib/format'
+import { getTierDisplayName, getTierIndex, TRANSACTION_LABELS } from '@/lib/format'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { QRCodeSVG } from 'qrcode.react'
 
@@ -65,7 +64,6 @@ export default function CustomerDetailPage() {
   const { currentStudio, membership } = useStudio()
   const updateCustomer = useUpdateCustomer()
   const generatePass = useGeneratePass()
-  const processTransaction = useProcessTransaction()
   const { data: referrals } = useCustomerReferrals(params.id)
   const { data: rewardsConfig } = useRewardsConfig()
   const { data: customerEvents } = useCustomerEvents(params.id)
@@ -92,29 +90,6 @@ export default function CustomerDetailPage() {
     enabled: !!params.id,
   })
 
-  const addTransaction = useMutation({
-    mutationFn: async (tx: { type: string; amount: number; description: string }) => {
-      const { error } = await supabase.from('transactions').insert({
-        customer_id: params.id,
-        studio_id: currentStudio!.id,
-        ...tx,
-      })
-      if (error) throw error
-
-      const delta = tx.type === 'credit' || tx.type === 'cashback' ? tx.amount : -tx.amount
-      await supabase
-        .from('customers')
-        .update({ balance: Number(customer!.balance) + delta })
-        .eq('id', params.id)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['transactions', params.id] })
-      queryClient.invalidateQueries({ queryKey: ['customer', params.id] })
-    },
-  })
-
-  const [txForm, setTxForm] = useState({ type: 'credit', amount: '', description: '' })
-  const [txOpen, setTxOpen] = useState(false)
   const [txDatePreset, setTxDatePreset] = useState<DatePreset>('all')
 
   // Admin overrides
@@ -125,7 +100,7 @@ export default function CustomerDetailPage() {
   const [shareOpen, setShareOpen] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
 
-  // Derived stats — avg spend uses only credit (purchase) transactions
+  // Derived stats
   const stats = useMemo(() => {
     if (!transactions) return { purchaseCount: 0, avgSpend: 0 }
     const purchases = transactions.filter((tx) => tx.type === 'credit')
@@ -135,7 +110,6 @@ export default function CustomerDetailPage() {
     return { purchaseCount, avgSpend }
   }, [transactions])
 
-  // Filtered transactions by date
   const filteredTransactions = useMemo(() => {
     if (!transactions) return []
     const cutoff = getDateCutoff(txDatePreset)
@@ -143,7 +117,6 @@ export default function CustomerDetailPage() {
     return transactions.filter((tx) => new Date(tx.created_at) >= cutoff)
   }, [transactions, txDatePreset])
 
-  // Referral breakdown
   const referralStats = useMemo(() => {
     if (!referrals) return { sent: 0, activated: 0, pending: 0, totalEarned: 0 }
     return {
@@ -154,19 +127,15 @@ export default function CustomerDetailPage() {
     }
   }, [referrals])
 
-  // Pass timeline events
   const passTimeline = useMemo(() => {
     const events: Array<{ date: string; label: string; icon: 'created' | 'installed' | 'uninstalled' | 'updated' }> = []
-
     if (passes?.length) {
       const pass = passes[0]
       events.push({ date: pass.created_at, label: `${pass.platform === 'apple' ? 'Apple' : 'Google'} Wallet pass generated`, icon: 'created' })
-
       if (pass.updated_at !== pass.created_at) {
         events.push({ date: pass.updated_at, label: 'Pass last updated', icon: 'updated' })
       }
     }
-
     if (deviceRegs?.length) {
       for (const reg of deviceRegs) {
         events.push({
@@ -176,12 +145,10 @@ export default function CustomerDetailPage() {
         })
       }
     }
-
     events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     return events
   }, [passes, deviceRegs])
 
-  // Tier history from analytics events
   const tierHistory = useMemo(() => {
     if (!customerEvents) return []
     return customerEvents
@@ -229,34 +196,6 @@ export default function CustomerDetailPage() {
     setEditBalanceValue('')
   }
 
-  const handleAddTx = async () => {
-    const amount = parseFloat(txForm.amount)
-    await addTransaction.mutateAsync({
-      type: txForm.type,
-      amount,
-      description: txForm.description,
-    })
-
-    if (txForm.type === 'credit' && currentStudio) {
-      try {
-        await processTransaction.mutateAsync({
-          customerId: params.id,
-          studioId: currentStudio.id,
-          transactionId: '',
-          amount,
-        })
-        queryClient.invalidateQueries({ queryKey: ['customer', params.id] })
-        queryClient.invalidateQueries({ queryKey: ['transactions', params.id] })
-        queryClient.invalidateQueries({ queryKey: ['customer_events', params.id] })
-      } catch {
-        // Non-critical
-      }
-    }
-
-    setTxForm({ type: 'credit', amount: '', description: '' })
-    setTxOpen(false)
-  }
-
   const handleGeneratePass = async () => {
     if (!currentStudio) return
     await generatePass.mutateAsync({
@@ -269,7 +208,6 @@ export default function CustomerDetailPage() {
   const tierIdx = getTierIndex(customer.loyalty_stage, rewardsConfig)
   const tierPalette = TIER_COLOR_PALETTE[tierIdx % TIER_COLOR_PALETTE.length]
   const memberSince = new Date(customer.created_at)
-  // eslint-disable-next-line react-hooks/purity
   const daysSinceJoin = Math.floor((Date.now() - memberSince.getTime()) / (1000 * 60 * 60 * 24))
 
   return (
@@ -348,6 +286,12 @@ export default function CustomerDetailPage() {
                 </DialogContent>
               </Dialog>
             )}
+            <Button size="sm" asChild>
+              <Link href={`/customers/${customer.id}/transaction`}>
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Record Transaction
+              </Link>
+            </Button>
           </div>
         </div>
       </div>
@@ -377,7 +321,7 @@ export default function CustomerDetailPage() {
                     </DialogHeader>
                     <div className="space-y-4 pt-2">
                       <p className="text-sm text-muted-foreground">
-                        Override this customer&apos;s balance directly. For regular transactions, use &quot;Add Transaction&quot; instead.
+                        Override this customer&apos;s balance directly. For regular transactions, use &quot;Record Transaction&quot; instead.
                       </p>
                       <div className="space-y-2">
                         <Label className="text-xs text-muted-foreground uppercase tracking-wider">New Balance</Label>
@@ -545,119 +489,107 @@ export default function CustomerDetailPage() {
             {passes?.length ? (() => {
               const passUrl = `/pass/${passes[0].serial_number}`
               return (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                    {passes[0].platform === 'apple' ? 'Apple' : 'Google'} Wallet &middot; {passes[0].status}
-                  </Badge>
-                  <div className="flex items-center gap-2">
-                    <Dialog open={shareOpen} onOpenChange={(open) => {
-                      setShareOpen(open)
-                      if (!open) setLinkCopied(false)
-                    }}>
-                      <DialogTrigger asChild>
-                        <button className="flex items-center gap-1.5 text-sm text-primary hover:underline">
-                          <Share2 className="h-3.5 w-3.5" />
-                          Share
-                        </button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Share Wallet Pass</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-5 pt-2">
-                          <p className="text-sm text-muted-foreground">
-                            Share this link with the customer. It works for both Apple Wallet (iPhone) and Google Wallet (Android).
-                          </p>
-
-                          {/* QR Code */}
-                          <div className="flex justify-center">
-                            <div className="rounded-2xl bg-white p-4">
-                              <QRCodeSVG value={passUrl} size={180} level="M" />
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                      {passes[0].platform === 'apple' ? 'Apple' : 'Google'} Wallet &middot; {passes[0].status}
+                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Dialog open={shareOpen} onOpenChange={(open) => {
+                        setShareOpen(open)
+                        if (!open) setLinkCopied(false)
+                      }}>
+                        <DialogTrigger asChild>
+                          <button className="flex items-center gap-1.5 text-sm text-primary hover:underline">
+                            <Share2 className="h-3.5 w-3.5" />
+                            Share
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Share Wallet Pass</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-5 pt-2">
+                            <p className="text-sm text-muted-foreground">
+                              Share this link with the customer. It works for both Apple Wallet (iPhone) and Google Wallet (Android).
+                            </p>
+                            <div className="flex justify-center">
+                              <div className="rounded-2xl bg-white p-4">
+                                <QRCodeSVG value={passUrl} size={180} level="M" />
+                              </div>
                             </div>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                readOnly
+                                value={`${typeof window !== 'undefined' ? window.location.origin : ''}${passUrl}`}
+                                className="bg-secondary/50 text-xs font-mono"
+                                onFocus={(e) => e.target.select()}
+                              />
+                              <Button
+                                size="sm"
+                                variant={linkCopied ? 'default' : 'outline'}
+                                className="shrink-0 gap-1.5"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`${window.location.origin}${passUrl}`)
+                                  setLinkCopied(true)
+                                  toast.success('Link copied to clipboard')
+                                  setTimeout(() => setLinkCopied(false), 2000)
+                                }}
+                              >
+                                {linkCopied ? (
+                                  <><CheckCircle2 className="h-3.5 w-3.5" />Copied</>
+                                ) : (
+                                  <><Copy className="h-3.5 w-3.5" />Copy</>
+                                )}
+                              </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground text-center">
+                              iPhone opens Apple Wallet · Android opens Google Wallet · Desktop shows QR codes
+                            </p>
                           </div>
-
-                          {/* Copy link */}
-                          <div className="flex items-center gap-2">
-                            <Input
-                              readOnly
-                              value={`${typeof window !== 'undefined' ? window.location.origin : ''}${passUrl}`}
-                              className="bg-secondary/50 text-xs font-mono"
-                              onFocus={(e) => e.target.select()}
-                            />
-                            <Button
-                              size="sm"
-                              variant={linkCopied ? 'default' : 'outline'}
-                              className="shrink-0 gap-1.5"
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${window.location.origin}${passUrl}`)
-                                setLinkCopied(true)
-                                toast.success('Link copied to clipboard')
-                                setTimeout(() => setLinkCopied(false), 2000)
-                              }}
-                            >
-                              {linkCopied ? (
-                                <>
-                                  <CheckCircle2 className="h-3.5 w-3.5" />
-                                  Copied
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="h-3.5 w-3.5" />
-                                  Copy
-                                </>
-                              )}
-                            </Button>
-                          </div>
-
-                          <p className="text-xs text-muted-foreground text-center">
-                            iPhone opens Apple Wallet · Android opens Google Wallet · Desktop shows QR codes
-                          </p>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                    <a
-                      href={passUrl}
-                      className="flex items-center gap-1.5 text-sm text-primary hover:underline"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      Download
-                    </a>
+                        </DialogContent>
+                      </Dialog>
+                      <a
+                        href={passUrl}
+                        className="flex items-center gap-1.5 text-sm text-primary hover:underline"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Download
+                      </a>
+                    </div>
                   </div>
-                </div>
 
-                {/* Pass timeline */}
-                {passTimeline.length > 0 && (
-                  <div className="space-y-0">
-                    {passTimeline.map((event, i) => (
-                      <div key={i} className="flex items-start gap-3 relative">
-                        {i < passTimeline.length - 1 && (
-                          <div className="absolute left-[11px] top-6 bottom-0 w-px bg-border/50" />
-                        )}
-                        <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                          event.icon === 'installed' ? 'bg-emerald-500/10' :
-                          event.icon === 'uninstalled' ? 'bg-red-500/10' :
-                          'bg-secondary'
-                        }`}>
-                          {event.icon === 'installed' ? (
-                            <Smartphone className="h-3 w-3 text-emerald-400" />
-                          ) : event.icon === 'uninstalled' ? (
-                            <Smartphone className="h-3 w-3 text-red-400" />
-                          ) : (
-                            <Wallet className="h-3 w-3 text-muted-foreground" />
+                  {passTimeline.length > 0 && (
+                    <div className="space-y-0">
+                      {passTimeline.map((event, i) => (
+                        <div key={i} className="flex items-start gap-3 relative">
+                          {i < passTimeline.length - 1 && (
+                            <div className="absolute left-[11px] top-6 bottom-0 w-px bg-border/50" />
                           )}
+                          <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                            event.icon === 'installed' ? 'bg-emerald-500/10' :
+                            event.icon === 'uninstalled' ? 'bg-red-500/10' :
+                            'bg-secondary'
+                          }`}>
+                            {event.icon === 'installed' ? (
+                              <Smartphone className="h-3 w-3 text-emerald-400" />
+                            ) : event.icon === 'uninstalled' ? (
+                              <Smartphone className="h-3 w-3 text-red-400" />
+                            ) : (
+                              <Wallet className="h-3 w-3 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="pb-4">
+                            <p className="text-sm text-foreground">{event.label}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(event.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
                         </div>
-                        <div className="pb-4">
-                          <p className="text-sm text-foreground">{event.label}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(event.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )
             })() : (
               <div className="text-center py-6">
@@ -680,7 +612,6 @@ export default function CustomerDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Current tier */}
             <div className={`rounded-xl border ${tierPalette.border} ${tierPalette.bg} px-3 py-2.5 mb-4 flex items-center justify-between`}>
               <div>
                 <p className={`text-sm font-semibold ${tierPalette.text}`}>
@@ -737,89 +668,25 @@ export default function CustomerDetailPage() {
                 </span>
               )}
             </CardTitle>
-            <div className="flex items-center gap-2">
-              {/* Date presets */}
-              <div className="flex items-center rounded-lg border border-border/50 overflow-hidden">
-                {([
-                  { value: '7d' as DatePreset, label: '7d' },
-                  { value: '30d' as DatePreset, label: '30d' },
-                  { value: '90d' as DatePreset, label: '90d' },
-                  { value: 'all' as DatePreset, label: 'All' },
-                ] as const).map((preset) => (
-                  <button
-                    key={preset.value}
-                    onClick={() => setTxDatePreset(preset.value)}
-                    className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-                      txDatePreset === preset.value
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-
-              <Dialog open={txOpen} onOpenChange={setTxOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" variant="outline" className="gap-1.5">
-                    <Plus className="h-3.5 w-3.5" />
-                    Add
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add Transaction</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 pt-2">
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground uppercase tracking-wider">Type</Label>
-                      <div className="space-y-2">
-                        {MANUAL_TRANSACTION_TYPES.map((t) => (
-                          <button
-                            key={t.value}
-                            type="button"
-                            onClick={() => setTxForm({ ...txForm, type: t.value })}
-                            className={`w-full rounded-xl border p-3 text-left transition-colors ${
-                              txForm.type === t.value
-                                ? 'border-primary bg-primary/5'
-                                : 'border-border/50 bg-secondary/30 hover:bg-secondary/50'
-                            }`}
-                          >
-                            <p className={`text-sm font-medium ${txForm.type === t.value ? 'text-primary' : 'text-foreground'}`}>
-                              {t.label}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{t.description}</p>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground uppercase tracking-wider">Amount</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={txForm.amount}
-                        onChange={(e) => setTxForm({ ...txForm, amount: e.target.value })}
-                        placeholder="0.00"
-                        className="bg-secondary/50"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground uppercase tracking-wider">Description</Label>
-                      <Input
-                        value={txForm.description}
-                        onChange={(e) => setTxForm({ ...txForm, description: e.target.value })}
-                        placeholder="Optional description"
-                        className="bg-secondary/50"
-                      />
-                    </div>
-                    <Button onClick={handleAddTx} className="w-full" disabled={!txForm.amount || addTransaction.isPending}>
-                      {addTransaction.isPending ? 'Adding...' : 'Add Transaction'}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+            <div className="flex items-center rounded-lg border border-border/50 overflow-hidden">
+              {([
+                { value: '7d' as DatePreset, label: '7d' },
+                { value: '30d' as DatePreset, label: '30d' },
+                { value: '90d' as DatePreset, label: '90d' },
+                { value: 'all' as DatePreset, label: 'All' },
+              ] as const).map((preset) => (
+                <button
+                  key={preset.value}
+                  onClick={() => setTxDatePreset(preset.value)}
+                  className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                    txDatePreset === preset.value
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
             </div>
           </div>
         </CardHeader>
