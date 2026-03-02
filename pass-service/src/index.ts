@@ -11,6 +11,12 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Log every incoming request before any routing
+app.use((req, _res, next) => {
+  console.log(`[http] ${req.method} ${req.path} | ip=${req.ip} | auth=${req.headers.authorization ? req.headers.authorization.slice(0, 20) + '...' : 'none'}`);
+  next();
+});
+
 // Middleware
 app.use(cors());
 app.use(express.json());
