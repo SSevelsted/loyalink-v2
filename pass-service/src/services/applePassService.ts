@@ -48,6 +48,110 @@ A1iZQT0xWmJArzmoUUOSqwSonMJNsUvSq3xKX+udO7xPiEAGE/+QF4oIRynoYpgp
 pU8RBWk6z/Kf
 -----END CERTIFICATE-----`;
 
+interface PassTranslation {
+  changeMessage: string;
+  balanceLabel: string;
+  memberLabel: string;
+  cashbackLabel: string;
+  referralLabel: string;
+  howItWorksLabel: string;
+  announcementLabel: string;
+  description: string;
+}
+
+const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
+  en: {
+    changeMessage: 'Congrats! Your new balance is %@',
+    balanceLabel: 'BALANCE',
+    memberLabel: 'MEMBER',
+    cashbackLabel: 'LOYALTY CASHBACK',
+    referralLabel: 'Refer Friends',
+    howItWorksLabel: 'How It Works',
+    announcementLabel: 'Announcement',
+    description: 'Loyalty Card',
+  },
+  da: {
+    changeMessage: 'Tillykke! Din nye saldo er %@',
+    balanceLabel: 'SALDO',
+    memberLabel: 'MEDLEM',
+    cashbackLabel: 'LOYALITETS CASHBACK',
+    referralLabel: 'Inviter venner',
+    howItWorksLabel: 'Sådan fungerer det',
+    announcementLabel: 'Nyhed',
+    description: 'Loyalitetskort',
+  },
+  sv: {
+    changeMessage: 'Grattis! Ditt nya saldo är %@',
+    balanceLabel: 'SALDO',
+    memberLabel: 'MEDLEM',
+    cashbackLabel: 'LOJALITET CASHBACK',
+    referralLabel: 'Bjud in vänner',
+    howItWorksLabel: 'Så här fungerar det',
+    announcementLabel: 'Nyheter',
+    description: 'Lojalitetskort',
+  },
+  no: {
+    changeMessage: 'Gratulerer! Din nye saldo er %@',
+    balanceLabel: 'SALDO',
+    memberLabel: 'MEDLEM',
+    cashbackLabel: 'LOJALITET CASHBACK',
+    referralLabel: 'Inviter venner',
+    howItWorksLabel: 'Slik fungerer det',
+    announcementLabel: 'Nyhet',
+    description: 'Lojalitetskort',
+  },
+  de: {
+    changeMessage: 'Glückwunsch! Dein neues Guthaben ist %@',
+    balanceLabel: 'GUTHABEN',
+    memberLabel: 'MITGLIED',
+    cashbackLabel: 'TREUE-CASHBACK',
+    referralLabel: 'Freunde werben',
+    howItWorksLabel: 'So funktioniert es',
+    announcementLabel: 'Ankündigung',
+    description: 'Treuekarte',
+  },
+  fr: {
+    changeMessage: 'Félicitations ! Votre nouveau solde est %@',
+    balanceLabel: 'SOLDE',
+    memberLabel: 'MEMBRE',
+    cashbackLabel: 'CASHBACK FIDÉLITÉ',
+    referralLabel: 'Parrainer des amis',
+    howItWorksLabel: 'Comment ça marche',
+    announcementLabel: 'Annonce',
+    description: 'Carte de fidélité',
+  },
+  es: {
+    changeMessage: '¡Felicidades! Tu nuevo saldo es %@',
+    balanceLabel: 'SALDO',
+    memberLabel: 'MIEMBRO',
+    cashbackLabel: 'CASHBACK DE LEALTAD',
+    referralLabel: 'Referir amigos',
+    howItWorksLabel: 'Cómo funciona',
+    announcementLabel: 'Anuncio',
+    description: 'Tarjeta de fidelidad',
+  },
+  nl: {
+    changeMessage: 'Gefeliciteerd! Je nieuwe saldo is %@',
+    balanceLabel: 'SALDO',
+    memberLabel: 'LID',
+    cashbackLabel: 'LOYALITEIT CASHBACK',
+    referralLabel: 'Vrienden uitnodigen',
+    howItWorksLabel: 'Hoe het werkt',
+    announcementLabel: 'Aankondiging',
+    description: 'Loyaliteitskaart',
+  },
+  pl: {
+    changeMessage: 'Gratulacje! Twoje nowe saldo to %@',
+    balanceLabel: 'SALDO',
+    memberLabel: 'CZŁONEK',
+    cashbackLabel: 'CASHBACK LOJALNOŚCIOWY',
+    referralLabel: 'Polecaj znajomych',
+    howItWorksLabel: 'Jak to działa',
+    announcementLabel: 'Ogłoszenie',
+    description: 'Karta lojalnościowa',
+  },
+};
+
 interface PassData {
   serialNumber: string;
   authenticationToken: string;
@@ -57,6 +161,7 @@ interface PassData {
   loyaltyTier: string;
   memberId: string;
   currency: string;
+  language?: string;
   logoUrl?: string;
   iconUrl?: string;
   heroImageUrl?: string;
@@ -255,6 +360,7 @@ export class ApplePassService {
   }
 
   createPassJson(data: PassData): PassJson {
+    const t = PASS_TRANSLATIONS[data.language ?? 'en'] ?? PASS_TRANSLATIONS['en'];
     return {
       formatVersion: 1,
       passTypeIdentifier: appleConfig.passTypeId,
@@ -263,7 +369,7 @@ export class ApplePassService {
       webServiceURL: `${publicUrl}/wallet`,
       authenticationToken: data.authenticationToken,
       organizationName: 'LoyaLink',
-      description: 'Loyalty Card',
+      description: t.description,
       backgroundColor: toRgb(data.backgroundColor),
       foregroundColor: toRgb(data.foregroundColor),
       labelColor: toRgb(data.labelColor),
@@ -271,39 +377,40 @@ export class ApplePassService {
         headerFields: [
           {
             key: 'balance',
-            label: 'BALANCE:',
+            label: t.balanceLabel,
             value: `${data.balance} ${data.currency}`,
+            changeMessage: t.changeMessage,
           },
         ],
         primaryFields: [],
         secondaryFields: [
           {
             key: 'member',
-            label: 'MEMBER',
+            label: t.memberLabel,
             value: data.customerName,
           },
           {
             key: 'cashback',
-            label: 'LOYALTY CASH BACK DEAL',
+            label: t.cashbackLabel,
             value: `${data.cashbackRate}%`,
           },
         ],
         backFields: [
           {
             key: 'referral',
-            label: 'Refer Friends',
+            label: t.referralLabel,
             value: data.staticTexts.referral_program,
           },
           {
             key: 'howItWorks',
-            label: 'How It Works',
+            label: t.howItWorksLabel,
             value: data.staticTexts.how_it_works,
           },
           ...(data.staticTexts.announcement
             ? [
                 {
                   key: 'announcement',
-                  label: 'Announcement',
+                  label: t.announcementLabel,
                   value: data.staticTexts.announcement,
                 },
               ]

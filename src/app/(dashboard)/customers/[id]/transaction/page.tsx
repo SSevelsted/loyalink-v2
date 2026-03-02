@@ -36,7 +36,7 @@ export default function RecordTransactionPage() {
   const [amount, setAmount] = useState('')
   const [isDeposit, setIsDeposit] = useState(false)
   const [useBalance, setUseBalance] = useState(true)
-  const [recorded, setRecorded] = useState<{ amount: number; cashback: number } | null>(null)
+  const [recorded, setRecorded] = useState<{ amount: number; cashback: number; newBalance: number } | null>(null)
   const [showScanner, setShowScanner] = useState(false)
 
   const currentBalance = Number(customer?.balance ?? 0)
@@ -84,7 +84,7 @@ export default function RecordTransactionPage() {
       queryClient.invalidateQueries({ queryKey: ['transactions', id] })
       queryClient.invalidateQueries({ queryKey: ['customer', id] })
       queryClient.invalidateQueries({ queryKey: ['customer_events', id] })
-      setRecorded({ amount: parsedAmount, cashback: earnsNow })
+      setRecorded({ amount: parsedAmount, cashback: earnsNow, newBalance: newBalanceAfter })
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : 'Failed to record transaction')
@@ -132,7 +132,7 @@ export default function RecordTransactionPage() {
           <div className="text-left">
             <p className="text-sm font-medium text-foreground">{customer.name}</p>
             <p className="text-xs text-muted-foreground">
-              New balance: {formatAmount(newBalanceAfter, currencyConfig)}
+              New balance: {formatAmount(recorded.newBalance, currencyConfig)}
             </p>
           </div>
         </div>

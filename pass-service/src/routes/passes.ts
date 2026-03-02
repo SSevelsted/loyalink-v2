@@ -17,13 +17,16 @@ passRoutes.post('/generate', async (req: Request, res: Response) => {
     // Fetch customer data
     const { data: customer, error: customerError } = await supabase
       .from('customers')
-      .select('*, studios(name)')
+      .select('*, studios(name, settings)')
       .eq('id', customerId)
       .single();
 
     if (customerError || !customer) {
       return res.status(404).json({ error: 'Customer not found' });
     }
+
+    const studioSettings = (customer.studios as { name: string; settings: Record<string, unknown> } | null)?.settings ?? {};
+    const studioLanguage = (studioSettings.language as string) ?? 'en';
 
     // Fetch template for the studio
     const { data: template } = await supabase
@@ -87,6 +90,7 @@ passRoutes.post('/generate', async (req: Request, res: Response) => {
         loyaltyTier: formatTierName(loyaltyTier),
         memberId: customer.member_id || customerId,
         currency: customer.currency || 'DKK',
+        language: studioLanguage,
         logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
         iconUrl: template?.icon_url || undefined,
         heroImageUrl: tierTheme.stripImage || undefined,
@@ -167,6 +171,14 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
 
     const staticTexts = template?.static_texts as Record<string, string> || {};
 
+    // Fetch studio language
+    const { data: studioData } = await supabase
+      .from('studios')
+      .select('settings')
+      .eq('id', walletPass.studio_id)
+      .single();
+    const studioLanguage = (studioData?.settings as { language?: string } | null)?.language ?? 'en';
+
     // Generate pass
     const generatedPass = await applePassService.generatePass({
       serialNumber: walletPass.serial_number,
@@ -177,6 +189,7 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
       loyaltyTier: formatTierName(loyaltyTier),
       memberId: customer.member_id || customer.id,
       currency: customer.currency || 'DKK',
+      language: studioLanguage,
       logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
       iconUrl: template?.icon_url || undefined,
       heroImageUrl: tierTheme.stripImage || undefined,

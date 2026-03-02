@@ -244,6 +244,14 @@ appleWebServiceRoutes.get(
       const tierTheme = tierThemes[loyaltyTier] || tierThemes['base'] || { backgroundColor: '#ffffff', foregroundColor: '#000000', labelColor: '#666666' };
       const staticTexts = template?.static_texts as Record<string, string> || {};
 
+      // Fetch studio language
+      const { data: studioData } = await supabase
+        .from('studios')
+        .select('settings')
+        .eq('id', walletPass.studio_id)
+        .single();
+      const studioLanguage = (studioData?.settings as { language?: string } | null)?.language ?? 'en';
+
       const { applePassService } = await import('../services/applePassService.js');
       const passBuffer = await applePassService.generatePass({
         serialNumber: walletPass.serial_number,
@@ -254,6 +262,7 @@ appleWebServiceRoutes.get(
         loyaltyTier: customer.loyalty_stage || 'base',
         memberId: customer.member_id || customer.id,
         currency: customer.currency || 'DKK',
+        language: studioLanguage,
         logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
         iconUrl: template?.icon_url || undefined,
         heroImageUrl: tierTheme.stripImage || undefined,
