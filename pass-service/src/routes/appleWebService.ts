@@ -50,14 +50,16 @@ appleWebServiceRoutes.post(
         .single();
 
       if (passError || !walletPass) {
+        console.error(`Device registration 404: pass ${serialNumber} not found in DB. passError=${passError?.message}`);
         return res.status(404).send('Pass not found');
       }
 
       if (walletPass.authentication_token !== req.authToken) {
+        console.error(`Device registration 401: auth mismatch for pass ${serialNumber}. expected=${walletPass.authentication_token?.slice(0, 8)}... got=${req.authToken?.slice(0, 8)}...`);
         return res.status(401).send('Unauthorized');
       }
 
-      console.log(`Device registration: pass=${serialNumber} belongs to customer=${walletPass.customer_id}, device=${deviceId}, pushToken=${pushToken?.slice(0, 8)}...`);
+      console.log(`Device registration OK: pass=${serialNumber} customer=${walletPass.customer_id} device=${deviceId} pushToken=${pushToken?.slice(0, 8)}...`);
 
       // Upsert device registration
       const { error: regError } = await supabase

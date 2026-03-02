@@ -16,7 +16,11 @@ async function getRegistrationsForCustomers(customerIds: string[]) {
     .select('serial_number, customer_id')
     .in('customer_id', customerIds);
 
-  if (!passes || passes.length === 0) return { registrations: [], serialToCustomer: {} as Record<string, string> };
+  if (!passes || passes.length === 0) {
+    console.log(`[getRegistrations] No wallet_passes found for customers: ${customerIds.join(', ')}`);
+    return { registrations: [], serialToCustomer: {} as Record<string, string> };
+  }
+  console.log(`[getRegistrations] Found ${passes.length} pass(es) for customers ${customerIds.join(', ')}: ${passes.map(p => p.serial_number).join(', ')}`);
 
   const serialNumbers = passes.map((p) => p.serial_number);
   const serialToCustomer = Object.fromEntries(passes.map((p) => [p.serial_number, p.customer_id]));
@@ -27,6 +31,7 @@ async function getRegistrationsForCustomers(customerIds: string[]) {
     .in('serial_number', serialNumbers)
     .eq('is_active', true);
 
+  console.log(`[getRegistrations] Found ${(registrations || []).length} active registration(s) for serials [${serialNumbers.join(', ')}]`);
   return { registrations: registrations || [], serialToCustomer, error };
 }
 

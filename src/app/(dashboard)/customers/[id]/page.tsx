@@ -45,6 +45,7 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import { getTierDisplayName, getTierIndex, TRANSACTION_LABELS } from '@/lib/format'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
+import { PASS_SERVICE_URL } from '@/lib/constants'
 import { QRCodeSVG } from 'qrcode.react'
 
 type DatePreset = '7d' | '30d' | '90d' | 'all'
@@ -185,6 +186,13 @@ export default function CustomerDetailPage() {
     })
     toast.success(`Tier changed to ${tier.name}`)
     setEditTierOpen(false)
+    if (currentStudio) {
+      fetch(`${PASS_SERVICE_URL}/api/push/customer/${customer.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studioId: currentStudio.id }),
+      }).catch(() => {})
+    }
   }
 
   const handleSetBalance = async () => {
@@ -194,6 +202,13 @@ export default function CustomerDetailPage() {
     toast.success('Balance updated')
     setEditBalanceOpen(false)
     setEditBalanceValue('')
+    if (currentStudio) {
+      fetch(`${PASS_SERVICE_URL}/api/push/customer/${customer.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studioId: currentStudio.id }),
+      }).catch(() => {})
+    }
   }
 
   const handleGeneratePass = async () => {
