@@ -208,7 +208,7 @@ appleWebServiceRoutes.get(
     try {
       const { serialNumber } = req.params;
 
-      console.log(`Getting pass: ${serialNumber}`);
+      console.log(`Getting updated pass: ${serialNumber}`);
 
       // Verify the pass exists and auth token matches
       const { data: walletPass } = await supabase
@@ -221,9 +221,50 @@ appleWebServiceRoutes.get(
         return res.status(401).send('Unauthorized');
       }
 
-      // Redirect to download endpoint
-      // This could also generate the pass inline
-      res.redirect(`/api/passes/${serialNumber}/download`);
+      const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string };
+
+      // Fetch template
+      const { data: template } = await supabase
+        .from('pass_templates')
+        .select('*')
+        .eq('studio_id', walletPass.studio_id)
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const loyaltyTier = customer.loyalty_stage || 'base';
+      const tierThemes = template?.tier_themes as Record<string, { backgroundColor: string; foregroundColor: string; labelColor: string; stripImage?: string | null; logoOverride?: string | null }> || {};
+      const tierTheme = tierThemes[loyaltyTier] || tierThemes['base'] || { backgroundColor: '#ffffff', foregroundColor: '#000000', labelColor: '#666666' };
+      const staticTexts = template?.static_texts as Record<string, string> || {};
+
+      const { applePassService } = await import('../services/applePassService.js');
+      const passBuffer = await applePassService.generatePass({
+        serialNumber: walletPass.serial_number,
+        authenticationToken: walletPass.authentication_token,
+        customerName: customer.name,
+        balance: customer.balance,
+        cashbackRate: customer.cashback_rate,
+        loyaltyTier: customer.loyalty_stage || 'base',
+        memberId: customer.member_id || customer.id,
+        currency: customer.currency || 'DKK',
+        logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
+        iconUrl: template?.icon_url || undefined,
+        heroImageUrl: tierTheme.stripImage || undefined,
+        backgroundColor: tierTheme.backgroundColor,
+        foregroundColor: tierTheme.foregroundColor,
+        labelColor: tierTheme.labelColor,
+        staticTexts: {
+          referral_program: staticTexts.referralText || '',
+          how_it_works: staticTexts.howItWorks || '',
+          announcement: staticTexts.announcement || '',
+        },
+      });
+
+      console.log(`Serving updated pass: ${serialNumber}, balance=${customer.balance}`);
+      res.setHeader('Content-Type', 'application/vnd.apple.pkpass');
+      res.setHeader('Cache-Control', 'no-store');
+      res.send(passBuffer);
     } catch (error) {
       console.error('Error getting pass:', error);
       res.status(500).send('Internal error');
