@@ -193,6 +193,7 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
     console.log(`[download] Pass generated, size: ${generatedPass.length} bytes`);
     res.setHeader('Content-Type', 'application/vnd.apple.pkpass');
     res.setHeader('Content-Disposition', `inline; filename="${serialNumber}.pkpass"`);
+    res.setHeader('Last-Modified', new Date(walletPass.updated_at || Date.now()).toUTCString());
     res.setHeader('Cache-Control', 'no-store');
     res.send(generatedPass);
   } catch (error) {

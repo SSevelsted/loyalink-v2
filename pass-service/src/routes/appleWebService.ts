@@ -269,6 +269,7 @@ appleWebServiceRoutes.get(
 
       console.log(`Serving updated pass: ${serialNumber}, balance=${customer.balance}`);
       res.setHeader('Content-Type', 'application/vnd.apple.pkpass');
+      res.setHeader('Last-Modified', new Date(walletPass.updated_at || Date.now()).toUTCString());
       res.setHeader('Cache-Control', 'no-store');
       res.send(passBuffer);
     } catch (error) {
