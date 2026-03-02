@@ -260,7 +260,7 @@ export class ApplePassService {
       passTypeIdentifier: appleConfig.passTypeId,
       serialNumber: data.serialNumber,
       teamIdentifier: appleConfig.teamId,
-      webServiceURL: `${publicUrl}/v1`,
+      webServiceURL: `${publicUrl}/wallet/v1`,
       authenticationToken: data.authenticationToken,
       organizationName: 'LoyaLink',
       description: 'Loyalty Card',

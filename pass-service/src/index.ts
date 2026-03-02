@@ -26,8 +26,7 @@ app.use('/api/google', googleRoutes);
 app.use('/api/push', pushRoutes);
 
 // Apple Wallet Web Service (required for pass updates)
-// Apple expects these at /v1/... path
-app.use('/v1', appleWebServiceRoutes);
+app.use('/wallet/v1', appleWebServiceRoutes);
 
 // Error handler
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
