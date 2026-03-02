@@ -270,9 +270,9 @@ function shouldUpgrade(
 
 function triggerPassUpdate(customerId: string, studioId: string) {
   // Fire and forget - push update to wallet pass
-  fetch(`${PASS_SERVICE_URL}/api/passes/push`, {
+  fetch(`${PASS_SERVICE_URL}/api/push/customer/${customerId}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ customerId, studioId }),
+    body: JSON.stringify({ studioId }),
   }).catch(() => {})
 }
