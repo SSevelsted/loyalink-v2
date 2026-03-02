@@ -62,8 +62,6 @@ appleWebServiceRoutes.post(
         .from('wallet_device_registrations')
         .upsert(
           {
-            customer_id: walletPass.customer_id,
-            wallet_pass_id: walletPass.id,
             device_library_identifier: deviceId,
             push_token: pushToken,
             platform: 'apple',

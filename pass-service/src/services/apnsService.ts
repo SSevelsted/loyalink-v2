@@ -76,12 +76,17 @@ export class APNsService {
         req.on('response', (responseHeaders) => {
           const status = responseHeaders[':status'];
           if (status === 200) {
-            console.log('Push notification sent successfully');
             resolve(true);
-          } else {
-            console.error('APNs error:', status);
-            resolve(false);
+            return;
           }
+          // Collect the response body for the error reason
+          const chunks: Buffer[] = [];
+          req.on('data', (chunk: Buffer) => chunks.push(chunk));
+          req.on('end', () => {
+            const body = Buffer.concat(chunks).toString();
+            console.error(`APNs error ${status} for token ${pushToken.slice(0, 8)}...: ${body}`);
+            resolve(false);
+          });
         });
 
         req.on('error', (error) => {

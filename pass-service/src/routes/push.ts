@@ -1,23 +1,88 @@
 import { Router, Request, Response } from 'express';
 import { supabase } from '../config.js';
+import { apnsConfig, appleConfig } from '../config.js';
 import { apnsService } from '../services/apnsService.js';
 import { googleWalletService } from '../services/googleWalletService.js';
 
 export const pushRoutes = Router();
+
+// Helper: get active device registrations for a list of customer IDs
+// wallet_device_registrations has no customer_id column — join through wallet_passes
+async function getRegistrationsForCustomers(customerIds: string[]) {
+  if (customerIds.length === 0) return { registrations: [], serialToCustomer: {} as Record<string, string> };
+
+  const { data: passes } = await supabase
+    .from('wallet_passes')
+    .select('serial_number, customer_id')
+    .in('customer_id', customerIds);
+
+  if (!passes || passes.length === 0) return { registrations: [], serialToCustomer: {} as Record<string, string> };
+
+  const serialNumbers = passes.map((p) => p.serial_number);
+  const serialToCustomer = Object.fromEntries(passes.map((p) => [p.serial_number, p.customer_id]));
+
+  const { data: registrations, error } = await supabase
+    .from('wallet_device_registrations')
+    .select('push_token, platform, serial_number')
+    .in('serial_number', serialNumbers)
+    .eq('is_active', true);
+
+  return { registrations: registrations || [], serialToCustomer, error };
+}
+
+// Debug: check registration state for a studio
+pushRoutes.get('/debug/:studioId', async (req: Request, res: Response) => {
+  try {
+    const { studioId } = req.params;
+
+    const { data: customers } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('studio_id', studioId);
+
+    const customerIds = customers?.map((c) => c.id) || [];
+    const { registrations, error } = await getRegistrationsForCustomers(customerIds);
+
+    const active = registrations;
+
+    res.json({
+      config: {
+        apnsHost: apnsConfig.host,
+        apnsKeyId: apnsConfig.keyId || '(not set)',
+        apnsTeamId: apnsConfig.teamId || '(not set)',
+        apnsKeyConfigured: !!apnsConfig.keyBase64,
+        passTypeId: appleConfig.passTypeId,
+      },
+      customers: customerIds.length,
+      registrations: {
+        total: registrations.length,
+        active: active.length,
+        dbError: error ? String(error) : null,
+        byPlatform: {
+          apple: active.filter((r) => r.platform === 'apple').length,
+          google: active.filter((r) => r.platform === 'google').length,
+        },
+        sample: active.slice(0, 3).map((r) => ({
+          platform: r.platform,
+          serialNumber: r.serial_number,
+          tokenPrefix: r.push_token?.slice(0, 8) + '...',
+        })),
+      },
+    });
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.status(500).json({ error: String(error) });
+  }
+});
 
 // Send push notification to update a single customer's pass
 pushRoutes.post('/customer/:customerId', async (req: Request, res: Response) => {
   try {
     const { customerId } = req.params;
 
-    // Get all active device registrations for this customer
-    const { data: registrations, error } = await supabase
-      .from('wallet_device_registrations')
-      .select('push_token, platform, serial_number')
-      .eq('customer_id', customerId)
-      .eq('is_active', true);
+    const { registrations, error } = await getRegistrationsForCustomers([customerId]);
 
-    if (error || !registrations || registrations.length === 0) {
+    if (error || registrations.length === 0) {
       return res.json({
         success: true,
         message: 'No active devices found',
@@ -35,20 +100,12 @@ pushRoutes.post('/customer/:customerId', async (req: Request, res: Response) => 
       appleResults = await apnsService.sendBulkPushNotifications(appleTokens);
     }
 
-    // Update Google passes
-    const googlePasses = registrations.filter((r) => r.platform === 'google');
-    let googleUpdated = 0;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    for (const _pass of googlePasses) {
-      // Trigger update via Google API
-      // Google passes don't need push - they sync automatically when object is updated
-      googleUpdated++;
-    }
+    const googleUpdated = registrations.filter((r) => r.platform === 'google').length;
 
-    // Increment pass version for all platforms
+    // Increment pass version
     await supabase
       .from('wallet_passes')
-      .update({ version: supabase.rpc('increment', { x: 1 }) })
+      .update({ version: 2 })
       .eq('customer_id', customerId);
 
     res.json({
@@ -114,14 +171,11 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
 
     const customerIds = customers.map((c) => c.id);
 
-    // Get all device registrations
-    const { data: registrations, error: regError } = await supabase
-      .from('wallet_device_registrations')
-      .select('push_token, platform, serial_number, customer_id')
-      .in('customer_id', customerIds)
-      .eq('is_active', true);
+    // Get all device registrations via wallet_passes join
+    const { registrations, serialToCustomer, error: regError } = await getRegistrationsForCustomers(customerIds);
 
-    if (regError || !registrations || registrations.length === 0) {
+    if (regError || registrations.length === 0) {
+      console.log(`[push/studio] No active devices for studio ${studioId} (${customers.length} customers). regError:`, regError);
       return res.json({
         success: true,
         message: 'No active devices found',
@@ -135,22 +189,26 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
       .filter((r) => r.platform === 'apple')
       .map((r) => r.push_token);
 
+    console.log(`[push/studio] Sending to ${appleTokens.length} Apple devices, ${registrations.filter(r => r.platform === 'google').length} Google devices`);
+
     let appleResults = { sent: 0, failed: 0 };
     if (appleTokens.length > 0) {
       appleResults = await apnsService.sendBulkPushNotifications(appleTokens);
+      console.log(`[push/studio] APNs results: sent=${appleResults.sent}, failed=${appleResults.failed}`);
     }
 
     // Update Google passes
     const googleRegistrations = registrations.filter((r) => r.platform === 'google');
     let googleUpdated = 0;
 
-    // For Google, we need to update each pass object
     for (const reg of googleRegistrations) {
-      // Fetch customer data
+      const regCustomerId = serialToCustomer[reg.serial_number];
+      if (!regCustomerId) continue;
+
       const { data: customer } = await supabase
         .from('customers')
         .select('*')
-        .eq('id', reg.customer_id)
+        .eq('id', regCustomerId)
         .single();
 
       if (customer) {
@@ -223,20 +281,17 @@ pushRoutes.post('/process-queue', async (req: Request, res: Response) => {
         .eq('id', log.id);
 
       try {
-        // Determine target
+        // Determine target customer IDs
         let customerIds: string[] = [];
 
         if (log.target_type === 'individual' && log.customer_id) {
           customerIds = [log.customer_id];
         } else {
-          // Build customer query
           let query = supabase
             .from('customers')
             .select('id')
-            .eq('studio_id', log.studio_id)
-            .eq('pass_provider', 'self_hosted');
+            .eq('studio_id', log.studio_id);
 
-          // Apply segment filter (supports full AudienceFilter)
           type SegmentFilter = { customer_ids?: string[]; loyalty_stages?: string[]; tags?: string[]; min_balance?: number; min_spend?: number; has_purchased?: boolean; joined_after?: string; joined_before?: string }
           const filter = log.segment_filter as SegmentFilter | null;
           if (filter) {
@@ -270,17 +325,12 @@ pushRoutes.post('/process-queue', async (req: Request, res: Response) => {
           customerIds = customers?.map((c) => c.id) || [];
         }
 
-        // Get device registrations
-        const { data: registrations } = await supabase
-          .from('wallet_device_registrations')
-          .select('push_token, platform')
-          .in('customer_id', customerIds)
-          .eq('is_active', true);
-
-        const totalDevices = registrations?.length || 0;
+        // Get device registrations via wallet_passes join
+        const { registrations } = await getRegistrationsForCustomers(customerIds);
+        const totalDevices = registrations.length;
 
         // Send Apple pushes
-        const appleTokens = (registrations || [])
+        const appleTokens = registrations
           .filter((r) => r.platform === 'apple')
           .map((r) => r.push_token);
 
