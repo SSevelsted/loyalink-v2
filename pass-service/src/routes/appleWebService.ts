@@ -156,14 +156,12 @@ appleWebServiceRoutes.get(
       console.log(`Getting passes for device: ${deviceId}`);
 
       // Get all active registrations for this device
-      const query = supabase
+      const { data: registrations, error } = await supabase
         .from('wallet_device_registrations')
-        .select('serial_number, wallet_passes(updated_at)')
+        .select('serial_number')
         .eq('device_library_identifier', deviceId)
         .eq('platform', 'apple')
         .eq('is_active', true);
-
-      const { data: registrations, error } = await query;
 
       if (error) {
         console.error('Error fetching registrations:', error);
@@ -180,12 +178,16 @@ appleWebServiceRoutes.get(
 
       if (passesUpdatedSince) {
         const since = new Date(passesUpdatedSince as string);
-        serialNumbers = registrations
-          .filter((r) => {
-            const pass = r.wallet_passes as { updated_at: string } | null;
-            return pass && new Date(pass.updated_at) > since;
-          })
-          .map((r) => r.serial_number);
+
+        // Fetch updated_at separately (no FK relationship in schema)
+        const { data: passes } = await supabase
+          .from('wallet_passes')
+          .select('serial_number, updated_at')
+          .in('serial_number', serialNumbers);
+
+        serialNumbers = (passes || [])
+          .filter((p) => new Date(p.updated_at) > since)
+          .map((p) => p.serial_number);
 
         if (serialNumbers.length === 0) {
           return res.status(204).send();
