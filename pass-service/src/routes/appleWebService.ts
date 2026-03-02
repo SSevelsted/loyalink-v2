@@ -69,7 +69,7 @@ appleWebServiceRoutes.post(
             is_active: true,
           },
           {
-            onConflict: 'device_library_identifier,serial_number,platform',
+            onConflict: 'device_library_identifier,serial_number',
           }
         );
 

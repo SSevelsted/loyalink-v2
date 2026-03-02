@@ -186,6 +186,8 @@ export async function POST(request: NextRequest) {
       const newBalance = Number(updatedCustomer?.balance ?? 0) + cashbackAmount
       await supabase.from('customers').update({ balance: newBalance }).eq('id', customerId)
 
+      triggerPassUpdate(customerId, studioId)
+
       results.push(`Cashback: ${cashbackAmount.toFixed(2)} kr (${cashbackRate}%)`)
     }
 
