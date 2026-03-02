@@ -45,7 +45,7 @@ export default function RecordTransactionPage() {
     rewardsConfig?.tiers.find((t) => t.slug === effectiveTierSlug)?.cashback_rate ??
     Number(customer?.cashback_rate ?? 0)
   const parsedAmount = parseFloat(amount.replace(',', '.')) || 0
-  const balanceUsed = useBalance && !isDeposit ? Math.min(currentBalance, parsedAmount) : 0
+  const balanceUsed = useBalance ? Math.min(currentBalance, parsedAmount) : 0
   const chargeOnPOS = parsedAmount - balanceUsed
   const earnsNow = parsedAmount * cashbackRate / 100
   const newBalanceAfter = currentBalance - balanceUsed + earnsNow
@@ -224,20 +224,19 @@ export default function RecordTransactionPage() {
           <p className="text-sm text-foreground">Deposit</p>
           <Switch
             checked={isDeposit}
-            onCheckedChange={(v) => { setIsDeposit(v); if (v) setUseBalance(false) }}
+            onCheckedChange={setIsDeposit}
           />
         </div>
 
         {/* Balance toggle */}
         {currentBalance > 0 && (
-          <div className={`flex items-center justify-between transition-opacity ${isDeposit ? 'opacity-30 pointer-events-none' : ''}`}>
+          <div className="flex items-center justify-between">
             <p className="text-sm text-foreground">
               Use balance <span className="text-xs text-muted-foreground ml-1">· {formatAmount(currentBalance, currencyConfig)} available</span>
             </p>
             <Switch
-              checked={useBalance && !isDeposit}
-              onCheckedChange={(v) => !isDeposit && setUseBalance(v)}
-              disabled={isDeposit}
+              checked={useBalance}
+              onCheckedChange={setUseBalance}
             />
           </div>
         )}
