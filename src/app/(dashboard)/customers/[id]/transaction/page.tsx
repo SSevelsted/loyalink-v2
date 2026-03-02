@@ -13,6 +13,7 @@ import { ArrowLeft, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { useRef, useState } from 'react'
+import { ScanDialog } from '@/components/scanner/scan-dialog'
 import { getTierDisplayName, getTierIndex, getEffectiveTierSlug } from '@/lib/format'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { TIER_COLOR_PALETTE } from '@/types/database'
@@ -36,6 +37,7 @@ export default function RecordTransactionPage() {
   const [isDeposit, setIsDeposit] = useState(false)
   const [useBalance, setUseBalance] = useState(true)
   const [recorded, setRecorded] = useState<{ amount: number; cashback: number } | null>(null)
+  const [showScanner, setShowScanner] = useState(false)
 
   const currentBalance = Number(customer?.balance ?? 0)
   const effectiveTierSlug = getEffectiveTierSlug(customer?.loyalty_stage ?? '', rewardsConfig)
@@ -66,7 +68,8 @@ export default function RecordTransactionPage() {
       await supabase.from('transactions').insert({
         customer_id: id,
         studio_id: currentStudio.id,
-        type: 'credit',
+        // Use 'adjustment' for deposits so any DB trigger scoped to 'credit' won't award cashback
+        type: isDeposit ? 'adjustment' : 'credit',
         amount: parsedAmount,
         description: isDeposit ? 'Consultation deposit' : null,
       })
@@ -90,14 +93,6 @@ export default function RecordTransactionPage() {
       toast.error(err instanceof Error ? err.message : 'Failed to record transaction')
     },
   })
-
-  const handleRecordAnother = () => {
-    setRecorded(null)
-    setAmount('')
-    setIsDeposit(false)
-    setUseBalance(true)
-    setTimeout(() => amountInputRef.current?.focus(), 100)
-  }
 
   if (isLoading || !customer) {
     return (
@@ -146,13 +141,15 @@ export default function RecordTransactionPage() {
         </div>
 
         <div className="space-y-2 pt-2">
-          <Button className="w-full" onClick={handleRecordAnother}>
-            Record another
+          <Button className="w-full" onClick={() => setShowScanner(true)}>
+            Scan new customer
           </Button>
           <Button variant="ghost" className="w-full" asChild>
             <Link href={`/customers/${id}`}>Back to profile</Link>
           </Button>
         </div>
+
+        <ScanDialog open={showScanner} onOpenChange={setShowScanner} />
       </div>
     )
   }
