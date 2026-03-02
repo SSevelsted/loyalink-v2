@@ -82,6 +82,8 @@ pushRoutes.post('/customer/:customerId', async (req: Request, res: Response) => 
 
     const { registrations, error } = await getRegistrationsForCustomers([customerId]);
 
+    console.log(`[push/customer] ${customerId}: found ${registrations.length} registration(s)${error ? ` (dbError: ${error})` : ''}`);
+
     if (error || registrations.length === 0) {
       return res.json({
         success: true,
