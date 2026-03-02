@@ -72,8 +72,7 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
     let customerQuery = supabase
       .from('customers')
       .select('id')
-      .eq('studio_id', studioId)
-      .eq('pass_provider', 'self_hosted');
+      .eq('studio_id', studioId);
 
     // Apply segment filters (supports full AudienceFilter)
     if (segmentFilter) {

@@ -1,5 +1,25 @@
 import http2 from 'http2';
-import { apnsConfig } from '../config.js';
+import crypto from 'crypto';
+import { apnsConfig, appleConfig } from '../config.js';
+
+// Convert DER-encoded ECDSA signature to compact JWT r||s format
+function derToJwt(der: Buffer): Buffer {
+  let offset = 2;
+  if (der[1] & 0x80) offset += der[1] & 0x7f; // long-form length
+  offset++; // skip 0x02 (r tag)
+  const rLen = der[offset++];
+  let r = der.slice(offset, offset + rLen);
+  offset += rLen;
+  offset++; // skip 0x02 (s tag)
+  const sLen = der[offset++];
+  let s = der.slice(offset, offset + sLen);
+  // Pad/trim each component to exactly 32 bytes
+  while (r.length < 32) r = Buffer.concat([Buffer.alloc(1), r]);
+  if (r.length > 32) r = r.slice(r.length - 32);
+  while (s.length < 32) s = Buffer.concat([Buffer.alloc(1), s]);
+  if (s.length > 32) s = s.slice(s.length - 32);
+  return Buffer.concat([r, s]);
+}
 
 export class APNsService {
   private getAuthToken(): string | null {
@@ -9,26 +29,21 @@ export class APNsService {
     }
 
     try {
-      // Create JWT for APNs authentication
-      // Header
-      const header = {
-        alg: 'ES256',
-        kid: apnsConfig.keyId,
-      };
+      const header = { alg: 'ES256', kid: apnsConfig.keyId };
+      const claims = { iss: apnsConfig.teamId, iat: Math.floor(Date.now() / 1000) };
 
-      // Claims
-      const claims = {
-        iss: apnsConfig.teamId,
-        iat: Math.floor(Date.now() / 1000),
-      };
-
-      // Note: Actual implementation would use the .p8 key to sign with ES256
-      // This is a placeholder - implement proper ES256 signing
       const headerB64 = Buffer.from(JSON.stringify(header)).toString('base64url');
       const claimsB64 = Buffer.from(JSON.stringify(claims)).toString('base64url');
+      const signingInput = `${headerB64}.${claimsB64}`;
 
-      // In production, sign with the actual private key
-      return `${headerB64}.${claimsB64}.placeholder_signature`;
+      const keyPem = Buffer.from(apnsConfig.keyBase64, 'base64').toString('utf8');
+      const sign = crypto.createSign('SHA256');
+      sign.update(signingInput);
+      sign.end();
+      const derSig = sign.sign(keyPem);
+      const sig = derToJwt(derSig).toString('base64url');
+
+      return `${signingInput}.${sig}`;
     } catch (error) {
       console.error('Error creating APNs auth token:', error);
       return null;
@@ -47,7 +62,7 @@ export class APNsService {
           ':method': 'POST',
           ':path': `/3/device/${pushToken}`,
           'authorization': `bearer ${authToken}`,
-          'apns-topic': apnsConfig.teamId, // Pass type ID
+          'apns-topic': appleConfig.passTypeId,
           'apns-push-type': 'background',
           'apns-priority': '5',
         };
