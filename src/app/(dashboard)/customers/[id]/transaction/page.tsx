@@ -219,7 +219,9 @@ export default function RecordTransactionPage() {
             <span className="text-3xl font-medium text-muted-foreground/50">{currencyConfig.symbol}</span>
           )}
         </div>
-        <p className="text-xs text-muted-foreground mt-1.5">{cashbackRate}% cashback</p>
+        <p className="text-xs text-muted-foreground mt-1.5">
+          {isDeposit ? 'No cashback · deposit' : `${cashbackRate}% cashback`}
+        </p>
       </div>
 
       {/* Bottom section — always sticks near the button */}
@@ -228,11 +230,9 @@ export default function RecordTransactionPage() {
         {/* Deposit toggle */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-foreground">Consultation deposit <span className="text-xs text-muted-foreground ml-1">· no cashback</span></p>
-          <input
-            type="checkbox"
+          <Switch
             checked={isDeposit}
-            onChange={(e) => { setIsDeposit(e.target.checked); if (e.target.checked) setUseBalance(false) }}
-            className="h-4 w-4 rounded accent-primary cursor-pointer"
+            onCheckedChange={(v) => { setIsDeposit(v); if (v) setUseBalance(false) }}
           />
         </div>
 
