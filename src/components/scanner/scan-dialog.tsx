@@ -51,6 +51,7 @@ export function ScanDialog({
       setManualInput('')
       setManualMode(false)
       router.push(`/customers/${data.id}/transaction`)
+      router.refresh()
     } else {
       setScanResult(`No customer found for "${value}"`)
     }
