@@ -221,17 +221,14 @@ export default function CustomerDetailPage() {
           <ArrowLeft className="h-3.5 w-3.5" />
           Customers
         </Link>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-full bg-secondary flex items-center justify-center text-xl font-semibold text-foreground">
-              {customer.name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h1 className="text-display-lg text-foreground" style={{ fontFamily: 'var(--font-display)' }}>{customer.name}</h1>
-              <p className="text-sm text-muted-foreground">{customer.email ?? customer.phone ?? 'No contact'}</p>
-            </div>
+        <div className="flex items-start gap-4">
+          <div className="h-14 w-14 rounded-full bg-secondary flex items-center justify-center text-xl font-semibold text-foreground shrink-0">
+            {customer.name.charAt(0).toUpperCase()}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-display-lg text-foreground truncate" style={{ fontFamily: 'var(--font-display)' }}>{customer.name}</h1>
+            <p className="text-sm text-muted-foreground">{customer.email ?? customer.phone ?? 'No contact'}</p>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
             <Badge
               variant="outline"
               className={`text-xs uppercase tracking-wider ${tierPalette.bg} ${tierPalette.text} ${tierPalette.border}`}
@@ -292,6 +289,7 @@ export default function CustomerDetailPage() {
                 Record Transaction
               </Link>
             </Button>
+            </div>
           </div>
         </div>
       </div>
