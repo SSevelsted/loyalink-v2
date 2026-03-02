@@ -384,7 +384,7 @@ export default function TransactionsPage() {
                       {tx.description ?? TRANSACTION_LABELS[tx.type] ?? tx.type}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {tx.customers?.name ?? 'Unknown customer'} &middot; {new Date(tx.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {tx.customers?.name ?? 'Unknown customer'} &middot; {new Date(tx.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} {new Date(tx.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                 </div>

@@ -712,7 +712,7 @@ export default function CustomerDetailPage() {
                     <div>
                       <p className="text-sm font-medium text-foreground">{tx.description ?? TRANSACTION_LABELS[tx.type] ?? tx.type}</p>
                       <p className="text-xs text-muted-foreground">
-                        {TRANSACTION_LABELS[tx.type] ?? tx.type} &middot; {new Date(tx.created_at).toLocaleDateString()}
+                        {TRANSACTION_LABELS[tx.type] ?? tx.type} &middot; {new Date(tx.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} {new Date(tx.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
                   </div>
