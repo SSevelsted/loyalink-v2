@@ -57,6 +57,8 @@ appleWebServiceRoutes.post(
         return res.status(401).send('Unauthorized');
       }
 
+      console.log(`Device registration: pass=${serialNumber} belongs to customer=${walletPass.customer_id}, device=${deviceId}, pushToken=${pushToken?.slice(0, 8)}...`);
+
       // Upsert device registration
       const { error: regError } = await supabase
         .from('wallet_device_registrations')
