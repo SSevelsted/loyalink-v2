@@ -47,7 +47,7 @@ export default function RecordTransactionPage() {
   const parsedAmount = parseFloat(amount.replace(',', '.')) || 0
   const balanceUsed = useBalance && !isDeposit ? Math.min(currentBalance, parsedAmount) : 0
   const chargeOnPOS = parsedAmount - balanceUsed
-  const earnsNow = isDeposit ? 0 : parsedAmount * cashbackRate / 100
+  const earnsNow = parsedAmount * cashbackRate / 100
   const newBalanceAfter = currentBalance - balanceUsed + earnsNow
 
   const recordTransaction = useMutation({
@@ -68,20 +68,17 @@ export default function RecordTransactionPage() {
       await supabase.from('transactions').insert({
         customer_id: id,
         studio_id: currentStudio.id,
-        // Use 'adjustment' for deposits so any DB trigger scoped to 'credit' won't award cashback
-        type: isDeposit ? 'adjustment' : 'credit',
+        type: 'credit',
         amount: parsedAmount,
-        description: isDeposit ? 'Consultation deposit' : null,
+        description: isDeposit ? 'Deposit' : null,
       })
 
-      if (!isDeposit) {
-        await processTransaction.mutateAsync({
-          customerId: id,
-          studioId: currentStudio.id,
-          transactionId: '',
-          amount: parsedAmount,
-        })
-      }
+      await processTransaction.mutateAsync({
+        customerId: id,
+        studioId: currentStudio.id,
+        transactionId: '',
+        amount: parsedAmount,
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions', id] })
@@ -216,9 +213,7 @@ export default function RecordTransactionPage() {
             <span className="text-3xl font-medium text-muted-foreground/50">{currencyConfig.symbol}</span>
           )}
         </div>
-        <p className="text-xs text-muted-foreground mt-1.5">
-          {isDeposit ? 'No cashback · deposit' : `${cashbackRate}% cashback`}
-        </p>
+        <p className="text-xs text-muted-foreground mt-1.5">{cashbackRate}% cashback</p>
       </div>
 
       {/* Bottom section — always sticks near the button */}
@@ -226,7 +221,7 @@ export default function RecordTransactionPage() {
 
         {/* Deposit toggle */}
         <div className="flex items-center justify-between">
-          <p className="text-sm text-foreground">Consultation deposit <span className="text-xs text-muted-foreground ml-1">· no cashback</span></p>
+          <p className="text-sm text-foreground">Deposit</p>
           <Switch
             checked={isDeposit}
             onCheckedChange={(v) => { setIsDeposit(v); if (v) setUseBalance(false) }}
@@ -260,16 +255,14 @@ export default function RecordTransactionPage() {
               <span className="text-xs font-semibold text-foreground">Charge on POS</span>
               <span className="text-xs font-bold text-foreground">{formatAmount(chargeOnPOS, currencyConfig)}</span>
             </div>
-            {!isDeposit && (
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Cashback ({cashbackRate}%)</span>
-                {earnsNow > 0 ? (
-                  <span className="text-xs font-medium text-emerald-400">+{formatAmount(earnsNow, currencyConfig)}</span>
-                ) : (
-                  <span className="text-xs text-muted-foreground/50">—</span>
-                )}
-              </div>
-            )}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Cashback ({cashbackRate}%)</span>
+              {earnsNow > 0 ? (
+                <span className="text-xs font-medium text-emerald-400">+{formatAmount(earnsNow, currencyConfig)}</span>
+              ) : (
+                <span className="text-xs text-muted-foreground/50">—</span>
+              )}
+            </div>
             <div className="flex items-center justify-between pt-1 border-t border-border/30">
               <span className="text-xs text-muted-foreground">New balance</span>
               <span className="text-xs font-semibold text-foreground">{formatAmount(newBalanceAfter, currencyConfig)}</span>
