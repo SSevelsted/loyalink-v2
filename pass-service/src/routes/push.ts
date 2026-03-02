@@ -95,17 +95,20 @@ pushRoutes.post('/customer/:customerId', async (req: Request, res: Response) => 
       .filter((r) => r.platform === 'apple')
       .map((r) => r.push_token);
 
+    console.log(`[push/customer] ${customerId}: ${appleTokens.length} Apple token(s) found: ${appleTokens.map(t => t.slice(0, 8) + '...').join(', ')}`);
+
     let appleResults = { sent: 0, failed: 0 };
     if (appleTokens.length > 0) {
       appleResults = await apnsService.sendBulkPushNotifications(appleTokens);
+      console.log(`[push/customer] APNs result: sent=${appleResults.sent}, failed=${appleResults.failed}`);
     }
 
     const googleUpdated = registrations.filter((r) => r.platform === 'google').length;
 
-    // Increment pass version
+    // Update pass updated_at so Apple Wallet sees it as modified
     await supabase
       .from('wallet_passes')
-      .update({ version: 2 })
+      .update({ updated_at: new Date().toISOString() })
       .eq('customer_id', customerId);
 
     res.json({

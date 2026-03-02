@@ -54,9 +54,32 @@ export class APNsService {
     const authToken = this.getAuthToken();
     if (!authToken) return false;
 
+    const tokenPrefix = pushToken.slice(0, 8) + '...';
+
     return new Promise((resolve) => {
+      let settled = false;
+      const done = (success: boolean) => {
+        if (settled) return;
+        settled = true;
+        resolve(success);
+      };
+
+      // 10-second timeout to prevent silent hangs
+      const timeout = setTimeout(() => {
+        console.error(`APNs timeout for token ${tokenPrefix}`);
+        done(false);
+      }, 10000);
+
       try {
         const client = http2.connect(`https://${apnsConfig.host}`);
+
+        // Handle client-level connection errors
+        client.on('error', (error) => {
+          clearTimeout(timeout);
+          console.error(`APNs connection error for token ${tokenPrefix}:`, error.message);
+          client.destroy();
+          done(false);
+        });
 
         const headers = {
           ':method': 'POST',
@@ -67,43 +90,42 @@ export class APNsService {
           'apns-priority': '5',
         };
 
-        // Empty payload for pass updates
-        // Apple Wallet automatically fetches the updated pass
         const payload = JSON.stringify({});
-
         const req = client.request(headers);
 
         req.on('response', (responseHeaders) => {
           const status = responseHeaders[':status'];
           if (status === 200) {
-            resolve(true);
+            clearTimeout(timeout);
+            console.log(`APNs success for token ${tokenPrefix}`);
+            client.close();
+            done(true);
             return;
           }
-          // Collect the response body for the error reason
           const chunks: Buffer[] = [];
           req.on('data', (chunk: Buffer) => chunks.push(chunk));
           req.on('end', () => {
+            clearTimeout(timeout);
             const body = Buffer.concat(chunks).toString();
-            console.error(`APNs error ${status} for token ${pushToken.slice(0, 8)}...: ${body}`);
-            resolve(false);
+            console.error(`APNs error ${status} for token ${tokenPrefix}: ${body}`);
+            client.close();
+            done(false);
           });
         });
 
         req.on('error', (error) => {
-          console.error('APNs request error:', error);
-          resolve(false);
+          clearTimeout(timeout);
+          console.error(`APNs request error for token ${tokenPrefix}:`, error.message);
+          client.destroy();
+          done(false);
         });
 
         req.write(payload);
         req.end();
-
-        // Close connection after request
-        req.on('close', () => {
-          client.close();
-        });
       } catch (error) {
-        console.error('Error sending push notification:', error);
-        resolve(false);
+        clearTimeout(timeout);
+        console.error(`APNs exception for token ${tokenPrefix}:`, error);
+        done(false);
       }
     });
   }
