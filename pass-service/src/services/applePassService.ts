@@ -52,6 +52,7 @@ interface PassTranslation {
   changeMessage: string;
   cashbackChangeMessage: string;
   tierChangeMessage: string;
+  tierEarningsSuffix: string; // e.g. "og optjener nu" — inserted between tier name and cashback %
   balanceLabel: string;
   memberLabel: string;
   cashbackLabel: string;
@@ -67,7 +68,8 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   en: {
     changeMessage: 'Congrats! Your new balance is %@',
     cashbackChangeMessage: 'Your cashback rate is now %@',
-    tierChangeMessage: 'Congrats! You\'ve been upgraded to %@',
+    tierChangeMessage: 'Congrats! You\'ve been upgraded to %@!',
+    tierEarningsSuffix: 'and now earning',
     balanceLabel: 'BALANCE',
     memberLabel: 'MEMBER',
     cashbackLabel: 'LOYALTY CASHBACK',
@@ -81,7 +83,8 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   da: {
     changeMessage: 'Tillykke! Din nye saldo er %@',
     cashbackChangeMessage: 'Din cashback er nu %@',
-    tierChangeMessage: 'Tillykke! Du er opgraderet til %@',
+    tierChangeMessage: 'Tillykke! Du er opgraderet til %@!',
+    tierEarningsSuffix: 'og optjener nu',
     balanceLabel: 'SALDO',
     memberLabel: 'MEDLEM',
     cashbackLabel: 'LOYALITETS CASHBACK',
@@ -95,7 +98,8 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   sv: {
     changeMessage: 'Grattis! Ditt nya saldo är %@',
     cashbackChangeMessage: 'Din cashback är nu %@',
-    tierChangeMessage: 'Grattis! Du har uppgraderats till %@',
+    tierChangeMessage: 'Grattis! Du har uppgraderats till %@!',
+    tierEarningsSuffix: 'och tjänar nu',
     balanceLabel: 'SALDO',
     memberLabel: 'MEDLEM',
     cashbackLabel: 'LOJALITET CASHBACK',
@@ -109,7 +113,8 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   no: {
     changeMessage: 'Gratulerer! Din nye saldo er %@',
     cashbackChangeMessage: 'Din cashback er nå %@',
-    tierChangeMessage: 'Gratulerer! Du er oppgradert til %@',
+    tierChangeMessage: 'Gratulerer! Du er oppgradert til %@!',
+    tierEarningsSuffix: 'og tjener nå',
     balanceLabel: 'SALDO',
     memberLabel: 'MEDLEM',
     cashbackLabel: 'LOJALITET CASHBACK',
@@ -123,7 +128,8 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   de: {
     changeMessage: 'Glückwunsch! Dein neues Guthaben ist %@',
     cashbackChangeMessage: 'Deine Cashback-Rate ist jetzt %@',
-    tierChangeMessage: 'Glückwunsch! Du wurdest zu %@ befördert',
+    tierChangeMessage: 'Glückwunsch! Du wurdest zu %@ befördert!',
+    tierEarningsSuffix: 'und verdienst jetzt',
     balanceLabel: 'GUTHABEN',
     memberLabel: 'MITGLIED',
     cashbackLabel: 'TREUE-CASHBACK',
@@ -137,7 +143,8 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   fr: {
     changeMessage: 'Félicitations ! Votre nouveau solde est %@',
     cashbackChangeMessage: 'Votre taux de cashback est maintenant %@',
-    tierChangeMessage: 'Félicitations ! Vous êtes passé au niveau %@',
+    tierChangeMessage: 'Félicitations ! Vous êtes passé au niveau %@ !',
+    tierEarningsSuffix: 'et gagnez maintenant',
     balanceLabel: 'SOLDE',
     memberLabel: 'MEMBRE',
     cashbackLabel: 'CASHBACK FIDÉLITÉ',
@@ -152,6 +159,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
     changeMessage: '¡Felicidades! Tu nuevo saldo es %@',
     cashbackChangeMessage: 'Tu tasa de cashback ahora es %@',
     tierChangeMessage: '¡Felicidades! Has sido ascendido a %@',
+    tierEarningsSuffix: 'y ahora ganas',
     balanceLabel: 'SALDO',
     memberLabel: 'MIEMBRO',
     cashbackLabel: 'CASHBACK DE LEALTAD',
@@ -165,7 +173,8 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   nl: {
     changeMessage: 'Gefeliciteerd! Je nieuwe saldo is %@',
     cashbackChangeMessage: 'Je cashback is nu %@',
-    tierChangeMessage: 'Gefeliciteerd! Je bent gepromoveerd naar %@',
+    tierChangeMessage: 'Gefeliciteerd! Je bent gepromoveerd naar %@!',
+    tierEarningsSuffix: 'en verdient nu',
     balanceLabel: 'SALDO',
     memberLabel: 'LID',
     cashbackLabel: 'LOYALITEIT CASHBACK',
@@ -179,7 +188,8 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   pl: {
     changeMessage: 'Gratulacje! Twoje nowe saldo to %@',
     cashbackChangeMessage: 'Twój cashback wynosi teraz %@',
-    tierChangeMessage: 'Gratulacje! Awansowałeś do poziomu %@',
+    tierChangeMessage: 'Gratulacje! Awansowałeś do poziomu %@!',
+    tierEarningsSuffix: 'i teraz zarabiasz',
     balanceLabel: 'SALDO',
     memberLabel: 'CZŁONEK',
     cashbackLabel: 'CASHBACK LOJALNOŚCIOWY',
@@ -442,7 +452,7 @@ export class ApplePassService {
           {
             key: 'tier',
             label: t.tierLabel,
-            value: data.loyaltyTier,
+            value: `${data.loyaltyTier} ${t.tierEarningsSuffix} ${data.cashbackRate}% cashback`,
             changeMessage: t.tierChangeMessage,
           },
           {
