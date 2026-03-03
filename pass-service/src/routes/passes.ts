@@ -190,6 +190,7 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
       memberId: customer.member_id || customer.id,
       currency: customer.currency || 'DKK',
       language: studioLanguage,
+      pushMessage: walletPass.push_message || undefined,
       logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
       iconUrl: template?.icon_url || undefined,
       heroImageUrl: tierTheme.stripImage || undefined,

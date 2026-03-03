@@ -57,6 +57,7 @@ interface PassTranslation {
   referralLabel: string;
   howItWorksLabel: string;
   announcementLabel: string;
+  messageLabel: string;
   description: string;
 }
 
@@ -70,6 +71,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
     referralLabel: 'Refer Friends',
     howItWorksLabel: 'How It Works',
     announcementLabel: 'Announcement',
+    messageLabel: 'Message',
     description: 'Loyalty Card',
   },
   da: {
@@ -81,6 +83,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
     referralLabel: 'Inviter venner',
     howItWorksLabel: 'Sådan fungerer det',
     announcementLabel: 'Nyhed',
+    messageLabel: 'Besked',
     description: 'Loyalitetskort',
   },
   sv: {
@@ -92,6 +95,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
     referralLabel: 'Bjud in vänner',
     howItWorksLabel: 'Så här fungerar det',
     announcementLabel: 'Nyheter',
+    messageLabel: 'Meddelande',
     description: 'Lojalitetskort',
   },
   no: {
@@ -103,6 +107,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
     referralLabel: 'Inviter venner',
     howItWorksLabel: 'Slik fungerer det',
     announcementLabel: 'Nyhet',
+    messageLabel: 'Melding',
     description: 'Lojalitetskort',
   },
   de: {
@@ -114,6 +119,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
     referralLabel: 'Freunde werben',
     howItWorksLabel: 'So funktioniert es',
     announcementLabel: 'Ankündigung',
+    messageLabel: 'Nachricht',
     description: 'Treuekarte',
   },
   fr: {
@@ -125,6 +131,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
     referralLabel: 'Parrainer des amis',
     howItWorksLabel: 'Comment ça marche',
     announcementLabel: 'Annonce',
+    messageLabel: 'Message',
     description: 'Carte de fidélité',
   },
   es: {
@@ -136,6 +143,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
     referralLabel: 'Referir amigos',
     howItWorksLabel: 'Cómo funciona',
     announcementLabel: 'Anuncio',
+    messageLabel: 'Mensaje',
     description: 'Tarjeta de fidelidad',
   },
   nl: {
@@ -147,6 +155,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
     referralLabel: 'Vrienden uitnodigen',
     howItWorksLabel: 'Hoe het werkt',
     announcementLabel: 'Aankondiging',
+    messageLabel: 'Bericht',
     description: 'Loyaliteitskaart',
   },
   pl: {
@@ -158,6 +167,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
     referralLabel: 'Polecaj znajomych',
     howItWorksLabel: 'Jak to działa',
     announcementLabel: 'Ogłoszenie',
+    messageLabel: 'Wiadomość',
     description: 'Karta lojalnościowa',
   },
 };
@@ -172,6 +182,7 @@ interface PassData {
   memberId: string;
   currency: string;
   language?: string;
+  pushMessage?: string;
   logoUrl?: string;
   iconUrl?: string;
   heroImageUrl?: string;
@@ -424,6 +435,16 @@ export class ApplePassService {
                   key: 'announcement',
                   label: t.announcementLabel,
                   value: data.staticTexts.announcement,
+                },
+              ]
+            : []),
+          ...(data.pushMessage
+            ? [
+                {
+                  key: 'push_message',
+                  label: t.messageLabel,
+                  value: data.pushMessage,
+                  changeMessage: '%@',
                 },
               ]
             : []),

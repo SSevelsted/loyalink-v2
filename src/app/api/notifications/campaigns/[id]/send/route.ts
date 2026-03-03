@@ -189,12 +189,14 @@ export async function POST(
     await applyContentActions(customerIds, campaign.studio_id, content)
 
     // Fire push via pass service (to refresh passes with new data)
+    // Pass the campaign announcement as pushMessage — it becomes the notification text
     fetch(`${PASS_SERVICE_URL}/api/push/studio/${campaign.studio_id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         segmentFilter: filter,
         campaignId: id,
+        pushMessage: content.announcement || undefined,
       }),
     }).then(async (res) => {
       const result = await res.json().catch(() => ({}))

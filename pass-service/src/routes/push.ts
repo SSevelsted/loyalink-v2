@@ -133,7 +133,7 @@ pushRoutes.post('/customer/:customerId', async (req: Request, res: Response) => 
 pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
   try {
     const { studioId } = req.params;
-    const { segmentFilter, campaignId, automationId } = req.body;
+    const { segmentFilter, campaignId, automationId, pushMessage } = req.body;
 
     // Build customer query
     let customerQuery = supabase
@@ -241,12 +241,16 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
       }
     }
 
-    // Touch updated_at on all targeted passes so Apple's passesUpdatedSince filter
-    // picks them up and actually fetches the updated pass content
+    // Touch updated_at (and optionally set push_message) on all targeted passes
+    // so Apple's passesUpdatedSince filter picks them up and fetches the updated pass.
+    // The push_message field has changeMessage: '%@', so it becomes the notification text.
     const targetedSerials = registrations.map((r) => r.serial_number);
     await supabase
       .from('wallet_passes')
-      .update({ updated_at: new Date().toISOString() })
+      .update({
+        updated_at: new Date().toISOString(),
+        ...(pushMessage ? { push_message: pushMessage } : {}),
+      })
       .in('serial_number', targetedSerials);
 
     // Log the push with optional campaign/automation reference
