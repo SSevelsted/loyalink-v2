@@ -50,6 +50,7 @@ pU8RBWk6z/Kf
 
 interface PassTranslation {
   changeMessage: string;
+  cashbackChangeMessage: string;
   balanceLabel: string;
   memberLabel: string;
   cashbackLabel: string;
@@ -62,6 +63,7 @@ interface PassTranslation {
 const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   en: {
     changeMessage: 'Congrats! Your new balance is %@',
+    cashbackChangeMessage: 'Your cashback rate is now %@',
     balanceLabel: 'BALANCE',
     memberLabel: 'MEMBER',
     cashbackLabel: 'LOYALTY CASHBACK',
@@ -72,6 +74,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   },
   da: {
     changeMessage: 'Tillykke! Din nye saldo er %@',
+    cashbackChangeMessage: 'Din cashback er nu %@',
     balanceLabel: 'SALDO',
     memberLabel: 'MEDLEM',
     cashbackLabel: 'LOYALITETS CASHBACK',
@@ -82,6 +85,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   },
   sv: {
     changeMessage: 'Grattis! Ditt nya saldo är %@',
+    cashbackChangeMessage: 'Din cashback är nu %@',
     balanceLabel: 'SALDO',
     memberLabel: 'MEDLEM',
     cashbackLabel: 'LOJALITET CASHBACK',
@@ -92,6 +96,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   },
   no: {
     changeMessage: 'Gratulerer! Din nye saldo er %@',
+    cashbackChangeMessage: 'Din cashback er nå %@',
     balanceLabel: 'SALDO',
     memberLabel: 'MEDLEM',
     cashbackLabel: 'LOJALITET CASHBACK',
@@ -102,6 +107,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   },
   de: {
     changeMessage: 'Glückwunsch! Dein neues Guthaben ist %@',
+    cashbackChangeMessage: 'Deine Cashback-Rate ist jetzt %@',
     balanceLabel: 'GUTHABEN',
     memberLabel: 'MITGLIED',
     cashbackLabel: 'TREUE-CASHBACK',
@@ -112,6 +118,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   },
   fr: {
     changeMessage: 'Félicitations ! Votre nouveau solde est %@',
+    cashbackChangeMessage: 'Votre taux de cashback est maintenant %@',
     balanceLabel: 'SOLDE',
     memberLabel: 'MEMBRE',
     cashbackLabel: 'CASHBACK FIDÉLITÉ',
@@ -122,6 +129,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   },
   es: {
     changeMessage: '¡Felicidades! Tu nuevo saldo es %@',
+    cashbackChangeMessage: 'Tu tasa de cashback ahora es %@',
     balanceLabel: 'SALDO',
     memberLabel: 'MIEMBRO',
     cashbackLabel: 'CASHBACK DE LEALTAD',
@@ -132,6 +140,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   },
   nl: {
     changeMessage: 'Gefeliciteerd! Je nieuwe saldo is %@',
+    cashbackChangeMessage: 'Je cashback is nu %@',
     balanceLabel: 'SALDO',
     memberLabel: 'LID',
     cashbackLabel: 'LOYALITEIT CASHBACK',
@@ -142,6 +151,7 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   },
   pl: {
     changeMessage: 'Gratulacje! Twoje nowe saldo to %@',
+    cashbackChangeMessage: 'Twój cashback wynosi teraz %@',
     balanceLabel: 'SALDO',
     memberLabel: 'CZŁONEK',
     cashbackLabel: 'CASHBACK LOJALNOŚCIOWY',
@@ -332,8 +342,9 @@ export class ApplePassService {
 
     console.log(`[pass] Images — icon: ${data.iconUrl || 'none'} | logo: ${data.logoUrl || 'none'} | strip: ${data.heroImageUrl || 'none'}`);
 
-    // icon.png is REQUIRED by Apple
-    const iconBuffer = data.iconUrl ? await this.downloadImage(data.iconUrl) : null;
+    // icon.png is REQUIRED by Apple — fall back to logoUrl if iconUrl is not set
+    const iconBuffer = data.iconUrl ? await this.downloadImage(data.iconUrl) :
+                       data.logoUrl ? await this.downloadImage(data.logoUrl) : null;
     files['icon.png'] = iconBuffer || this.createFallbackIcon();
 
     if (data.logoUrl) {
@@ -393,6 +404,7 @@ export class ApplePassService {
             key: 'cashback',
             label: t.cashbackLabel,
             value: `${data.cashbackRate}%`,
+            changeMessage: t.cashbackChangeMessage,
           },
         ],
         backFields: [

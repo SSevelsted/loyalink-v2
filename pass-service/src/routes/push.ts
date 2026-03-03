@@ -241,6 +241,14 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
       }
     }
 
+    // Touch updated_at on all targeted passes so Apple's passesUpdatedSince filter
+    // picks them up and actually fetches the updated pass content
+    const targetedSerials = registrations.map((r) => r.serial_number);
+    await supabase
+      .from('wallet_passes')
+      .update({ updated_at: new Date().toISOString() })
+      .in('serial_number', targetedSerials);
+
     // Log the push with optional campaign/automation reference
     await supabase.from('wallet_push_logs').insert({
       studio_id: studioId,
