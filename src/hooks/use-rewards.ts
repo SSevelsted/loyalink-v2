@@ -18,6 +18,7 @@ export function useRewardsConfig() {
     },
     enabled: !!currentStudio,
     placeholderData: DEFAULT_REWARDS_CONFIG,
+    staleTime: 5 * 60 * 1000, // rewards config rarely changes — cache for 5 min
   })
 }
 
@@ -42,7 +43,7 @@ export function useUpdateRewardsConfig() {
 
 export function useProcessTransaction() {
   return useMutation({
-    mutationFn: async (params: { customerId: string; studioId: string; transactionId: string; amount: number; isDeposit?: boolean }) => {
+    mutationFn: async (params: { customerId: string; studioId: string; transactionId: string; amount: number; cashAmount?: number; isDeposit?: boolean }) => {
       const res = await fetch('/api/rewards/process-transaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

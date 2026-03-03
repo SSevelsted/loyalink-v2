@@ -107,12 +107,12 @@ export async function POST(request: NextRequest) {
         .from('customers')
         .select('id, name, balance, loyalty_stage, has_purchased, total_real_spend, created_at')
         .eq('studio_id', studioId),
-      // 4. Active wallet passes
+      // 4. All wallet passes (active = issued, installed = in Wallet, uninstalled = removed)
       supabase
         .from('wallet_passes')
-        .select('id, serial_number, platform, customer_id, created_at')
+        .select('id, serial_number, platform, customer_id, created_at, status')
         .eq('studio_id', studioId)
-        .eq('status', 'active'),
+        .in('status', ['active', 'installed', 'uninstalled']),
       // 5. Referrals (added referrer/referred ids)
       supabase
         .from('referrals')
@@ -147,16 +147,9 @@ export async function POST(request: NextRequest) {
       prevTxnsList = prevTxnsList.filter((t) => tierCustomerIds.has(t.customer_id))
     }
 
-    // Fetch device registrations for active passes
-    const serialNumbers = passesList.map((p) => p.serial_number)
-    const { data: deviceRegs } = serialNumbers.length > 0
-      ? await supabase
-          .from('wallet_device_registrations')
-          .select('serial_number')
-          .eq('is_active', true)
-          .in('serial_number', serialNumbers)
-      : { data: [] }
-    const installedSerials = new Set((deviceRegs ?? []).map((d) => d.serial_number))
+    // Derive install/uninstall counts directly from pass status
+    const passesInstalledList = passesList.filter((p) => (p as { status: string }).status === 'installed')
+    const passesUninstalledList = passesList.filter((p) => (p as { status: string }).status === 'uninstalled')
 
     // ── KPIs ──
     const creditTxns = txns.filter((t) => t.type === 'credit')
@@ -200,7 +193,11 @@ export async function POST(request: NextRequest) {
 
     // ── Program Health ──
     const passInstallRate = passesList.length > 0
-      ? passesList.filter((p) => installedSerials.has(p.serial_number)).length / passesList.length
+      ? passesInstalledList.length / passesList.length
+      : 0
+    const passesEverInstalled = passesInstalledList.length + passesUninstalledList.length
+    const passUninstallRate = passesEverInstalled > 0
+      ? passesUninstalledList.length / passesEverInstalled
       : 0
 
     const retainedCustomers = [...activeCustomerIds].filter((id) => prevActiveCustomerIds.has(id))
@@ -564,8 +561,11 @@ export async function POST(request: NextRequest) {
       },
       programHealth: {
         passInstallRate: Math.round(passInstallRate * 1000) / 10,
-        passesInstalled: passesList.filter((p) => installedSerials.has(p.serial_number)).length,
+        passesInstalled: passesInstalledList.length,
         passesTotal: passesList.length,
+        passUninstallRate: Math.round(passUninstallRate * 1000) / 10,
+        passesUninstalled: passesUninstalledList.length,
+        passesEverInstalled: passesEverInstalled,
         retentionRate: Math.round(retentionRate * 1000) / 10,
         retainedCount: retainedCustomers.length,
         prevActiveCount: prevActiveCustomers,

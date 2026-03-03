@@ -8,12 +8,13 @@ import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Users, ArrowLeftRight, Wallet, TrendingUp, ScanLine, Link as LinkIcon, Copy, Check, ExternalLink } from 'lucide-react'
+import { Users, ArrowLeftRight, Wallet, TrendingUp, ScanLine, Link as LinkIcon, Copy, Check, ExternalLink, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import type { Transaction } from '@/types/database'
 import { ScanDialog } from '@/components/scanner/scan-dialog'
 import { useLandingPage } from '@/hooks/use-landing-page'
 import { APP_URL } from '@/lib/constants'
+import { TRANSACTION_META, groupRelatedTransactions } from '@/lib/format'
 
 function ScanButton() {
   const [open, setOpen] = useState(false)
@@ -46,16 +47,29 @@ export default function DashboardPage() {
   const [linkCopied, setLinkCopied] = useState(false)
   const supabase = createClient()
 
-  const { data: recentTransactions } = useQuery({
+  const { data: recentTransactions, isLoading: txLoading } = useQuery({
     queryKey: ['recent_transactions', currentStudio?.id],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('transactions')
-        .select('*, customers(name)')
+        .select('*, customers!customer_id(name)')
         .eq('studio_id', currentStudio!.id)
         .order('created_at', { ascending: false })
         .limit(10)
+      if (error) throw error
       return data as (Transaction & { customers: { name: string } })[]
+    },
+    enabled: !!currentStudio,
+  })
+
+  const { data: txCount } = useQuery({
+    queryKey: ['tx_count', currentStudio?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('transactions')
+        .select('*', { count: 'exact', head: true })
+        .eq('studio_id', currentStudio!.id)
+      return count ?? 0
     },
     enabled: !!currentStudio,
   })
@@ -67,7 +81,7 @@ export default function DashboardPage() {
         .from('wallet_passes')
         .select('*', { count: 'exact', head: true })
         .eq('studio_id', currentStudio!.id)
-        .eq('status', 'active')
+        .in('status', ['active', 'installed'])
       return count ?? 0
     },
     enabled: !!currentStudio,
@@ -79,7 +93,7 @@ export default function DashboardPage() {
     { title: 'Customers', value: customers?.length ?? 0, icon: Users, color: 'text-blue-400', href: '/customers' },
     { title: 'Active Passes', value: passCount ?? 0, icon: Wallet, color: 'text-emerald-400', href: null },
     { title: 'Total Balance', value: `${totalBalance.toFixed(0)} kr`, icon: TrendingUp, color: 'text-primary', href: null },
-    { title: 'Transactions', value: recentTransactions?.length ?? 0, icon: ArrowLeftRight, color: 'text-violet-400', href: '/transactions' },
+    { title: 'Transactions', value: txCount ?? 0, icon: ArrowLeftRight, color: 'text-violet-400', href: '/transactions' },
   ]
 
   return (
@@ -172,10 +186,26 @@ export default function DashboardPage() {
       <Card variant="glass" className="rounded-2xl">
         <div className="flex items-center justify-between p-5 pb-3">
           <h2 className="text-base font-semibold text-foreground">Recent Activity</h2>
-          <span className="text-xs text-muted-foreground">{recentTransactions?.length ?? 0} transactions</span>
+          <span className="text-xs text-muted-foreground">{txCount ?? 0} transactions</span>
         </div>
         <div className="px-5 pb-5">
-          {!recentTransactions?.length ? (
+          {txLoading ? (
+            <div className="space-y-1">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+                  <div className="h-8 w-8 rounded-lg animate-shimmer shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 w-28 animate-shimmer rounded" />
+                    <div className="h-2.5 w-20 animate-shimmer rounded" />
+                  </div>
+                  <div className="space-y-1.5 text-right">
+                    <div className="h-3 w-16 animate-shimmer rounded" />
+                    <div className="h-2.5 w-12 animate-shimmer rounded ml-auto" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : !recentTransactions?.length ? (
             <div className="py-12 text-center">
               <ArrowLeftRight className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">No transactions yet</p>
@@ -183,37 +213,50 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="space-y-1">
-              {recentTransactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-secondary/50"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-xs font-medium ${
-                      tx.type === 'credit' || tx.type === 'cashback'
-                        ? 'bg-emerald-500/10 text-emerald-400'
-                        : 'bg-red-500/10 text-red-400'
-                    }`}>
-                      {tx.type === 'credit' || tx.type === 'cashback' ? '+' : '-'}
+              {groupRelatedTransactions(recentTransactions).map((group) => {
+                const tx = group.primary
+                const meta = TRANSACTION_META[tx.type as keyof typeof TRANSACTION_META] ?? TRANSACTION_META.adjustment
+                return (
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-secondary/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${meta.icon_bg}`}>
+                        <meta.icon className={`h-4 w-4 ${meta.icon_color}`} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{tx.customers?.name}</p>
+                        <p className="text-xs text-muted-foreground">{tx.description ?? tx.type}</p>
+                        {(group.cashback || group.balanceUsed) && (
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {group.cashback && (
+                              <span className="flex items-center gap-1 text-xs text-amber-400">
+                                <Sparkles className="h-3 w-3 shrink-0" />
+                                +{Math.abs(Number(group.cashback.amount)).toFixed(2)} kr
+                              </span>
+                            )}
+                            {group.balanceUsed && (
+                              <span className="flex items-center gap-1 text-xs text-red-400">
+                                <Wallet className="h-3 w-3 shrink-0" />
+                                −{Math.abs(Number(group.balanceUsed.amount)).toFixed(2)} kr balance
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{tx.customers?.name}</p>
-                      <p className="text-xs text-muted-foreground">{tx.description ?? tx.type}</p>
+                    <div className="text-right">
+                      <span className={`text-sm font-semibold ${meta.amount}`}>
+                        {meta.sign}{Math.abs(Number(tx.amount)).toFixed(2)} kr
+                      </span>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(tx.created_at).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className={`text-sm font-semibold ${
-                      tx.type === 'credit' || tx.type === 'cashback' ? 'text-emerald-400' : 'text-red-400'
-                    }`}>
-                      {tx.type === 'credit' || tx.type === 'cashback' ? '+' : '-'}
-                      {Math.abs(Number(tx.amount)).toFixed(2)} kr
-                    </span>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(tx.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

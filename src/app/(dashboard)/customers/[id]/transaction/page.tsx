@@ -47,7 +47,7 @@ export default function RecordTransactionPage() {
   const parsedAmount = parseFloat(amount.replace(',', '.')) || 0
   const balanceUsed = useBalance ? Math.min(currentBalance, parsedAmount) : 0
   const chargeOnPOS = parsedAmount - balanceUsed
-  const earnsNow = parsedAmount * cashbackRate / 100
+  const earnsNow = chargeOnPOS * cashbackRate / 100
   const newBalanceAfter = currentBalance - balanceUsed + earnsNow
 
   const recordTransaction = useMutation({
@@ -78,6 +78,7 @@ export default function RecordTransactionPage() {
         studioId: currentStudio.id,
         transactionId: '',
         amount: parsedAmount,
+        cashAmount: chargeOnPOS,
         isDeposit,
       })
     },

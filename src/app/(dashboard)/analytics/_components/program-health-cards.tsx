@@ -21,6 +21,13 @@ export function ProgramHealthCards({ data }: ProgramHealthCardsProps) {
       color: 'bg-emerald-400',
     },
     {
+      label: 'Uninstall Rate',
+      value: `${programHealth.passUninstallRate}%`,
+      subtitle: `${programHealth.passesUninstalled} of ${programHealth.passesEverInstalled} removed`,
+      progress: programHealth.passUninstallRate,
+      color: 'bg-red-400',
+    },
+    {
       label: 'Retention Rate',
       value: `${programHealth.retentionRate}%`,
       subtitle: `${programHealth.retainedCount} / ${programHealth.prevActiveCount} returning`,
@@ -44,7 +51,7 @@ export function ProgramHealthCards({ data }: ProgramHealthCardsProps) {
   ]
 
   return (
-    <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
       {metrics.map((metric) => (
         <Card key={metric.label} variant="glass" className="rounded-2xl">
           <CardContent className="p-4">
@@ -66,8 +73,8 @@ export function ProgramHealthCards({ data }: ProgramHealthCardsProps) {
 
 export function ProgramHealthSkeleton() {
   return (
-    <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-      {[...Array(4)].map((_, i) => (
+    <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
+      {[...Array(5)].map((_, i) => (
         <div key={i} className="h-[130px] rounded-2xl animate-shimmer" />
       ))}
     </div>

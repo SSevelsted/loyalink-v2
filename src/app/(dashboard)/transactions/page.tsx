@@ -31,12 +31,14 @@ import {
   ExternalLink,
   Hash,
   Search,
+  Sparkles,
   TrendingUp,
   User,
+  Wallet,
   X,
 } from 'lucide-react'
 import type { Transaction } from '@/types/database'
-import { TRANSACTION_LABELS } from '@/lib/format'
+import { TRANSACTION_LABELS, TRANSACTION_META, groupByDateLabel, groupRelatedTransactions, type TransactionGroup } from '@/lib/format'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 
 type TransactionWithCustomer = Transaction & { customers: { name: string } | null }
@@ -68,13 +70,6 @@ const TYPE_FILTERS: { value: TypeFilter; label: string }[] = [
   { value: 'referral_commission', label: 'Referral Bonus' },
 ]
 
-const TYPE_COLORS: Record<string, { badge: string; icon: string }> = {
-  credit: { badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', icon: 'bg-emerald-500/10 text-emerald-400' },
-  debit: { badge: 'bg-red-500/10 text-red-400 border-red-500/20', icon: 'bg-red-500/10 text-red-400' },
-  adjustment: { badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20', icon: 'bg-blue-500/10 text-blue-400' },
-  cashback: { badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: 'bg-amber-500/10 text-amber-400' },
-  referral_commission: { badge: 'bg-violet-500/10 text-violet-400 border-violet-500/20', icon: 'bg-violet-500/10 text-violet-400' },
-}
 
 function isPositive(type: string) {
   return type === 'credit' || type === 'cashback' || type === 'referral_commission'
@@ -96,7 +91,7 @@ export default function TransactionsPage() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [datePreset, setDatePreset] = useState<DatePreset>('all')
   const [sortKey, setSortKey] = useState<SortKey>('newest')
-  const [selectedTx, setSelectedTx] = useState<TransactionWithCustomer | null>(null)
+  const [selectedGroup, setSelectedGroup] = useState<TransactionGroup<TransactionWithCustomer> | null>(null)
 
   const currencyConfig = getCurrencyConfig(
     (currentStudio?.settings?.currency as string) ?? 'kr'
@@ -175,6 +170,12 @@ export default function TransactionsPage() {
   }, [filtered])
 
   const hasActiveFilters = typeFilter !== 'all' || datePreset !== 'all' || search.trim() !== ''
+
+  const txGroups = useMemo(() => groupRelatedTransactions(filtered), [filtered])
+  const grouped = useMemo(
+    () => groupByDateLabel(txGroups.map((g) => ({ ...g, created_at: g.primary.created_at }))),
+    [txGroups],
+  )
 
   const clearFilters = () => {
     setTypeFilter('all')
@@ -364,51 +365,73 @@ export default function TransactionsPage() {
           )}
         </div>
       ) : (
-        <div className="space-y-1">
-          {filtered.map((tx) => {
-            const colors = TYPE_COLORS[tx.type] ?? TYPE_COLORS.adjustment
-            const positive = isPositive(tx.type)
-
-            return (
-              <button
-                key={tx.id}
-                onClick={() => setSelectedTx(tx)}
-                className="flex items-center justify-between rounded-2xl border border-transparent px-4 py-3.5 transition-all duration-200 hover:bg-card hover:border-border/50 group min-h-[56px] w-full text-left"
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-sm font-semibold ${colors.icon}`}>
-                    {positive ? '+' : '−'}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {tx.description ?? TRANSACTION_LABELS[tx.type] ?? tx.type}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {tx.customers?.name ?? 'Unknown customer'} &middot; {new Date(tx.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} {new Date(tx.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className={`text-sm font-semibold ${positive ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {positive ? '+' : '−'}{formatAmount(Math.abs(Number(tx.amount)), currencyConfig)}
-                    </p>
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] uppercase tracking-wider ${colors.badge}`}
+        <div className="space-y-4">
+          {grouped.map(({ label, items }) => (
+            <div key={label}>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1 mb-1">{label}</p>
+              <div className="space-y-1">
+                {items.map((group) => {
+                  const tx = group.primary
+                  const meta = TRANSACTION_META[tx.type as keyof typeof TRANSACTION_META] ?? TRANSACTION_META.adjustment
+                  return (
+                    <button
+                      key={tx.id}
+                      onClick={() => setSelectedGroup(group)}
+                      className="flex items-center justify-between rounded-2xl border border-transparent px-4 py-3.5 transition-all duration-200 hover:bg-card hover:border-border/50 group min-h-[56px] w-full text-left"
                     >
-                      {TRANSACTION_LABELS[tx.type] ?? tx.type}
-                    </Badge>
-                  </div>
-                </div>
-              </button>
-            )
-          })}
+                      <div className="flex items-center gap-4">
+                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${meta.icon_bg}`}>
+                          <meta.icon className={`h-5 w-5 ${meta.icon_color}`} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {tx.description ?? TRANSACTION_LABELS[tx.type] ?? tx.type}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {tx.customers?.name ?? 'Unknown customer'} &middot; {new Date(tx.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} {new Date(tx.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                          {(group.cashback || group.balanceUsed) && (
+                            <div className="flex items-center gap-2.5 mt-0.5">
+                              {group.cashback && (
+                                <span className="flex items-center gap-1 text-xs text-amber-400">
+                                  <Sparkles className="h-3 w-3 shrink-0" />
+                                  +{formatAmount(Math.abs(Number(group.cashback.amount)), currencyConfig)}
+                                </span>
+                              )}
+                              {group.balanceUsed && (
+                                <span className="flex items-center gap-1 text-xs text-red-400">
+                                  <Wallet className="h-3 w-3 shrink-0" />
+                                  −{formatAmount(Math.abs(Number(group.balanceUsed.amount)), currencyConfig)} balance
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <p className={`text-sm font-semibold ${meta.amount}`}>
+                            {meta.sign}{formatAmount(Math.abs(Number(tx.amount)), currencyConfig)}
+                          </p>
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] uppercase tracking-wider ${meta.badge}`}
+                          >
+                            {TRANSACTION_LABELS[tx.type] ?? tx.type}
+                          </Badge>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
       {/* Transaction Detail Sheet */}
-      <Sheet open={!!selectedTx} onOpenChange={(open) => !open && setSelectedTx(null)}>
+      <Sheet open={!!selectedGroup} onOpenChange={(open) => !open && setSelectedGroup(null)}>
         <SheetContent>
           <SheetHeader>
             <SheetTitle>Transaction Details</SheetTitle>
@@ -417,21 +440,21 @@ export default function TransactionsPage() {
             </SheetDescription>
           </SheetHeader>
 
-          {selectedTx && (() => {
-            const colors = TYPE_COLORS[selectedTx.type] ?? TYPE_COLORS.adjustment
-            const positive = isPositive(selectedTx.type)
+          {selectedGroup && (() => {
+            const selectedTx = selectedGroup.primary
+            const meta = TRANSACTION_META[selectedTx.type as keyof typeof TRANSACTION_META] ?? TRANSACTION_META.adjustment
             const createdAt = new Date(selectedTx.created_at)
 
             return (
               <div className="space-y-6 pt-4">
                 {/* Amount highlight */}
                 <div className="text-center py-4">
-                  <p className={`text-4xl font-bold ${positive ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {positive ? '+' : '−'}{formatAmount(Math.abs(Number(selectedTx.amount)), currencyConfig)}
+                  <p className={`text-4xl font-bold ${meta.amount}`}>
+                    {meta.sign}{formatAmount(Math.abs(Number(selectedTx.amount)), currencyConfig)}
                   </p>
                   <Badge
                     variant="outline"
-                    className={`text-xs uppercase tracking-wider mt-3 ${colors.badge}`}
+                    className={`text-xs uppercase tracking-wider mt-3 ${meta.badge}`}
                   >
                     {TRANSACTION_LABELS[selectedTx.type] ?? selectedTx.type}
                   </Badge>
@@ -480,6 +503,36 @@ export default function TransactionsPage() {
                       </p>
                     </div>
                   </div>
+
+                  {/* Cashback earned (grouped) */}
+                  {selectedGroup.cashback && (
+                    <div className="flex items-start gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <Sparkles className="h-4 w-4 text-amber-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Cashback Earned</p>
+                        <p className="text-sm font-medium text-amber-400">
+                          +{formatAmount(Math.abs(Number(selectedGroup.cashback.amount)), currencyConfig)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Balance used (grouped) */}
+                  {selectedGroup.balanceUsed && (
+                    <div className="flex items-start gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <Wallet className="h-4 w-4 text-red-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Balance Used</p>
+                        <p className="text-sm font-medium text-red-400">
+                          −{formatAmount(Math.abs(Number(selectedGroup.balanceUsed.amount)), currencyConfig)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Description */}
                   {selectedTx.description && (

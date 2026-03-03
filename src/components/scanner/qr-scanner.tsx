@@ -45,6 +45,10 @@ export function QrScanner({ onScan, active, fullscreen }: QrScannerProps) {
     const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' })
     if (code?.data) {
       onScan(code.data)
+      // Pause for 1.5s after a detection so the lookup/navigation can complete
+      // before the scanner starts firing again (prevents duplicate lookups)
+      setTimeout(() => { rafRef.current = requestAnimationFrame(scan) }, 1500)
+      return
     }
     rafRef.current = requestAnimationFrame(scan)
   }

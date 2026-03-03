@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { AlertCircle, Loader2 } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 import { formatPhone } from '@/lib/format'
 
 const COUNTRY_CODES = [
@@ -86,6 +87,7 @@ export function JoinForm({
   const [error, setError] = useState<string | null>(null)
   const [platform, setPlatform] = useState<'apple' | 'google'>('apple')
   const [isDesktop, setIsDesktop] = useState(false)
+  const [qrPlatform, setQrPlatform] = useState<'apple' | 'google'>('apple')
   const [shake, setShake] = useState(false)
 
   useEffect(() => {
@@ -149,6 +151,7 @@ export function JoinForm({
       }
 
       setStatus('success')
+      setQrPlatform(platform)
 
       if (data.passUrl) {
         setPassUrl(data.passUrl)
@@ -228,52 +231,111 @@ export function JoinForm({
                 Your card will be sent to you shortly.
               </p>
             ) : passUrl ? (
-              <div className="space-y-3">
-                {platform === 'apple' && !isDesktop && (
-                  <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.6 } : { color: 'var(--muted-foreground)' }}>
-                    Can&apos;t see your pass? Tap below to add it again
+              isDesktop ? (
+                // Desktop: QR code with platform picker
+                <div className="space-y-4">
+                  <p className="text-sm font-medium" style={textColor ? { color: textColor, opacity: 0.8 } : { color: 'var(--foreground)' }}>
+                    Scan with your phone to add the pass
                   </p>
-                )}
-                {platform === 'apple' ? (
-                  <a
-                    href={passUrl}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-white font-semibold text-sm transition-all active:scale-[0.98] hover:brightness-110 w-full"
-                    style={{ backgroundColor: accent }}
-                  >
-                    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
-                    </svg>
-                    Add to Apple Wallet
-                  </a>
-                ) : (
-                  <a
-                    href={passUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-white font-semibold text-sm transition-all active:scale-[0.98] hover:brightness-110 w-full"
-                    style={{ backgroundColor: accent }}
-                  >
-                    <svg className="h-5 w-5" viewBox="0 0 24 24">
-                      <path d="M21.35 11.1h-9.18v2.73h5.51c-.24 1.23-.98 2.28-2.08 2.97l3.36 2.61c1.96-1.81 3.09-4.47 3.09-7.63 0-.64-.06-1.25-.17-1.84z" fill="currentColor"/>
-                      <path d="M12.17 22c2.79 0 5.13-.92 6.84-2.5l-3.36-2.61c-.92.62-2.1.99-3.48.99-2.68 0-4.95-1.81-5.76-4.24l-3.44 2.66C4.73 19.78 8.17 22 12.17 22z" fill="currentColor"/>
-                      <path d="M6.41 13.64c-.21-.62-.33-1.28-.33-1.96s.12-1.35.33-1.96L2.97 7.06C2.06 8.87 1.5 10.87 1.5 13s.56 4.13 1.47 5.94l3.44-2.66z" fill="currentColor"/>
-                      <path d="M12.17 5.44c1.51 0 2.87.52 3.94 1.54l2.96-2.96C17.3 2.31 14.96 1.28 12.17 1.28 8.17 1.28 4.73 3.5 2.97 7.06l3.44 2.66c.81-2.43 3.08-4.28 5.76-4.28z" fill="currentColor"/>
-                    </svg>
-                    Add to Google Wallet
-                  </a>
-                )}
-                {altPassUrl && (
-                  <a
-                    href={altPassUrl}
-                    target={platform === 'apple' ? '_blank' : undefined}
-                    rel={platform === 'apple' ? 'noopener noreferrer' : undefined}
-                    className="block text-center text-xs underline transition-opacity hover:opacity-80"
-                    style={textColor ? { color: textColor, opacity: 0.5 } : { color: 'var(--muted-foreground)' }}
-                  >
-                    {platform === 'apple' ? 'Add to Google Wallet' : 'Add to Apple Wallet'}
-                  </a>
-                )}
-              </div>
+
+                  {/* Platform toggle — only show when both URLs are ready */}
+                  {altPassUrl && (
+                    <div className="flex justify-center">
+                      <div className="inline-flex rounded-full p-1 gap-1" style={{ backgroundColor: `${textColor || '#000'}15` }}>
+                        {(['apple', 'google'] as const).map((p) => (
+                          <button
+                            key={p}
+                            onClick={() => setQrPlatform(p)}
+                            className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium transition-all"
+                            style={qrPlatform === p
+                              ? { backgroundColor: accent, color: '#fff' }
+                              : { color: textColor || undefined, opacity: 0.5 }
+                            }
+                          >
+                            {p === 'apple' ? (
+                              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+                              </svg>
+                            ) : (
+                              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M21.35 11.1h-9.18v2.73h5.51c-.24 1.23-.98 2.28-2.08 2.97l3.36 2.61c1.96-1.81 3.09-4.47 3.09-7.63 0-.64-.06-1.25-.17-1.84z"/>
+                                <path d="M12.17 22c2.79 0 5.13-.92 6.84-2.5l-3.36-2.61c-.92.62-2.1.99-3.48.99-2.68 0-4.95-1.81-5.76-4.24l-3.44 2.66C4.73 19.78 8.17 22 12.17 22z"/>
+                                <path d="M6.41 13.64c-.21-.62-.33-1.28-.33-1.96s.12-1.35.33-1.96L2.97 7.06C2.06 8.87 1.5 10.87 1.5 13s.56 4.13 1.47 5.94l3.44-2.66z"/>
+                                <path d="M12.17 5.44c1.51 0 2.87.52 3.94 1.54l2.96-2.96C17.3 2.31 14.96 1.28 12.17 1.28 8.17 1.28 4.73 3.5 2.97 7.06l3.44 2.66c.81-2.43 3.08-4.28 5.76-4.28z"/>
+                              </svg>
+                            )}
+                            {p === 'apple' ? 'Apple' : 'Google'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-center">
+                    <div className="rounded-2xl bg-white p-4 shadow-md inline-block">
+                      <QRCodeSVG
+                        value={(qrPlatform === platform ? passUrl : altPassUrl) ?? passUrl}
+                        size={180}
+                        bgColor="#ffffff"
+                        fgColor="#000000"
+                        level="M"
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-xs" style={textColor ? { color: textColor, opacity: 0.4 } : { color: 'var(--muted-foreground)' }}>
+                    Point your phone camera at the QR code above
+                  </p>
+                </div>
+              ) : (
+                // Mobile: direct wallet buttons
+                <div className="space-y-3">
+                  {platform === 'apple' && (
+                    <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.6 } : { color: 'var(--muted-foreground)' }}>
+                      Can&apos;t see your pass? Tap below to add it again
+                    </p>
+                  )}
+                  {platform === 'apple' ? (
+                    <a
+                      href={passUrl}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-white font-semibold text-sm transition-all active:scale-[0.98] hover:brightness-110 w-full"
+                      style={{ backgroundColor: accent }}
+                    >
+                      <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+                      </svg>
+                      Add to Apple Wallet
+                    </a>
+                  ) : (
+                    <a
+                      href={passUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-white font-semibold text-sm transition-all active:scale-[0.98] hover:brightness-110 w-full"
+                      style={{ backgroundColor: accent }}
+                    >
+                      <svg className="h-5 w-5" viewBox="0 0 24 24">
+                        <path d="M21.35 11.1h-9.18v2.73h5.51c-.24 1.23-.98 2.28-2.08 2.97l3.36 2.61c1.96-1.81 3.09-4.47 3.09-7.63 0-.64-.06-1.25-.17-1.84z" fill="currentColor"/>
+                        <path d="M12.17 22c2.79 0 5.13-.92 6.84-2.5l-3.36-2.61c-.92.62-2.1.99-3.48.99-2.68 0-4.95-1.81-5.76-4.24l-3.44 2.66C4.73 19.78 8.17 22 12.17 22z" fill="currentColor"/>
+                        <path d="M6.41 13.64c-.21-.62-.33-1.28-.33-1.96s.12-1.35.33-1.96L2.97 7.06C2.06 8.87 1.5 10.87 1.5 13s.56 4.13 1.47 5.94l3.44-2.66z" fill="currentColor"/>
+                        <path d="M12.17 5.44c1.51 0 2.87.52 3.94 1.54l2.96-2.96C17.3 2.31 14.96 1.28 12.17 1.28 8.17 1.28 4.73 3.5 2.97 7.06l3.44 2.66c.81-2.43 3.08-4.28 5.76-4.28z" fill="currentColor"/>
+                      </svg>
+                      Add to Google Wallet
+                    </a>
+                  )}
+                  {altPassUrl && (
+                    <a
+                      href={altPassUrl}
+                      target={platform === 'apple' ? '_blank' : undefined}
+                      rel={platform === 'apple' ? 'noopener noreferrer' : undefined}
+                      className="block text-center text-xs underline transition-opacity hover:opacity-80"
+                      style={textColor ? { color: textColor, opacity: 0.5 } : { color: 'var(--muted-foreground)' }}
+                    >
+                      {platform === 'apple' ? 'Add to Google Wallet' : 'Add to Apple Wallet'}
+                    </a>
+                  )}
+                </div>
+              )
             ) : null}
           </div>
         </CardContent>

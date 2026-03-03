@@ -13,7 +13,7 @@ const PASS_SERVICE_URL = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pa
 
 export async function POST(request: NextRequest) {
   try {
-    const { customerId, studioId, amount, isDeposit } = await request.json()
+    const { customerId, studioId, amount, cashAmount, isDeposit } = await request.json()
 
     if (!customerId || !studioId || amount == null) {
       return NextResponse.json({ error: 'customerId, studioId, and amount are required' }, { status: 400 })
@@ -160,19 +160,27 @@ export async function POST(request: NextRequest) {
           cashback_rate: newTier?.cashback_rate,
         },
       })
+
+      // Write tier upgrade notification to wallet pass — the push_message back field
+      // has changeMessage: '%@' so Apple Wallet fires a notification exactly once
+      // when the value changes, rather than on every delayed pass download.
+      if (newTier) {
+        await supabase
+          .from('wallet_passes')
+          .update({ push_message: `You've been upgraded to ${newTier.name}! You now earn ${newTier.cashback_rate}% cashback.` })
+          .eq('customer_id', customerId)
+      }
+
       triggerPassUpdate(customerId, studioId)
     }
 
     // 2. Cashback calculation
-    // Re-fetch customer to get updated cashback_rate
-    const { data: updatedCustomer } = await supabase
-      .from('customers')
-      .select('cashback_rate, balance')
-      .eq('id', customerId)
-      .single()
-
-    const cashbackRate = Number(updatedCustomer?.cashback_rate ?? config.tiers[0].cashback_rate)
-    const cashbackAmount = amount * cashbackRate / 100
+    // Use the rate the customer had at the START of this transaction (before any tier upgrade).
+    // The upgraded rate applies from the next transaction onward.
+    // Cashback is only earned on real cash paid — not on loyalty balance redeemed.
+    const cashbackRate = Number(customer.cashback_rate ?? config.tiers[0].cashback_rate)
+    const cashableAmount = cashAmount != null ? cashAmount : amount
+    const cashbackAmount = cashableAmount * cashbackRate / 100
 
     if (cashbackAmount > 0) {
       await supabase.from('transactions').insert({
@@ -183,13 +191,14 @@ export async function POST(request: NextRequest) {
         description: `${cashbackRate}% cashback on ${amount} kr purchase`,
       })
 
-      const newBalance = Number(updatedCustomer?.balance ?? 0) + cashbackAmount
+      const newBalance = Number(customer.balance ?? 0) + cashbackAmount
       await supabase.from('customers').update({ balance: newBalance }).eq('id', customerId)
-
-      triggerPassUpdate(customerId, studioId)
 
       results.push(`Cashback: ${cashbackAmount.toFixed(2)} kr (${cashbackRate}%)`)
     }
+
+    // Always push pass — balance may have changed even with zero cashback (e.g. full balance redemption)
+    triggerPassUpdate(customerId, studioId)
 
     // 3. Referral commission
     if (config.referrals.enabled) {

@@ -60,6 +60,9 @@ export type AnalyticsDashboard = {
     passInstallRate: number
     passesInstalled: number
     passesTotal: number
+    passUninstallRate: number
+    passesUninstalled: number
+    passesEverInstalled: number
     retentionRate: number
     retainedCount: number
     prevActiveCount: number

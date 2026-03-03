@@ -38,12 +38,13 @@ import {
   Share2,
   ShoppingBag,
   Smartphone,
+  Sparkles,
   TrendingUp,
   Wallet,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
-import { getTierDisplayName, getTierIndex, TRANSACTION_LABELS } from '@/lib/format'
+import { getTierDisplayName, getTierIndex, TRANSACTION_LABELS, TRANSACTION_META, groupRelatedTransactions } from '@/lib/format'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { PASS_SERVICE_URL } from '@/lib/constants'
 import { QRCodeSVG } from 'qrcode.react'
@@ -403,9 +404,11 @@ export default function CustomerDetailPage() {
               <span className="text-xs text-muted-foreground uppercase tracking-wider">Member Since</span>
             </div>
             <p className="text-lg font-bold text-foreground">
-              {memberSince.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
+              {memberSince.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>
-            <p className="text-xs text-muted-foreground">{daysSinceJoin} days</p>
+            <p className="text-xs text-muted-foreground">
+              {daysSinceJoin === 0 ? 'Today' : daysSinceJoin === 1 ? 'Yesterday' : `${daysSinceJoin} days ago`}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -712,33 +715,44 @@ export default function CustomerDetailPage() {
             </div>
           ) : (
             <div className="space-y-1">
-              {filteredTransactions.map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between rounded-lg px-3 py-2.5 hover:bg-secondary/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-xs font-medium ${
-                      tx.type === 'referral_commission'
-                        ? 'bg-blue-500/10 text-blue-400'
-                        : tx.type === 'credit' || tx.type === 'cashback'
-                        ? 'bg-emerald-500/10 text-emerald-400'
-                        : 'bg-red-500/10 text-red-400'
-                    }`}>
-                      {tx.type === 'credit' || tx.type === 'cashback' || tx.type === 'referral_commission' ? '+' : '-'}
+              {groupRelatedTransactions(filteredTransactions).map((group) => {
+                const tx = group.primary
+                const meta = TRANSACTION_META[tx.type as keyof typeof TRANSACTION_META] ?? TRANSACTION_META.adjustment
+                return (
+                  <div key={tx.id} className="flex items-center justify-between rounded-lg px-3 py-2.5 hover:bg-secondary/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${meta.icon_bg}`}>
+                        <meta.icon className={`h-4 w-4 ${meta.icon_color}`} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{tx.description ?? TRANSACTION_LABELS[tx.type] ?? tx.type}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {TRANSACTION_LABELS[tx.type] ?? tx.type} &middot; {new Date(tx.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} {new Date(tx.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                        {(group.cashback || group.balanceUsed) && (
+                          <div className="flex items-center gap-2.5 mt-0.5">
+                            {group.cashback && (
+                              <span className="flex items-center gap-1 text-xs text-amber-400">
+                                <Sparkles className="h-3 w-3 shrink-0" />
+                                +{formatAmount(Math.abs(Number(group.cashback.amount)), currencyConfig)}
+                              </span>
+                            )}
+                            {group.balanceUsed && (
+                              <span className="flex items-center gap-1 text-xs text-red-400">
+                                <Wallet className="h-3 w-3 shrink-0" />
+                                −{formatAmount(Math.abs(Number(group.balanceUsed.amount)), currencyConfig)} balance
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{tx.description ?? TRANSACTION_LABELS[tx.type] ?? tx.type}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {TRANSACTION_LABELS[tx.type] ?? tx.type} &middot; {new Date(tx.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} {new Date(tx.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
+                    <span className={`text-sm font-semibold ${meta.amount} shrink-0 ml-2`}>
+                      {meta.sign}{formatAmount(Math.abs(Number(tx.amount)), currencyConfig)}
+                    </span>
                   </div>
-                  <span className={`text-sm font-semibold ${
-                    tx.type === 'referral_commission' ? 'text-blue-400' : tx.type === 'credit' || tx.type === 'cashback' ? 'text-emerald-400' : 'text-red-400'
-                  }`}>
-                    {tx.type === 'credit' || tx.type === 'cashback' || tx.type === 'referral_commission' ? '+' : '-'}
-                    {formatAmount(Math.abs(Number(tx.amount)), currencyConfig)}
-                  </span>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </CardContent>
