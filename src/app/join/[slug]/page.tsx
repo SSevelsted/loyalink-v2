@@ -93,6 +93,17 @@ export default async function JoinPage({ params, searchParams }: Props) {
   // Dynamic headline fallback
   const headline = page.headline ?? `Get ${baseTier.cashback_rate}% Back on Every Visit`
 
+  // Benefits: use stored list if customised, but always keep rate-derived rows in sync
+  // with the live rewards config so they don't show a stale % after a config change.
+  const maxTier = rewardsConfig.tiers[rewardsConfig.tiers.length - 1]
+  const benefits = settings.benefits
+    ? settings.benefits.map((b) => {
+        if (b.id === 'base_cashback') return { ...b, text: `${baseTier.cashback_rate}% cashback on every purchase` }
+        if (b.id === 'max_cashback') return { ...b, text: `Up to ${maxTier.cashback_rate}% cashback as you level up` }
+        return b
+      })
+    : generateDefaultBenefits(rewardsConfig, currency)
+
   // Referral bonus details
   const showReferralBanner =
     referrerName &&
@@ -154,7 +165,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
         />
 
         <ValueStack
-          benefits={settings.benefits ?? generateDefaultBenefits(rewardsConfig, currency)}
+          benefits={benefits}
           brandColor={brandColor}
           textColor={txtColor}
         />
