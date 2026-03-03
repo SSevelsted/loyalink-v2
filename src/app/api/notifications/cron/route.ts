@@ -8,7 +8,8 @@ const supabase = createAdminClient(
 )
 
 const PASS_SERVICE_URL = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
-const CRON_SECRET = process.env.CRON_SECRET
+const CRON_SECRET = process.env.CRON_SECRET!
+if (!CRON_SECRET) throw new Error('CRON_SECRET env var is required')
 
 type ContentAction = {
   announcement?: string
@@ -87,7 +88,7 @@ async function applyContentActions(
 export async function POST(request: NextRequest) {
   // Verify cron secret
   const authHeader = request.headers.get('authorization')
-  if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
