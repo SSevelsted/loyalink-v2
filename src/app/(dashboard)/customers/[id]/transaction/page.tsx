@@ -78,6 +78,7 @@ export default function RecordTransactionPage() {
         studioId: currentStudio.id,
         transactionId: '',
         amount: parsedAmount,
+        isDeposit,
       })
     },
     onSuccess: () => {

@@ -42,7 +42,7 @@ export function useUpdateRewardsConfig() {
 
 export function useProcessTransaction() {
   return useMutation({
-    mutationFn: async (params: { customerId: string; studioId: string; transactionId: string; amount: number }) => {
+    mutationFn: async (params: { customerId: string; studioId: string; transactionId: string; amount: number; isDeposit?: boolean }) => {
       const res = await fetch('/api/rewards/process-transaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

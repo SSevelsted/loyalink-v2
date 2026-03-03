@@ -13,7 +13,7 @@ const PASS_SERVICE_URL = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pa
 
 export async function POST(request: NextRequest) {
   try {
-    const { customerId, studioId, amount } = await request.json()
+    const { customerId, studioId, amount, isDeposit } = await request.json()
 
     if (!customerId || !studioId || amount == null) {
       return NextResponse.json({ error: 'customerId, studioId, and amount are required' }, { status: 400 })
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     for (let i = Math.max(currentIdx, 0) + 1; i < config.tiers.length; i++) {
       const tier = config.tiers[i]
       if (!tier.upgrade_trigger) continue
-      if (shouldUpgrade(customer, tier.upgrade_trigger, newSpendTotal)) {
+      if (shouldUpgrade(customer, tier.upgrade_trigger, newSpendTotal, isDeposit)) {
         baseUpdates.loyalty_stage = tier.slug
         baseUpdates.cashback_rate = tier.cashback_rate
         tierChanged = true
@@ -251,11 +251,14 @@ export async function POST(request: NextRequest) {
 function shouldUpgrade(
   customer: { has_purchased: boolean; total_real_spend: number; referral_count: number; created_at: string },
   trigger: UpgradeTriggerConfig,
-  newSpendTotal: number
+  newSpendTotal: number,
+  isDeposit = false,
 ): boolean {
   switch (trigger.type) {
     case 'first_purchase':
       return !customer.has_purchased
+    case 'first_full_payment':
+      return !customer.has_purchased && !isDeposit
     case 'total_spend':
       return Number(customer.total_real_spend || 0) < (trigger.threshold ?? 0)
         && newSpendTotal >= (trigger.threshold ?? 0)
