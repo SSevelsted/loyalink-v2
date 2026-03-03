@@ -9,7 +9,7 @@ const supabase = createAdminClient(
 )
 
 const MAX_TURNS = 4
-const OPENROUTER_MODEL = 'google/gemini-3-pro-image-preview'
+const OPENROUTER_MODEL = 'google/gemini-3-pro-preview'
 
 type StoryMessage = {
   role: 'user' | 'assistant'
