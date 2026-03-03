@@ -10,7 +10,7 @@ export function TrustBar({ signupCount, brandColor, textColor }: Props) {
   const pills = [
     { icon: Shield, label: 'Free forever' },
     { icon: Clock, label: '30 seconds' },
-    ...(signupCount >= 5 ? [{ icon: Users, label: `${signupCount}+ members` }] : []),
+    ...(signupCount >= 25 ? [{ icon: Users, label: `${signupCount}+ members` }] : []),
     { icon: Smartphone, label: 'No app needed' },
   ]
 
