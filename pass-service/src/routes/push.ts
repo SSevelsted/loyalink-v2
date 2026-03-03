@@ -241,17 +241,22 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
       }
     }
 
-    // Touch updated_at (and optionally set push_message) on all targeted passes
-    // so Apple's passesUpdatedSince filter picks them up and fetches the updated pass.
-    // The push_message field has changeMessage: '%@', so it becomes the notification text.
+    // Touch updated_at on all targeted passes so Apple's passesUpdatedSince filter
+    // picks them up. This must always succeed regardless of other column state.
     const targetedSerials = registrations.map((r) => r.serial_number);
     await supabase
       .from('wallet_passes')
-      .update({
-        updated_at: new Date().toISOString(),
-        ...(pushMessage ? { push_message: pushMessage } : {}),
-      })
+      .update({ updated_at: new Date().toISOString() })
       .in('serial_number', targetedSerials);
+
+    // Set push_message separately — this column requires migration 010 to exist.
+    // If the column is missing this fails silently rather than breaking updated_at.
+    if (pushMessage) {
+      await supabase
+        .from('wallet_passes')
+        .update({ push_message: pushMessage })
+        .in('serial_number', targetedSerials);
+    }
 
     // Log the push with optional campaign/automation reference
     await supabase.from('wallet_push_logs').insert({
