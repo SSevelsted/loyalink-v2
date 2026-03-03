@@ -51,9 +51,11 @@ pU8RBWk6z/Kf
 interface PassTranslation {
   changeMessage: string;
   cashbackChangeMessage: string;
+  tierChangeMessage: string;
   balanceLabel: string;
   memberLabel: string;
   cashbackLabel: string;
+  tierLabel: string;
   referralLabel: string;
   howItWorksLabel: string;
   announcementLabel: string;
@@ -65,9 +67,11 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   en: {
     changeMessage: 'Congrats! Your new balance is %@',
     cashbackChangeMessage: 'Your cashback rate is now %@',
+    tierChangeMessage: 'Congrats! You\'ve been upgraded to %@',
     balanceLabel: 'BALANCE',
     memberLabel: 'MEMBER',
     cashbackLabel: 'LOYALTY CASHBACK',
+    tierLabel: 'TIER',
     referralLabel: 'Refer Friends',
     howItWorksLabel: 'How It Works',
     announcementLabel: 'Announcement',
@@ -77,9 +81,11 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   da: {
     changeMessage: 'Tillykke! Din nye saldo er %@',
     cashbackChangeMessage: 'Din cashback er nu %@',
+    tierChangeMessage: 'Tillykke! Du er opgraderet til %@',
     balanceLabel: 'SALDO',
     memberLabel: 'MEDLEM',
     cashbackLabel: 'LOYALITETS CASHBACK',
+    tierLabel: 'NIVEAU',
     referralLabel: 'Inviter venner',
     howItWorksLabel: 'Sådan fungerer det',
     announcementLabel: 'Nyhed',
@@ -89,9 +95,11 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   sv: {
     changeMessage: 'Grattis! Ditt nya saldo är %@',
     cashbackChangeMessage: 'Din cashback är nu %@',
+    tierChangeMessage: 'Grattis! Du har uppgraderats till %@',
     balanceLabel: 'SALDO',
     memberLabel: 'MEDLEM',
     cashbackLabel: 'LOJALITET CASHBACK',
+    tierLabel: 'NIVÅ',
     referralLabel: 'Bjud in vänner',
     howItWorksLabel: 'Så här fungerar det',
     announcementLabel: 'Nyheter',
@@ -101,9 +109,11 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   no: {
     changeMessage: 'Gratulerer! Din nye saldo er %@',
     cashbackChangeMessage: 'Din cashback er nå %@',
+    tierChangeMessage: 'Gratulerer! Du er oppgradert til %@',
     balanceLabel: 'SALDO',
     memberLabel: 'MEDLEM',
     cashbackLabel: 'LOJALITET CASHBACK',
+    tierLabel: 'NIVÅ',
     referralLabel: 'Inviter venner',
     howItWorksLabel: 'Slik fungerer det',
     announcementLabel: 'Nyhet',
@@ -113,9 +123,11 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   de: {
     changeMessage: 'Glückwunsch! Dein neues Guthaben ist %@',
     cashbackChangeMessage: 'Deine Cashback-Rate ist jetzt %@',
+    tierChangeMessage: 'Glückwunsch! Du wurdest zu %@ befördert',
     balanceLabel: 'GUTHABEN',
     memberLabel: 'MITGLIED',
     cashbackLabel: 'TREUE-CASHBACK',
+    tierLabel: 'STUFE',
     referralLabel: 'Freunde werben',
     howItWorksLabel: 'So funktioniert es',
     announcementLabel: 'Ankündigung',
@@ -125,9 +137,11 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   fr: {
     changeMessage: 'Félicitations ! Votre nouveau solde est %@',
     cashbackChangeMessage: 'Votre taux de cashback est maintenant %@',
+    tierChangeMessage: 'Félicitations ! Vous êtes passé au niveau %@',
     balanceLabel: 'SOLDE',
     memberLabel: 'MEMBRE',
     cashbackLabel: 'CASHBACK FIDÉLITÉ',
+    tierLabel: 'NIVEAU',
     referralLabel: 'Parrainer des amis',
     howItWorksLabel: 'Comment ça marche',
     announcementLabel: 'Annonce',
@@ -137,9 +151,11 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   es: {
     changeMessage: '¡Felicidades! Tu nuevo saldo es %@',
     cashbackChangeMessage: 'Tu tasa de cashback ahora es %@',
+    tierChangeMessage: '¡Felicidades! Has sido ascendido a %@',
     balanceLabel: 'SALDO',
     memberLabel: 'MIEMBRO',
     cashbackLabel: 'CASHBACK DE LEALTAD',
+    tierLabel: 'NIVEL',
     referralLabel: 'Referir amigos',
     howItWorksLabel: 'Cómo funciona',
     announcementLabel: 'Anuncio',
@@ -149,9 +165,11 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   nl: {
     changeMessage: 'Gefeliciteerd! Je nieuwe saldo is %@',
     cashbackChangeMessage: 'Je cashback is nu %@',
+    tierChangeMessage: 'Gefeliciteerd! Je bent gepromoveerd naar %@',
     balanceLabel: 'SALDO',
     memberLabel: 'LID',
     cashbackLabel: 'LOYALITEIT CASHBACK',
+    tierLabel: 'NIVEAU',
     referralLabel: 'Vrienden uitnodigen',
     howItWorksLabel: 'Hoe het werkt',
     announcementLabel: 'Aankondiging',
@@ -161,9 +179,11 @@ const PASS_TRANSLATIONS: Record<string, PassTranslation> = {
   pl: {
     changeMessage: 'Gratulacje! Twoje nowe saldo to %@',
     cashbackChangeMessage: 'Twój cashback wynosi teraz %@',
+    tierChangeMessage: 'Gratulacje! Awansowałeś do poziomu %@',
     balanceLabel: 'SALDO',
     memberLabel: 'CZŁONEK',
     cashbackLabel: 'CASHBACK LOJALNOŚCIOWY',
+    tierLabel: 'POZIOM',
     referralLabel: 'Polecaj znajomych',
     howItWorksLabel: 'Jak to działa',
     announcementLabel: 'Ogłoszenie',
@@ -419,6 +439,12 @@ export class ApplePassService {
           },
         ],
         backFields: [
+          {
+            key: 'tier',
+            label: t.tierLabel,
+            value: data.loyaltyTier,
+            changeMessage: t.tierChangeMessage,
+          },
           {
             key: 'referral',
             label: t.referralLabel,
