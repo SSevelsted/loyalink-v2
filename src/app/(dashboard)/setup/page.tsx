@@ -45,6 +45,8 @@ import { DEFAULT_TIER_THEMES, DEFAULT_CARD_FIELDS, DEFAULT_REWARDS_CONFIG, migra
 import { RewardsConfigForm, getTriggerLabel } from '@/components/rewards/rewards-config-form'
 import { ProgramOverview } from '@/components/rewards/program-overview'
 import { ReferralProgram } from '@/components/rewards/referral-program'
+import { TemplatePicker } from '@/components/rewards/template-picker'
+import { REWARD_TEMPLATES, DEFAULT_TEMPLATE_ID, type TemplateId } from '@/lib/rewards-templates'
 
 const CURRENCY_OPTIONS = Object.entries(CURRENCY_MAP)
   .filter(([key]) => key !== 'kr')
@@ -126,7 +128,9 @@ export default function SetupPage() {
   const ensureTemplate = useEnsureDefaultTemplate()
 
   // --- Rewards config state ---
-  const [rewardsConfig, setRewardsConfig] = useState<RewardsConfig>(DEFAULT_REWARDS_CONFIG)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<TemplateId>(DEFAULT_TEMPLATE_ID)
+  const classicConfig = REWARD_TEMPLATES.find(t => t.id === DEFAULT_TEMPLATE_ID)!.config
+  const [rewardsConfig, setRewardsConfig] = useState<RewardsConfig>(classicConfig)
 
   const [selectedTier, setSelectedTier] = useState(DEFAULT_REWARDS_CONFIG.tiers[0].slug)
   const [tierThemes, setTierThemes] = useState<Record<string, TierTheme>>(DEFAULT_TIER_THEMES)
@@ -199,6 +203,8 @@ export default function SetupPage() {
     }
     if (s?.rewards_config) {
       setRewardsConfig(migrateRewardsConfig(s.rewards_config))
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedTemplateId('custom')
     }
     // Load studio info state
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -296,6 +302,17 @@ export default function SetupPage() {
     })
     setSelectedTier(DEFAULT_REWARDS_CONFIG.tiers[0].slug)
   }, [selectedTier])
+
+  const handleTemplateSelect = useCallback((id: TemplateId) => {
+    setSelectedTemplateId(id)
+    const template = REWARD_TEMPLATES.find(t => t.id === id)
+    if (template) setRewardsConfig(template.config)
+  }, [])
+
+  const handleRewardsConfigChange = useCallback((config: RewardsConfig) => {
+    setRewardsConfig(config)
+    setSelectedTemplateId('custom')
+  }, [])
 
   const handleCardLogoUpload = async (file: File) => {
     const url = await upload(file, 'logo.png')
@@ -1082,18 +1099,20 @@ export default function SetupPage() {
 
       {step === 1 && (
         <div className="space-y-8">
+          <TemplatePicker selected={selectedTemplateId} onSelect={handleTemplateSelect} />
+          <div className="border-t border-border/50" />
           <ProgramOverview
             config={rewardsConfig}
-            onChange={setRewardsConfig}
+            onChange={handleRewardsConfigChange}
           />
           <div className="border-t border-border/50" />
           <ReferralProgram
             config={rewardsConfig}
-            onChange={setRewardsConfig}
+            onChange={handleRewardsConfigChange}
           />
           <RewardsConfigForm
             config={rewardsConfig}
-            onChange={setRewardsConfig}
+            onChange={handleRewardsConfigChange}
             fromSetup
           />
         </div>
