@@ -1,6 +1,15 @@
 import type { RewardsConfig } from '@/types/database'
 import { DEFAULT_REWARDS_CONFIG } from '@/types/database'
 
+const PRESTIGE: RewardsConfig = {
+  ...DEFAULT_REWARDS_CONFIG,
+  referrals: {
+    ...DEFAULT_REWARDS_CONFIG.referrals,
+    referrer_commission_rate: 0,
+    referrer_commission_duration_days: 0,
+  },
+}
+
 export type TemplateId = 'simple' | 'classic' | 'prestige' | 'custom'
 
 export type RewardTemplate = {
@@ -74,7 +83,7 @@ const CLASSIC: RewardsConfig = {
     referrer_commission_type: 'percentage',
     referrer_commission_duration_days: 60,
     referrer_cashback_bonus_per_ref: 2,
-    referrer_cashback_cap: 15,
+    referrer_cashback_cap: 18,
     friend_tier_slug: 'member',
     friend_cashback_rate: 12,
     friend_welcome_bonus: 75,
@@ -106,7 +115,7 @@ export const REWARD_TEMPLATES: RewardTemplate[] = [
     tagline: 'Four tiers, referral engine, maximum retention. This is what our top-performing studios use.',
     tierCount: 4,
     cashbackRange: '7.5–20%',
-    config: DEFAULT_REWARDS_CONFIG,
+    config: PRESTIGE,
   },
   {
     id: 'custom',
