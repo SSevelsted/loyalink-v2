@@ -299,7 +299,12 @@ export function ReferralProgram({
                               </Label>
                               <Select
                                 value={config.referrals.referrer_commission_type ?? 'percentage'}
-                                onValueChange={(v: 'percentage' | 'fixed') => updateReferrals({ referrer_commission_type: v })}
+                                onValueChange={(v: 'percentage' | 'fixed') => {
+                                  updateReferrals({
+                                    referrer_commission_type: v,
+                                    ...(v === 'fixed' ? { referrer_commission_duration_days: 0 } : {}),
+                                  })
+                                }}
                               >
                                 <SelectTrigger className="w-[200px] h-7 text-xs">
                                   <SelectValue />
@@ -325,43 +330,45 @@ export function ReferralProgram({
                               />
                             </div>
 
-                            {/* Duration: limited or unlimited */}
-                            <div className="flex items-center gap-2">
-                              <Label className="text-xs text-muted-foreground w-28 shrink-0 flex items-center gap-1">
-                                Duration
-                                <InfoTip text="How long your customer keeps earning commission from each friend. Unlimited means it never expires." />
-                              </Label>
-                              <Select
-                                value={durationUnlimited ? 'unlimited' : 'limited'}
-                                onValueChange={(v) => {
-                                  if (v === 'unlimited') {
-                                    updateReferrals({ referrer_commission_duration_days: 0 })
-                                  } else {
-                                    updateReferrals({ referrer_commission_duration_days: 90 })
-                                  }
-                                }}
-                              >
-                                <SelectTrigger className="w-[140px] h-7 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="unlimited" className="text-xs">Unlimited</SelectItem>
-                                  <SelectItem value="limited" className="text-xs">Limited period</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            {!durationUnlimited && (
-                              <div className="flex items-center gap-2 pl-[7.5rem]">
-                                <NumberInput
-                                  value={config.referrals.referrer_commission_duration_days}
-                                  onChange={(v) => updateReferrals({ referrer_commission_duration_days: v })}
-                                  suffix="days"
-                                  step={1}
-                                  min={1}
-                                  className="h-7 text-xs"
-                                />
+                            {/* Duration: only relevant for percentage commissions (fixed = one-time) */}
+                            {(config.referrals.referrer_commission_type ?? 'percentage') === 'percentage' && <>
+                              <div className="flex items-center gap-2">
+                                <Label className="text-xs text-muted-foreground w-28 shrink-0 flex items-center gap-1">
+                                  Duration
+                                  <InfoTip text="How long your customer keeps earning commission from each friend. Unlimited means it never expires." />
+                                </Label>
+                                <Select
+                                  value={durationUnlimited ? 'unlimited' : 'limited'}
+                                  onValueChange={(v) => {
+                                    if (v === 'unlimited') {
+                                      updateReferrals({ referrer_commission_duration_days: 0 })
+                                    } else {
+                                      updateReferrals({ referrer_commission_duration_days: 90 })
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="w-[140px] h-7 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="unlimited" className="text-xs">Unlimited</SelectItem>
+                                    <SelectItem value="limited" className="text-xs">Limited period</SelectItem>
+                                  </SelectContent>
+                                </Select>
                               </div>
-                            )}
+                              {!durationUnlimited && (
+                                <div className="flex items-center gap-2 pl-[7.5rem]">
+                                  <NumberInput
+                                    value={config.referrals.referrer_commission_duration_days}
+                                    onChange={(v) => updateReferrals({ referrer_commission_duration_days: v })}
+                                    suffix="days"
+                                    step={1}
+                                    min={1}
+                                    className="h-7 text-xs"
+                                  />
+                                </div>
+                              )}
+                            </>}
                           </div>
                         )}
                       </div>
