@@ -1,7 +1,7 @@
 /**
  * Cron: runs on the 1st of each month (Vercel cron or external scheduler)
- * Snapshots the active customer count for each studio and updates
- * their Stripe subscription quantity accordingly.
+ * Reports active member usage for each studio to Stripe (graduated tiered price).
+ * Active member = customer with a wallet pass currently in status 'installed'.
  *
  * Vercel cron config in vercel.json:
  *   { "path": "/api/cron/billing-sync", "schedule": "0 1 1 * *" }
@@ -16,55 +16,59 @@ const supabase = createAdminClient(
 )
 
 export async function GET(request: NextRequest) {
-  // Protect the cron endpoint
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  if (!process.env.STRIPE_SECRET_KEY) {
-    return NextResponse.json({ skipped: true, reason: 'Stripe not configured' })
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_MEMBER_PRICE_ID) {
+    return NextResponse.json({ skipped: true, reason: 'Stripe not fully configured' })
   }
 
-  // Fetch all active studios with a Stripe subscription
   const { data: studios, error } = await supabase
     .from('studios')
     .select('id, name, stripe_subscription_id, subscription_status')
-    .eq('subscription_status', 'active')
+    .in('subscription_status', ['active', 'trial'])
     .not('stripe_subscription_id', 'is', null)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const results: { studioId: string; name: string; quantity: number; status: string }[] = []
+  const results: { studioId: string; name: string; activeMembers: number; status: string }[] = []
 
   for (const studio of studios ?? []) {
     try {
-      // Count active customers for this studio
+      // Count customers with a pass currently installed in their wallet
       const { count } = await supabase
-        .from('customers')
+        .from('wallet_passes')
         .select('id', { count: 'exact', head: true })
         .eq('studio_id', studio.id)
+        .eq('status', 'installed')
 
-      const quantity = count ?? 0
+      const activeMembers = count ?? 0
 
-      // Update Stripe subscription quantity (no proration — new period only)
-      await getStripe().subscriptions.update(studio.stripe_subscription_id!, {
-        items: [], // will be resolved from the existing subscription
+      // Find the metered subscription item
+      const sub = await getStripe().subscriptions.retrieve(studio.stripe_subscription_id!)
+      const memberItem = sub.items.data.find(
+        (item) => item.price.id === process.env.STRIPE_MEMBER_PRICE_ID
+      )
+
+      if (!memberItem) {
+        results.push({ studioId: studio.id, name: studio.name, activeMembers, status: 'no_member_item' })
+        continue
+      }
+
+      // Update quantity on the graduated tiered price item
+      await getStripe().subscriptionItems.update(memberItem.id, {
+        quantity: activeMembers,
         proration_behavior: 'none',
       })
 
-      // Update each item's quantity
-      const sub = await getStripe().subscriptions.retrieve(studio.stripe_subscription_id!)
-      for (const item of sub.items.data) {
-        await getStripe().subscriptionItems.update(item.id, { quantity })
-      }
-
-      results.push({ studioId: studio.id, name: studio.name, quantity, status: 'updated' })
+      results.push({ studioId: studio.id, name: studio.name, activeMembers, status: 'updated' })
     } catch (err) {
       console.error(`[billing-sync] error for studio ${studio.id}:`, err)
-      results.push({ studioId: studio.id, name: studio.name, quantity: 0, status: 'error' })
+      results.push({ studioId: studio.id, name: studio.name, activeMembers: 0, status: 'error' })
     }
   }
 

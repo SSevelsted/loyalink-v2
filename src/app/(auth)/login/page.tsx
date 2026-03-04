@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -70,7 +71,7 @@ function LoginForm() {
           </p>
         </div>
 
-        <div className="rounded-2xl glass-card p-6">
+        <div className="rounded-2xl glass-card p-6 mb-6">
           {mode === 'login' ? (
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
@@ -192,6 +193,12 @@ function LoginForm() {
           )}
         </div>
       </div>
+      <p className="text-center text-sm text-muted-foreground mt-6">
+        Don&apos;t have an account?{' '}
+        <Link href="/signup" className="text-foreground hover:underline underline-offset-4">
+          Start free trial →
+        </Link>
+      </p>
     </div>
   )
 }
