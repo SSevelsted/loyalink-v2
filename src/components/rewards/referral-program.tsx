@@ -203,33 +203,12 @@ export function ReferralProgram({
               </Select>
             </div>
 
-            {/* Milestone preview */}
-            {milestones.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Cashback progression</p>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {milestones.map((m, i) => {
-                    const isMax = i === milestones.length - 1 && m.rate >= config.referrals.referrer_cashback_cap
-                    return (
-                      <div key={i} className="flex items-center gap-1.5">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-bold ${
-                            isMax
-                              ? 'bg-violet-500 text-white ring-2 ring-violet-400/50 ring-offset-1 ring-offset-background'
-                              : 'bg-violet-500/15 text-violet-400'
-                          }`}
-                        >
-                          {m.rate}%{isMax ? ' MAX' : ''}
-                        </span>
-                        {i < milestones.length - 1 && (
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {milestones[i + 1].friends === 1 ? '1 friend' : `${milestones[i + 1].friends} friends`} &rarr;
-                          </span>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
+            {/* Referral bonus summary */}
+            {config.referrals.referrer_cashback_bonus_per_ref > 0 && (
+              <div className="rounded-xl bg-violet-500/10 border border-violet-500/20 px-4 py-3 flex items-center justify-between gap-4">
+                <p className="text-xs text-violet-400">
+                  Each referral adds <span className="font-bold">+{config.referrals.referrer_cashback_bonus_per_ref}%</span> cashback, up to a max of <span className="font-bold">{config.referrals.referrer_cashback_cap}%</span> — on top of whatever tier they&apos;re on.
+                </p>
               </div>
             )}
 
