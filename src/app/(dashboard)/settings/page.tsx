@@ -6,7 +6,7 @@ import { useRewardsConfig, useUpdateRewardsConfig } from '@/hooks/use-rewards'
 import type { RewardsConfig } from '@/types/database'
 import { DEFAULT_REWARDS_CONFIG } from '@/types/database'
 import { toast } from 'sonner'
-import { User, Building2, Users, Gift, Share2, FileText } from 'lucide-react'
+import { User, Building2, Users, Gift, Share2, FileText, CreditCard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import { AccountSection } from './_components/account-section'
@@ -15,6 +15,7 @@ import { TeamSection } from './_components/team-section'
 import { RewardsSection } from './_components/rewards-section'
 import { ReferralsSection } from './_components/referrals-section'
 import { LandingPageSection } from './_components/landing-page-section'
+import { BillingSection } from './_components/billing-section'
 
 const SECTIONS = [
   { id: 'account', label: 'Account', icon: User },
@@ -23,6 +24,7 @@ const SECTIONS = [
   { id: 'team', label: 'Team', icon: Users },
   { id: 'rewards', label: 'Rewards', icon: Gift },
   { id: 'referrals', label: 'Referrals', icon: Share2 },
+  { id: 'billing', label: 'Billing', icon: CreditCard },
 ] as const
 
 type SectionId = (typeof SECTIONS)[number]['id']
@@ -106,6 +108,7 @@ export default function SettingsPage() {
             isAdmin={isAdmin}
           />
         )}
+        {activeSection === 'billing' && <BillingSection />}
       </div>
     </div>
   )

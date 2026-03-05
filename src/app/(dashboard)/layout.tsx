@@ -11,6 +11,9 @@ import { usePassTemplates } from '@/hooks/use-wallet'
 import { Building2, Menu } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
+import { isSubscriptionActive } from '@/lib/stripe'
+import { SubscriptionWall } from './_components/subscription-wall'
+import { TrialBanner } from './_components/trial-banner'
 
 export default function DashboardLayout({
   children,
@@ -43,6 +46,23 @@ export default function DashboardLayout({
     }
   }, [authLoading, studioLoading, currentStudio, membership, pathname, router])
 
+  // Subscription wall — show for cancelled/past_due (super_admin and /setup bypass)
+  const showSubscriptionWall =
+    !authLoading &&
+    !studioLoading &&
+    !!currentStudio &&
+    membership?.role !== 'super_admin' &&
+    pathname !== '/setup' &&
+    !isSubscriptionActive(currentStudio.subscription_status)
+
+  // Trial banner — show when ≤ 7 days left
+  const showTrialBanner =
+    !authLoading &&
+    !studioLoading &&
+    !!currentStudio &&
+    currentStudio.subscription_status === 'trial' &&
+    !!currentStudio.trial_ends_at
+
   if (authLoading || studioLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -72,10 +92,17 @@ export default function DashboardLayout({
     )
   }
 
+  if (showSubscriptionWall) {
+    return <SubscriptionWall status={currentStudio.subscription_status} />
+  }
+
   return (
     <SidebarProvider>
       <AppSidebar />
       <main className="flex-1 overflow-auto h-svh">
+        {showTrialBanner && (
+          <TrialBanner trialEndsAt={currentStudio.trial_ends_at!} />
+        )}
         <div className="flex items-center gap-3 glass-card border-0 border-b border-white/[0.08] px-4 py-3 md:hidden">
           <SidebarTrigger>
             <Menu className="h-5 w-5" />
