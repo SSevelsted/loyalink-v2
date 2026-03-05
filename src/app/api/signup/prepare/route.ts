@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
     const setupIntent = await getStripe().setupIntents.create({
       customer: customer.id,
       payment_method_types: ['card'],
+      payment_method_options: { card: { request_three_d_secure: 'automatic' } },
       metadata: { studio_name: studioName.trim() },
     })
 

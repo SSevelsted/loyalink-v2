@@ -187,7 +187,8 @@ function PaymentStep({ step1, customerId, onBack }: PaymentStepProps) {
         </div>
       </div>
 
-      <PaymentElement />
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      <PaymentElement options={{ wallets: { applePay: 'never', googlePay: 'never' }, fields: { billingDetails: { address: { country: 'never' } } }, link: { display: 'never' } } as any} />
 
       {error && (
         <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2">
@@ -408,9 +409,31 @@ export default function SignupPage() {
                   variables: {
                     colorBackground: 'hsl(240 6% 10%)',
                     colorText: 'hsl(0 0% 98%)',
-                    colorTextPlaceholder: 'hsl(240 5% 55%)',
+                    colorTextPlaceholder: 'hsl(240 5% 40%)',
+                    colorPrimary: 'hsl(262 83% 68%)',
+                    colorDanger: 'hsl(0 72% 51%)',
                     borderRadius: '8px',
                     fontSizeBase: '14px',
+                    spacingUnit: '4px',
+                  },
+                  rules: {
+                    '.Input': {
+                      backgroundColor: 'hsl(240 5% 14%)',
+                      border: '1px solid hsl(240 5% 20%)',
+                      boxShadow: 'none',
+                    },
+                    '.Input:focus': {
+                      border: '1px solid hsl(262 83% 68% / 0.6)',
+                      boxShadow: '0 0 0 1px hsl(262 83% 68% / 0.3)',
+                    },
+                    '.Label': {
+                      color: 'hsl(240 5% 55%)',
+                      fontSize: '11px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                    },
+                    '.Tab': { display: 'none' },
+                    '.TabLabel': { display: 'none' },
                   },
                 },
               }}
