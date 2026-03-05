@@ -130,14 +130,26 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
     if (!currentUrl) return
     setRemovingBg(true)
     try {
-      const { removeBackground } = await import('@imgly/background-removal')
-      const response = await fetch(currentUrl)
-      const inputBlob = await response.blob()
-      const resultBlob = await removeBackground(inputBlob)
+      const imageRes = await fetch(currentUrl)
+      if (!imageRes.ok) throw new Error('Failed to fetch current image')
+      const imageBlob = await imageRes.blob()
+
+      const formData = new FormData()
+      formData.append('image', imageBlob, 'image.png')
+
+      const res = await fetch('/api/remove-bg', { method: 'POST', body: formData })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: 'Background removal failed' }))
+        throw new Error(data.error ?? 'Background removal failed')
+      }
+
+      const resultBlob = await res.blob()
       const file = new File([resultBlob], 'bg-removed.png', { type: 'image/png' })
       onUpload(file)
-    } catch {
-      // Background removal failed silently
+      toast.success('Background removed')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Background removal failed')
     } finally {
       setRemovingBg(false)
     }
