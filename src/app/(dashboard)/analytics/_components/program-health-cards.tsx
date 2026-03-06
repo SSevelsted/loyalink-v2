@@ -28,10 +28,10 @@ export function ProgramHealthCards({ data }: ProgramHealthCardsProps) {
       color: 'bg-red-400',
     },
     {
-      label: 'Retention Rate',
-      value: `${programHealth.retentionRate}%`,
-      subtitle: `${programHealth.retainedCount} / ${programHealth.prevActiveCount} returning`,
-      progress: programHealth.retentionRate,
+      label: 'Repeat Purchase Rate',
+      value: `${programHealth.repeatPurchaseRate}%`,
+      subtitle: `customers who bought more than once`,
+      progress: programHealth.repeatPurchaseRate,
       color: 'bg-blue-400',
     },
     {

@@ -8,13 +8,15 @@ import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Users, ArrowLeftRight, Wallet, TrendingUp, ScanLine, Link as LinkIcon, Copy, Check, ExternalLink, Sparkles } from 'lucide-react'
+import { Users, ArrowLeftRight, Wallet, TrendingUp, ScanLine, Link as LinkIcon, Copy, Check, ExternalLink, Sparkles, QrCode } from 'lucide-react'
 import { useState } from 'react'
 import type { Transaction } from '@/types/database'
 import { ScanDialog } from '@/components/scanner/scan-dialog'
 import { useLandingPage } from '@/hooks/use-landing-page'
+import { SignupQR } from '@/components/landing/signup-qr'
 import { APP_URL } from '@/lib/constants'
 import { TRANSACTION_META, groupRelatedTransactions } from '@/lib/format'
+import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 
 function ScanButton() {
   const [open, setOpen] = useState(false)
@@ -45,6 +47,7 @@ export default function DashboardPage() {
   const { data: customers } = useCustomers()
   const { data: landingPage } = useLandingPage()
   const [linkCopied, setLinkCopied] = useState(false)
+  const [showQR, setShowQR] = useState(false)
   const supabase = createClient()
 
   const { data: recentTransactions, isLoading: txLoading } = useQuery({
@@ -88,11 +91,13 @@ export default function DashboardPage() {
   })
 
   const totalBalance = customers?.reduce((sum, c) => sum + Number(c.balance), 0) ?? 0
+  const studioSettings = (currentStudio?.settings ?? {}) as Record<string, unknown>
+  const currencyCfg = getCurrencyConfig((studioSettings.currency as string) ?? 'dkk')
 
   const stats = [
     { title: 'Customers', value: customers?.length ?? 0, icon: Users, color: 'text-blue-400', href: '/customers' },
     { title: 'Active Passes', value: passCount ?? 0, icon: Wallet, color: 'text-emerald-400', href: null },
-    { title: 'Total Balance', value: `${totalBalance.toFixed(0)} kr`, icon: TrendingUp, color: 'text-primary', href: null },
+    { title: 'Total Balance', value: formatAmount(totalBalance, currencyCfg), icon: TrendingUp, color: 'text-primary', href: null },
     { title: 'Transactions', value: txCount ?? 0, icon: ArrowLeftRight, color: 'text-violet-400', href: '/transactions' },
   ]
 
@@ -139,7 +144,7 @@ export default function DashboardPage() {
       {/* Share Signup Link */}
       {landingPage && (
         <Card variant="glass" className="rounded-2xl border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
-          <CardContent className="p-5">
+          <CardContent className="p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="flex items-center gap-3 shrink-0">
                 <div className="h-10 w-10 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -176,8 +181,33 @@ export default function DashboardPage() {
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 px-2"
+                  onClick={() => setShowQR((v) => !v)}
+                >
+                  <QrCode className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </div>
+
+            {showQR && (
+              <div className="flex flex-col sm:flex-row items-center gap-5 pt-1 border-t border-border/30">
+                <SignupQR
+                  url={`${APP_URL}/join/${landingPage.slug}`}
+                  studioName={currentStudio?.name}
+                  size={120}
+                  className="w-36"
+                />
+                <div className="space-y-1 text-center sm:text-left">
+                  <p className="text-sm font-medium">Front Desk QR Code</p>
+                  <p className="text-xs text-muted-foreground max-w-xs">
+                    Print and place at your front desk or counter. Customers scan it with their phone camera to sign up instantly — no URL to type.
+                  </p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

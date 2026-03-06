@@ -14,6 +14,7 @@ import {
   Crown,
   HelpCircle,
   Palette,
+  Pencil,
   Plus,
   RotateCcw,
   Sparkles,
@@ -28,6 +29,7 @@ import type { RewardsConfig, TierConfig, UpgradeTriggerConfig } from '@/types/da
 import { DEFAULT_REWARDS_CONFIG, TIER_COLOR_PALETTE, MAX_TIERS } from '@/types/database'
 import { TriggerSelector } from '@/components/rewards/rewards-config-form'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
+import type { RewardTemplate } from '@/lib/rewards-templates'
 
 const TIER_ICONS = [Users, Zap, Crown, Star, Award, Trophy]
 
@@ -37,17 +39,17 @@ type ProgramOverviewProps = {
   currency?: string
   designerHint?: 'next-step' | 'link'
   hideWhyCashbackWorks?: boolean
+  baseTemplate?: RewardTemplate
 }
 
-function isDefaultConfig(config: RewardsConfig): boolean {
-  const def = DEFAULT_REWARDS_CONFIG
-  if (config.tiers.length !== def.tiers.length) return false
+function isMatchingTemplate(config: RewardsConfig, template: RewardsConfig): boolean {
+  if (config.tiers.length !== template.tiers.length) return false
   for (let i = 0; i < config.tiers.length; i++) {
-    if (config.tiers[i].cashback_rate !== def.tiers[i].cashback_rate) return false
+    if (config.tiers[i].cashback_rate !== template.tiers[i].cashback_rate) return false
   }
   return (
-    config.referrals.referrer_cashback_bonus_per_ref === def.referrals.referrer_cashback_bonus_per_ref &&
-    config.referrals.referrer_cashback_cap === def.referrals.referrer_cashback_cap
+    config.referrals.referrer_cashback_bonus_per_ref === template.referrals.referrer_cashback_bonus_per_ref &&
+    config.referrals.referrer_cashback_cap === template.referrals.referrer_cashback_cap
   )
 }
 
@@ -72,8 +74,10 @@ export function ProgramOverview({
   currency = 'kr',
   designerHint = 'next-step',
   hideWhyCashbackWorks = false,
+  baseTemplate,
 }: ProgramOverviewProps) {
-  const showReset = !isDefaultConfig(config)
+  const referenceConfig = baseTemplate?.config ?? DEFAULT_REWARDS_CONFIG
+  const showReset = baseTemplate?.id !== 'custom' && !isMatchingTemplate(config, referenceConfig)
   const currCfg = getCurrencyConfig(currency)
 
   const updateTier = (index: number, partial: Partial<TierConfig>) => {
@@ -183,8 +187,10 @@ export function ProgramOverview({
         </div>
 
         {/* Hero cashback rate */}
-        <div className={`rounded-2xl ${color.bg} border ${color.border} p-4`}>
-          <div className="flex items-center gap-3">
+        <div className={`rounded-2xl ${color.bg} border ${color.border} p-4 group/rate cursor-text`}
+          onClick={(e) => (e.currentTarget.querySelector('input') as HTMLInputElement | null)?.focus()}
+        >
+          <div className="flex items-center justify-between">
             <div className="flex items-baseline gap-1">
               <Input
                 type="number"
@@ -193,10 +199,11 @@ export function ProgramOverview({
                 min={0}
                 max={100}
                 step={0.5}
-                className={`w-20 h-auto text-3xl md:text-3xl font-black bg-transparent border-none p-0 ${color.text} [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+                className={`w-20 h-auto text-3xl md:text-3xl font-black bg-transparent border-b-2 border-dashed border-current/30 focus:border-current/70 p-0 pb-0.5 transition-colors ${color.text} [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
               />
               <span className={`text-3xl font-black ${color.text}`}>%</span>
             </div>
+            <Pencil className={`h-3.5 w-3.5 ${color.text} opacity-30`} />
           </div>
           <div className="flex items-center gap-1.5 mt-1">
             <span className="text-xs text-muted-foreground">Cashback on every purchase</span>
@@ -380,31 +387,33 @@ export function ProgramOverview({
         })()}
       </div>}
 
-      {/* B) Recommendation Banner */}
-      <div className="rounded-2xl border border-primary/20 bg-primary/5 backdrop-blur-sm p-5">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-semibold">Recommended rates for Tattoo Studios</span>
+      {/* B) Template defaults banner */}
+      {baseTemplate && baseTemplate.id !== 'custom' && (
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 backdrop-blur-sm p-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span className="text-sm font-semibold">{baseTemplate.name} defaults</span>
+              </div>
+              <p className="text-xs text-muted-foreground max-w-md">
+                {baseTemplate.tagline} Adjust the rates below, or reset back to the template at any time.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground max-w-md">
-              Unlike discounts, cashback earns you full revenue on every sale. These proven rates balance strong customer incentive with sustainable margins.
-            </p>
+            {showReset && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 gap-2"
+                onClick={() => onChange(referenceConfig)}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset to {baseTemplate.name}
+              </Button>
+            )}
           </div>
-          {showReset && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 gap-2"
-              onClick={() => onChange(DEFAULT_REWARDS_CONFIG)}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset to Recommended
-            </Button>
-          )}
         </div>
-      </div>
+      )}
 
       {/* C) Tier Journey Builder */}
       <div>

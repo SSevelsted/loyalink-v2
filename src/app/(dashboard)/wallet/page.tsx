@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { APP_URL } from '@/lib/constants'
+import { APP_URL, PASS_SERVICE_URL } from '@/lib/constants'
 import { generateDefaultBenefits, BENEFIT_ICON_MAP, BENEFIT_ICON_OPTIONS } from '@/components/landing/value-stack'
 
 // Only the first tier is protected from deletion; custom tiers can be removed
@@ -232,7 +232,7 @@ export default function WalletPage() {
   }
 
   const handleSave = async () => {
-    if (!template) return
+    if (!template || !currentStudio) return
     try {
       await updateTemplate.mutateAsync({
         id: template.id,
@@ -242,7 +242,20 @@ export default function WalletPage() {
         icon_url: iconUrl,
       })
       setDirty(false)
-      toast.success('Card design saved')
+      toast.success('Card design saved — pushing to installed passes…')
+
+      // Push updated design to all installed passes in the background
+      fetch(`${PASS_SERVICE_URL}/push/studio/${currentStudio.id}`, { method: 'POST' })
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json()
+            const total = (data.apple?.sent ?? 0) + (data.google?.updated ?? 0)
+            if (total > 0) toast.success(`Design pushed to ${total} installed pass${total === 1 ? '' : 'es'}`)
+          }
+        })
+        .catch(() => {
+          // Push failure is non-critical — design is saved, passes will update on next open
+        })
     } catch {
       toast.error('Failed to save')
     }
@@ -304,7 +317,7 @@ export default function WalletPage() {
         <Button
           variant="glow"
           onClick={handleSave}
-          disabled={!dirty || updateTemplate.isPending}
+          disabled={!dirty || !logoUrl || !iconUrl || updateTemplate.isPending}
           className="gap-2"
         >
           <Save className="h-4 w-4" />
@@ -321,12 +334,14 @@ export default function WalletPage() {
         {/* ── Designer Tab ── */}
         <TabsContent value="designer" className="space-y-6 mt-4">
           {/* Getting started hint */}
-          {!logoUrl && !stripUrl && !iconUrl && (
+          {(!logoUrl || !iconUrl) && (
             <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
               <ImagePlus className="h-5 w-5 text-primary shrink-0" />
               <div>
-                <p className="text-sm font-medium text-foreground">Start by uploading your brand images</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Add a logo, strip image, and icon below. They will appear on every wallet card your customers receive.</p>
+                <p className="text-sm font-medium text-foreground">
+                  {!logoUrl && !iconUrl ? 'Upload a logo and icon to continue' : !logoUrl ? 'Upload a logo to continue' : 'Upload an icon to continue'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">A logo and icon are required before you can save your card design.</p>
               </div>
             </div>
           )}

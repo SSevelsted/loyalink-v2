@@ -10,7 +10,7 @@ import { Separator } from '@/components/ui/separator'
 import {
   Camera, Check, ChevronRight, Circle, CircleCheck, CircleDashed, CircleX,
   Clock, Copy, CreditCard, Gift, Loader2, MessageCircle,
-  Share2, Smartphone, Sparkles, TrendingUp, Trophy, Users, Wallet,
+  Share2, Smartphone, Sparkles, TrendingUp, Trophy, Users, Wallet, Zap,
 } from 'lucide-react'
 import { APP_URL } from '@/lib/constants'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
@@ -95,6 +95,21 @@ function getReferralSteps(
   return steps
 }
 
+function getTierUpgradeActionText(
+  trigger: { type: string; threshold?: number },
+  t: LoyaltyTranslations,
+  formattedThreshold?: string,
+): string {
+  switch (trigger.type) {
+    case 'first_purchase': return t.doFirstPurchase
+    case 'first_full_payment': return t.doFirstFullPayment
+    case 'total_spend': return t.doTotalSpend(formattedThreshold ?? String(trigger.threshold ?? 0))
+    case 'referral_count': return t.doReferralCount(trigger.threshold ?? 1)
+    case 'days_member': return t.doDaysMember(trigger.threshold ?? 1)
+    default: return t.doFirstPurchase
+  }
+}
+
 function getActivationTriggerText(
   trigger: RewardsConfig['referrals']['activation_trigger'],
   t: LoyaltyTranslations,
@@ -145,6 +160,53 @@ const TRANSACTION_ICONS: Record<string, { icon: typeof CreditCard; color: string
 }
 
 const POSITIVE_TYPES = new Set(['credit', 'cashback', 'referral_commission'])
+
+type TxDisplayRow = {
+  id: string
+  type: string
+  amount: number
+  cashbackAmount?: number
+  description: string | null
+  created_at: string
+}
+
+function groupTransactions(txs: Transaction[]): TxDisplayRow[] {
+  const rows: TxDisplayRow[] = []
+  const used = new Set<string>()
+
+  for (const tx of txs) {
+    if (used.has(tx.id)) continue
+    if (tx.type === 'debit') { used.add(tx.id); continue } // debit is absorbed into its credit
+
+    if (tx.type === 'credit') {
+      // Find matching debit and cashback within same second
+      const sec = tx.created_at.slice(0, 19)
+      const cashbackTx = txs.find(
+        t => !used.has(t.id) && t.id !== tx.id && t.type === 'cashback' && t.created_at.slice(0, 19) === sec
+      )
+      if (cashbackTx) used.add(cashbackTx.id)
+      const debitTx = txs.find(
+        t => !used.has(t.id) && t.id !== tx.id && t.type === 'debit' && t.created_at.slice(0, 19) === sec
+      )
+      if (debitTx) used.add(debitTx.id)
+
+      used.add(tx.id)
+      rows.push({
+        id: tx.id,
+        type: 'credit',
+        amount: tx.amount,
+        cashbackAmount: cashbackTx ? cashbackTx.amount : undefined,
+        description: tx.description,
+        created_at: tx.created_at,
+      })
+    } else {
+      used.add(tx.id)
+      rows.push({ id: tx.id, type: tx.type, amount: tx.amount, description: tx.description, created_at: tx.created_at })
+    }
+  }
+
+  return rows
+}
 
 export function LoyaltyHub({ memberId, avatarUrl, customer, studio, branding, logoUrl, rewardsConfig, referrals, transactions, currency, language }: Props) {
   const [copied, setCopied] = useState(false)
@@ -245,6 +307,16 @@ export function LoyaltyHub({ memberId, avatarUrl, customer, studio, branding, lo
   const friendsNeededForNext = nextMilestone
     ? nextMilestone.friends - activatedCount
     : 0
+
+  // Next tier upgrade path
+  const nextTier = customerTierIdx >= 0 ? rewardsConfig.tiers[customerTierIdx + 1] : rewardsConfig.tiers[1]
+  const nextTierTrigger = nextTier?.upgrade_trigger
+  const nextTierThreshold = nextTierTrigger?.threshold
+    ? formatAmount(nextTierTrigger.threshold, currencyConfig)
+    : undefined
+  const nextTierActionText = nextTierTrigger
+    ? getTierUpgradeActionText(nextTierTrigger, t, nextTierThreshold)
+    : null
 
   const trigger = rewardsConfig.referrals.activation_trigger
   const formattedThreshold = trigger.threshold
@@ -347,13 +419,6 @@ export function LoyaltyHub({ memberId, avatarUrl, customer, studio, branding, lo
             className="rounded-xl overflow-hidden p-6 text-center space-y-4"
             style={{ background: `linear-gradient(135deg, ${brandColor}22, ${brandColor}08)` }}
           >
-            {/* Scarcity badge */}
-            <div className="flex justify-center">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-background/80 px-3 py-1 backdrop-blur-sm">
-                <Clock className="h-3 w-3 text-amber-500" />
-                <span className="text-xs font-medium">{t.daysLeftThisMonth(daysLeft)}</span>
-              </div>
-            </div>
 
             {isMaxed ? (
               <div className="space-y-2">
@@ -620,6 +685,32 @@ export function LoyaltyHub({ memberId, avatarUrl, customer, studio, branding, lo
                   </>
                 )}
               </div>
+
+              {/* How to earn more */}
+              {!isMaxed && (nextTierActionText || (rewardsConfig.referrals.enabled && bonusPerRef > 0)) && (
+                <div className="border-t border-border/50 pt-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">{t.howToEarnMore}</p>
+                  <div className="space-y-2">
+                    {nextTierActionText && nextTier && (
+                      <div className="flex items-center gap-2.5 text-xs">
+                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <Zap className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                        <span className="text-muted-foreground flex-1">{nextTierActionText}</span>
+                        <span className="font-semibold shrink-0" style={{ color: brandColor }}>{t.upgradeToRate(nextTier.cashback_rate)}</span>
+                      </div>
+                    )}
+                    {rewardsConfig.referrals.enabled && bonusPerRef > 0 && (
+                      <div className="flex items-center gap-2.5 text-xs">
+                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <Users className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                        <span className="font-medium" style={{ color: brandColor }}>{t.inviteAndBoost(bonusPerRef)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -632,7 +723,7 @@ export function LoyaltyHub({ memberId, avatarUrl, customer, studio, branding, lo
               <p className="text-sm text-muted-foreground text-center py-4">{t.noActivityYet}</p>
             ) : (
               <div className="space-y-1">
-                {transactions.map((tx) => {
+                {groupTransactions(transactions).map((tx) => {
                   const iconConfig = TRANSACTION_ICONS[tx.type] ?? TRANSACTION_ICONS.adjustment
                   const Icon = iconConfig.icon
                   const isPositive = POSITIVE_TYPES.has(tx.type)
@@ -645,7 +736,12 @@ export function LoyaltyHub({ memberId, avatarUrl, customer, studio, branding, lo
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{label}</p>
-                        <p className="text-[11px] text-muted-foreground">{timeAgo(tx.created_at, t)}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {tx.cashbackAmount
+                            ? `+${formatAmount(tx.cashbackAmount, currencyConfig)} cashback · ${timeAgo(tx.created_at, t)}`
+                            : timeAgo(tx.created_at, t)
+                          }
+                        </p>
                       </div>
                       <span className={`text-sm font-semibold shrink-0 ${isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
                         {isPositive ? '+' : '-'}{formatAmount(Math.abs(tx.amount), currencyConfig)}

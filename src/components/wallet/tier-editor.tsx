@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { ImageUpload } from '@/components/wallet/image-upload'
 import { Trash2, Paintbrush } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 type TierEditorProps = {
   slug: string
@@ -105,25 +106,42 @@ export function TierEditor({
           Quick Presets
         </Label>
         <div className="flex flex-wrap gap-1.5">
-          {COLOR_PRESETS.map((preset) => (
-            <button
-              key={preset.name}
-              onClick={() => onChange({
-                backgroundColor: preset.bg,
-                foregroundColor: preset.fg,
-                labelColor: preset.label,
-              })}
-              className="group relative flex items-center gap-1.5 rounded-lg border border-border/30 px-2 py-1.5 text-[11px] hover:border-primary/30 hover:bg-secondary/50 transition-colors"
-            >
+          {COLOR_PRESETS.map((preset) => {
+            const isActive = preset.bg === tier.backgroundColor && preset.fg === tier.foregroundColor && preset.label === tier.labelColor
+            return (
+              <button
+                key={preset.name}
+                onClick={() => onChange({
+                  backgroundColor: preset.bg,
+                  foregroundColor: preset.fg,
+                  labelColor: preset.label,
+                })}
+                className={cn(
+                  'group relative flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] transition-colors',
+                  isActive
+                    ? 'border-primary/50 bg-primary/10 text-foreground'
+                    : 'border-border/30 hover:border-primary/30 hover:bg-secondary/50'
+                )}
+              >
+                <div
+                  className="h-3.5 w-3.5 rounded-full border border-border/50 shrink-0"
+                  style={{ backgroundColor: preset.bg }}
+                />
+                <span className={cn('transition-colors', isActive ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground')}>
+                  {preset.name}
+                </span>
+              </button>
+            )
+          })}
+          {!COLOR_PRESETS.some(p => p.bg === tier.backgroundColor && p.fg === tier.foregroundColor && p.label === tier.labelColor) && (
+            <span className="flex items-center gap-1.5 rounded-lg border border-primary/50 bg-primary/10 px-2 py-1.5 text-[11px] text-foreground">
               <div
                 className="h-3.5 w-3.5 rounded-full border border-border/50 shrink-0"
-                style={{ backgroundColor: preset.bg }}
+                style={{ backgroundColor: tier.backgroundColor }}
               />
-              <span className="text-muted-foreground group-hover:text-foreground transition-colors">
-                {preset.name}
-              </span>
-            </button>
-          ))}
+              Custom
+            </span>
+          )}
         </div>
       </div>
 

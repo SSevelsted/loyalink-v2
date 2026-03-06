@@ -25,11 +25,14 @@ export function EmbedCode({ slug }: Props) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="space-y-2">
         <label className="text-xs text-muted-foreground uppercase tracking-wider">
           Iframe Embed
         </label>
+        <p className="text-xs text-muted-foreground">
+          Paste this into any page on your website to embed the full signup form inline — customers fill it out without leaving your site.
+        </p>
         <div className="relative">
           <pre className="text-xs bg-secondary/50 rounded-lg p-3 overflow-x-auto border border-border/30 whitespace-pre-wrap break-all">
             {iframeCode}
@@ -49,6 +52,9 @@ export function EmbedCode({ slug }: Props) {
         <label className="text-xs text-muted-foreground uppercase tracking-wider">
           Button Link
         </label>
+        <p className="text-xs text-muted-foreground">
+          Add a styled button anywhere on your site that opens the signup page in a new tab. Works in any website builder.
+        </p>
         <div className="relative">
           <pre className="text-xs bg-secondary/50 rounded-lg p-3 overflow-x-auto border border-border/30 whitespace-pre-wrap break-all">
             {linkCode}

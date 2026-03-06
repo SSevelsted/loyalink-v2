@@ -60,7 +60,7 @@ export function StudioSection() {
   const { currentStudio, membership } = useStudio()
   const supabase = createClient()
   const queryClient = useQueryClient()
-  const isAdmin = membership?.role === 'owner' || membership?.role === 'admin'
+  const isAdmin = membership?.role === 'owner' || membership?.role === 'admin' || membership?.role === 'super_admin'
 
   const s = currentStudio?.settings as Record<string, unknown> | undefined
 

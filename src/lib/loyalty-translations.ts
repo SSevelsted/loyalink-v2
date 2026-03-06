@@ -54,6 +54,16 @@ export type LoyaltyTranslations = {
   youveReferred: (count: number) => string
   moreToReach: (needed: number) => string
 
+  // How to earn more
+  howToEarnMore: string
+  doFirstPurchase: string
+  doFirstFullPayment: string
+  doTotalSpend: (amount: string) => string
+  doReferralCount: (n: number) => string
+  doDaysMember: (n: number) => string
+  upgradeToRate: (rate: number) => string
+  inviteAndBoost: (bonus: number) => string
+
   // Activity
   noActivityYet: string
   transactionLabels: Record<string, string>
@@ -133,6 +143,15 @@ const en: LoyaltyTranslations = {
   maximumCashbackReached: 'Maximum cashback reached!',
   youveReferred: (n) => `You've referred ${n} friend${n !== 1 ? 's' : ''}`,
   moreToReach: (n) => `${n} more to reach`,
+
+  howToEarnMore: 'Ways to earn more',
+  doFirstPurchase: 'Make your first purchase',
+  doFirstFullPayment: 'Complete your first full payment',
+  doTotalSpend: (amount) => `Reach ${amount} in total spend`,
+  doReferralCount: (n) => `Refer ${n} friend${n !== 1 ? 's' : ''}`,
+  doDaysMember: (n) => `Be a member for ${n} day${n !== 1 ? 's' : ''}`,
+  upgradeToRate: (rate) => `→ ${rate}% cashback`,
+  inviteAndBoost: (bonus) => `Invite a friend → +${bonus}% cashback`,
 
   noActivityYet: 'No activity yet',
   transactionLabels: {
@@ -216,6 +235,15 @@ const da: LoyaltyTranslations = {
   youveReferred: (n) => `Du har henvist ${n} ven${n !== 1 ? 'ner' : ''}`,
   moreToReach: (n) => `${n} mere for at nå`,
 
+  howToEarnMore: 'Måder at tjene mere',
+  doFirstPurchase: 'Foretag dit første køb',
+  doFirstFullPayment: 'Gennemfør din første fulde betaling',
+  doTotalSpend: (amount) => `Nå ${amount} i samlet køb`,
+  doReferralCount: (n) => `Henvis ${n} ven${n !== 1 ? 'ner' : ''}`,
+  doDaysMember: (n) => `Vær medlem i ${n} dag${n !== 1 ? 'e' : ''}`,
+  upgradeToRate: (rate) => `→ ${rate}% cashback`,
+  inviteAndBoost: (bonus) => `Inviter en ven → +${bonus}% cashback`,
+
   noActivityYet: 'Ingen aktivitet endnu',
   transactionLabels: {
     credit: 'Køb registreret',
@@ -297,6 +325,15 @@ const sv: LoyaltyTranslations = {
   maximumCashbackReached: 'Maximal cashback uppnådd!',
   youveReferred: (n) => `Du har hänvisat ${n} vän${n !== 1 ? 'ner' : ''}`,
   moreToReach: (n) => `${n} till för att nå`,
+
+  howToEarnMore: 'Sätt att tjäna mer',
+  doFirstPurchase: 'Gör ditt första köp',
+  doFirstFullPayment: 'Slutför din första betalning',
+  doTotalSpend: (amount) => `Nå ${amount} i total köp`,
+  doReferralCount: (n) => `Hänvisa ${n} vän${n !== 1 ? 'ner' : ''}`,
+  doDaysMember: (n) => `Var medlem i ${n} dag${n !== 1 ? 'ar' : ''}`,
+  upgradeToRate: (rate) => `→ ${rate}% cashback`,
+  inviteAndBoost: (bonus) => `Bjud in en vän → +${bonus}% cashback`,
 
   noActivityYet: 'Ingen aktivitet ännu',
   transactionLabels: {
@@ -380,6 +417,15 @@ const nb: LoyaltyTranslations = {
   youveReferred: (n) => `Du har henvist ${n} venn${n !== 1 ? 'er' : ''}`,
   moreToReach: (n) => `${n} til for å nå`,
 
+  howToEarnMore: 'Måter å tjene mer',
+  doFirstPurchase: 'Gjør ditt første kjøp',
+  doFirstFullPayment: 'Fullfør din første betaling',
+  doTotalSpend: (amount) => `Nå ${amount} i totalt kjøp`,
+  doReferralCount: (n) => `Henvis ${n} venn${n !== 1 ? 'er' : ''}`,
+  doDaysMember: (n) => `Vær medlem i ${n} dag${n !== 1 ? 'er' : ''}`,
+  upgradeToRate: (rate) => `→ ${rate}% cashback`,
+  inviteAndBoost: (bonus) => `Inviter en venn → +${bonus}% cashback`,
+
   noActivityYet: 'Ingen aktivitet ennå',
   transactionLabels: {
     credit: 'Kjøp registrert',
@@ -461,6 +507,15 @@ const de: LoyaltyTranslations = {
   maximumCashbackReached: 'Maximaler Cashback erreicht!',
   youveReferred: (n) => `Du hast ${n} Freund${n !== 1 ? 'e' : ''} empfohlen`,
   moreToReach: (n) => `Noch ${n}, um zu erreichen`,
+
+  howToEarnMore: 'Wege, mehr zu verdienen',
+  doFirstPurchase: 'Ersten Kauf tätigen',
+  doFirstFullPayment: 'Erste vollständige Zahlung abschließen',
+  doTotalSpend: (amount) => `${amount} Gesamtausgaben erreichen`,
+  doReferralCount: (n) => `${n} Freund${n !== 1 ? 'e' : ''} empfehlen`,
+  doDaysMember: (n) => `${n} Tag${n !== 1 ? 'e' : ''} Mitglied sein`,
+  upgradeToRate: (rate) => `→ ${rate}% Cashback`,
+  inviteAndBoost: (bonus) => `Freund einladen → +${bonus}% Cashback`,
 
   noActivityYet: 'Noch keine Aktivität',
   transactionLabels: {

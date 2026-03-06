@@ -192,13 +192,16 @@ function LoginForm() {
             </form>
           )}
         </div>
+
+        {mode === 'login' && (
+          <p className="text-center text-sm text-muted-foreground">
+            Don&apos;t have an account?{' '}
+            <Link href="/signup" className="text-foreground hover:underline underline-offset-4">
+              Start free trial →
+            </Link>
+          </p>
+        )}
       </div>
-      <p className="text-center text-sm text-muted-foreground mt-6">
-        Don&apos;t have an account?{' '}
-        <Link href="/signup" className="text-foreground hover:underline underline-offset-4">
-          Start free trial →
-        </Link>
-      </p>
     </div>
   )
 }

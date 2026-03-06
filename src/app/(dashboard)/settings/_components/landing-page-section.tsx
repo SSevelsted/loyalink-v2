@@ -21,8 +21,18 @@ import type { LandingPageSettings, CustomField, Benefit } from '@/hooks/use-land
 import { useImageUpload } from '@/hooks/use-image-upload'
 import { useStudio } from '@/hooks/use-studio'
 import { toast } from 'sonner'
-import { FileText, Palette, ListChecks, FormInput, PartyPopper, Scale, Plus, Trash2, ExternalLink, RotateCcw, TrendingUp } from 'lucide-react'
+import { FileText, Palette, ListChecks, FormInput, PartyPopper, Scale, Plus, Trash2, ExternalLink, RotateCcw, TrendingUp, Paintbrush, RefreshCw } from 'lucide-react'
 import { APP_URL } from '@/lib/constants'
+import { cn } from '@/lib/utils'
+
+const LANDING_PRESETS = [
+  { name: 'Dark', bg: '#0A0A0A', text: '#FFFFFF', brand: '#7C3AED' },
+  { name: 'Light', bg: '#FFFFFF', text: '#111827', brand: '#7C3AED' },
+  { name: 'Ocean', bg: '#0C1A2E', text: '#E2EBF5', brand: '#3B82F6' },
+  { name: 'Forest', bg: '#0A1A0F', text: '#E8F5EC', brand: '#22C55E' },
+  { name: 'Rose', bg: '#1A0A0E', text: '#FFF1F3', brand: '#F43F5E' },
+  { name: 'Amber', bg: '#1A1000', text: '#FFFBEB', brand: '#F59E0B' },
+]
 import { generateDefaultBenefits, BENEFIT_ICON_MAP, BENEFIT_ICON_OPTIONS } from '@/components/landing/value-stack'
 import type { RewardsConfig } from '@/types/database'
 import { migrateRewardsConfig } from '@/types/database'
@@ -48,7 +58,9 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
       setHeadline(landingPage.headline ?? '')
       setDescription(landingPage.description ?? '')
       const s = landingPage.settings as LandingPageSettings | null
-      if (s) setSettings({ ...DEFAULT_LANDING_SETTINGS, ...s })
+      const generatedTermsUrl = `${APP_URL}/join/${landingPage.slug}/terms`
+      if (s) setSettings({ ...DEFAULT_LANDING_SETTINGS, ...s, termsUrl: s.termsUrl || generatedTermsUrl })
+      else setSettings({ ...DEFAULT_LANDING_SETTINGS, termsUrl: generatedTermsUrl })
     }
   }, [landingPage?.id])
 
@@ -178,6 +190,75 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Quick presets */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Paintbrush className="h-3 w-3" />
+                    Color Theme
+                  </Label>
+                  <span className="text-[10px] text-muted-foreground">Click a theme to apply</span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {LANDING_PRESETS.map((preset) => {
+                    const isActive = preset.bg === settings.backgroundColor && preset.text === settings.textColor && preset.brand === settings.brandColor
+                    return (
+                      <button
+                        key={preset.name}
+                        disabled={!isAdmin}
+                        onClick={() => {
+                          updateSetting('backgroundColor', preset.bg)
+                          updateSetting('textColor', preset.text)
+                          updateSetting('brandColor', preset.brand)
+                        }}
+                        className={cn(
+                          'group flex flex-col items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed',
+                          isActive ? 'opacity-100' : 'opacity-70 hover:opacity-100'
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'w-14 h-10 rounded-lg overflow-hidden border-2 transition-all',
+                            isActive ? 'border-primary shadow-[0_0_0_2px] shadow-primary/30' : 'border-border/40 group-hover:border-primary/40'
+                          )}
+                        >
+                          <div className="w-full h-[70%]" style={{ backgroundColor: preset.bg }} />
+                          <div className="w-full h-[30%]" style={{ backgroundColor: preset.brand }} />
+                        </div>
+                        <span className={cn('text-[10px] font-medium transition-colors', isActive ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground')}>
+                          {preset.name}
+                        </span>
+                      </button>
+                    )
+                  })}
+                  {/* Custom tile — always visible, active when no preset matches */}
+                  {(() => {
+                    const isCustomActive = !LANDING_PRESETS.some(p => p.bg === settings.backgroundColor && p.text === settings.textColor && p.brand === settings.brandColor)
+                    return (
+                      <div className={cn('flex flex-col items-center gap-1.5 transition-all', isCustomActive ? 'opacity-100' : 'opacity-70 hover:opacity-100')}>
+                        <div
+                          className={cn(
+                            'w-14 h-10 rounded-lg border-2 border-dashed transition-all relative flex items-center justify-center overflow-hidden',
+                            isCustomActive ? 'border-primary shadow-[0_0_0_2px] shadow-primary/30' : 'border-border hover:border-primary/50 bg-secondary/50'
+                          )}
+                        >
+                          {isCustomActive ? (
+                            <>
+                              <div className="absolute inset-x-0 top-0 h-[70%]" style={{ backgroundColor: settings.backgroundColor }} />
+                              <div className="absolute inset-x-0 bottom-0 h-[30%]" style={{ backgroundColor: settings.brandColor }} />
+                            </>
+                          ) : (
+                            <Plus className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </div>
+                        <span className={cn('text-[10px] font-medium transition-colors', isCustomActive ? 'text-foreground' : 'text-muted-foreground')}>
+                          Custom
+                        </span>
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-2">
                   <Label>Brand Color</Label>
@@ -257,8 +338,38 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
             <CardContent className="space-y-4">
               {(() => {
                 const currentBenefits = settings.benefits ?? generateDefaultBenefits(rewardsConfig, currency)
+                const generatedBenefits = generateDefaultBenefits(rewardsConfig, currency)
+                const RATE_IDS = ['base_cashback', 'max_cashback', 'referral_commission', 'welcome_bonus']
+                const isOutOfSync = settings.benefits != null && RATE_IDS.some(id => {
+                  const stored = settings.benefits!.find(b => b.id === id)
+                  const generated = generatedBenefits.find(b => b.id === id)
+                  return stored && generated && stored.text !== generated.text
+                })
+                const syncRates = () => {
+                  const synced = currentBenefits.map(b => {
+                    const fresh = generatedBenefits.find(g => g.id === b.id)
+                    return fresh ? { ...b, text: fresh.text } : b
+                  })
+                  updateSetting('benefits', synced)
+                }
                 return (
                   <>
+                    {isOutOfSync && (
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          Cashback rates have changed — benefits are out of sync.
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="shrink-0 gap-1.5 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-500 hover:bg-amber-500/10"
+                          onClick={syncRates}
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                          Sync rates
+                        </Button>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-muted-foreground">
                         Benefits shown on your signup page. Edit text, reorder, or add your own.
@@ -606,7 +717,13 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
                   placeholder="https://yourstudio.com/terms"
                   disabled={!isAdmin}
                 />
-                <p className="text-xs text-muted-foreground">Shown as a link below the signup button</p>
+                {landingPage && settings.termsUrl === `${APP_URL}/join/${landingPage.slug}/terms` ? (
+                  <p className="text-xs text-muted-foreground">
+                    Using your <a href={settings.termsUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">auto-generated terms page</a> — replace with your own URL if you have one.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Shown as a link below the signup button</p>
+                )}
               </div>
             </CardContent>
           </Card>
