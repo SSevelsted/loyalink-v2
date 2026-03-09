@@ -102,7 +102,7 @@ export default function TransactionsPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from('transactions')
-        .select('*, customers(name)')
+        .select('*, customers!transactions_customer_id_fkey(name)')
         .eq('studio_id', currentStudio!.id)
         .order('created_at', { ascending: false })
         .limit(500)
@@ -251,7 +251,7 @@ export default function TransactionsPage() {
           />
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           {/* Type filter */}
           <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as TypeFilter)}>
             <SelectTrigger className="w-[180px] h-9 text-xs bg-card/50 border-border/50">

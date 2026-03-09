@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2, ArrowLeft } from 'lucide-react'
+import { LogoMark } from '@/components/logo'
 
 function LoginForm() {
   const [email, setEmail] = useState('')
@@ -61,7 +62,7 @@ function LoginForm() {
       <div className="relative w-full max-w-sm animate-fade-up">
         <div className="text-center mb-8">
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 mb-4 glow-primary">
-            <span className="text-primary text-2xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>L</span>
+            <LogoMark className="h-full w-full text-primary p-3" />
           </div>
           <h1 className="text-display-xl text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
             Loyalink

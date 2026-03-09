@@ -26,6 +26,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  useSidebar,
 } from '@/components/ui/sidebar'
 import { StudioSwitcher } from './studio-switcher'
 import { UserNav } from './header'
@@ -34,7 +35,7 @@ import { usePassTemplates } from '@/hooks/use-wallet'
 import { Separator } from '@/components/ui/separator'
 
 const navItems = [
-  { title: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { title: 'Dashboard', href: '/overview', icon: LayoutDashboard },
   { title: 'Analytics', href: '/analytics', icon: BarChart3 },
   { title: 'Customers', href: '/customers', icon: Users },
   { title: 'Transactions', href: '/transactions', icon: ArrowLeftRight },
@@ -47,6 +48,7 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const { setOpenMobile, isMobile } = useSidebar()
   const { currentStudio, membership, studios, isSuperAdmin, ownStudioIds } = useStudio()
   const { data: templates } = usePassTemplates()
 
@@ -61,7 +63,7 @@ export function AppSidebar() {
         {showSwitcher ? (
           <StudioSwitcher />
         ) : (
-          <Link href="/" className="flex items-center gap-2.5 group">
+          <Link href="/overview" className="flex items-center gap-2.5 group" onClick={() => { if (isMobile) setOpenMobile(false) }}>
             {studioLogo ? (
               <Image
                 src={studioLogo}
@@ -109,7 +111,7 @@ export function AppSidebar() {
                           : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                       }`}
                     >
-                      <Link href={item.href}>
+                      <Link href={item.href} onClick={() => { if (isMobile) setOpenMobile(false) }}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </Link>
@@ -128,7 +130,7 @@ export function AppSidebar() {
                         : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                     }`}
                   >
-                    <Link href="/admin">
+                    <Link href="/admin" onClick={() => { if (isMobile) setOpenMobile(false) }}>
                       <Shield className="h-4 w-4" />
                       <span>Admin</span>
                     </Link>

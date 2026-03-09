@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         await supabase.from('transactions').insert({
           customer_id: customer.id,
           studio_id: studioId,
-          type: 'credit',
+          type: 'adjustment',
           amount: config.referrals.friend_welcome_bonus,
           description: 'Welcome bonus from referral',
         })

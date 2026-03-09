@@ -8,7 +8,7 @@ const supabase = createAdminClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const TRIAL_DAYS = 30
+const TRIAL_DAYS = 14
 
 async function generateUniqueSlug(name: string): Promise<string> {
   const baseSlug = name
@@ -146,14 +146,14 @@ export async function POST(request: NextRequest) {
     getResend().emails.send({
       from: FROM,
       to: email.trim(),
-      subject: 'Welcome to Loyalink — your 30-day trial has started',
+      subject: 'Welcome to Loyalink — your 14-day trial has started',
       html: `
         <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;color:#111">
           <h2 style="font-size:20px;font-weight:600;margin-bottom:8px">Welcome to Loyalink!</h2>
           <p style="color:#555;margin:0 0 16px">Hi ${name.trim()},</p>
           <p style="color:#555;margin:0 0 16px">
             Your studio <strong>${studioName.trim()}</strong> is ready on the <strong>${planLabel}</strong> plan.
-            Your free 30-day trial runs until <strong>${trialEnd}</strong>.
+            Your free 14-day trial runs until <strong>${trialEnd}</strong>.
           </p>
           <p style="margin:0 0 24px">
             <a href="${appUrl}/setup"

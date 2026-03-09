@@ -157,7 +157,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-1 min-w-0 overflow-x-auto scrollbar-none">
                 <Input
                   value={`${APP_URL}/join/${landingPage.slug}`}
                   readOnly

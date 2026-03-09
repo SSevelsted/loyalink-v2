@@ -3,8 +3,9 @@ import { notFound } from 'next/navigation'
 import { JoinForm } from '@/components/landing/join-form'
 import { Badge } from '@/components/ui/badge'
 import { Clock, Shield, Smartphone, Users } from 'lucide-react'
-import { DEFAULT_REWARDS_CONFIG } from '@/types/database'
+import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig } from '@/types/database'
 import type { RewardsConfig } from '@/types/database'
+import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 
 type Props = {
   params: Promise<{ memberId: string }>
@@ -39,7 +40,11 @@ export default async function ReferralLandingPage({ params }: Props) {
   if (!studio) notFound()
 
   const studioSettings = studio.settings ?? {}
-  const rewardsConfig: RewardsConfig = (studioSettings.rewards_config as RewardsConfig) ?? DEFAULT_REWARDS_CONFIG
+  const rewardsConfig: RewardsConfig = studioSettings.rewards_config
+    ? migrateRewardsConfig(studioSettings.rewards_config)
+    : DEFAULT_REWARDS_CONFIG
+  const currency = (studioSettings.currency as string) ?? 'dkk'
+  const currencyCfg = getCurrencyConfig(currency)
 
   // Get landing page for branding
   const { data: landingPage } = await supabase
@@ -113,7 +118,7 @@ export default async function ReferralLandingPage({ params }: Props) {
             {studio.name} Loyalty Program
           </h1>
           <p style={txtColor ? { color: txtColor, opacity: 0.7 } : undefined} className="text-muted-foreground">
-            Sign up and get {rewardsConfig.referrals.friend_cashback_rate}% cashback + {rewardsConfig.referrals.friend_welcome_bonus} kr welcome bonus
+            Sign up and get {rewardsConfig.referrals.friend_cashback_rate}% cashback{rewardsConfig.referrals.friend_welcome_bonus > 0 ? ` + ${formatAmount(rewardsConfig.referrals.friend_welcome_bonus, currencyCfg)} welcome bonus` : ''}
           </p>
         </div>
 

@@ -1,0 +1,206 @@
+{
+  "timestamp": "2026-02-27T09:14:54.038599",
+  "issues": [
+    {
+      "page": "dashboard",
+      "type": "Network Error",
+      "description": "HEAD https://ryjyhddvwsmpagggepgk.supabase.co/rest/v1/wallet_passes?select=*&studio_id=eq.00000000-0000-0 \u2014 net::ERR_ABORTED",
+      "severity": "medium"
+    },
+    {
+      "page": "wallet",
+      "type": "Missing Pass Preview",
+      "description": "No pass preview found in wallet designer",
+      "severity": "medium"
+    },
+    {
+      "page": "members",
+      "type": "HTTP Error",
+      "description": "Status 404",
+      "severity": "high"
+    },
+    {
+      "page": "members",
+      "type": "Empty List",
+      "description": "No member rows visible",
+      "severity": "low"
+    },
+    {
+      "page": "members",
+      "type": "Console Error",
+      "description": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "severity": "high"
+    },
+    {
+      "page": "settings",
+      "type": "Missing Save",
+      "description": "No save button on settings page",
+      "severity": "medium"
+    },
+    {
+      "page": "admin",
+      "type": "Console Error",
+      "description": "Failed to load resource: the server responded with a status of 404 ()",
+      "severity": "high"
+    },
+    {
+      "page": "admin",
+      "type": "Console Error",
+      "description": "Failed to load resource: the server responded with a status of 404 ()",
+      "severity": "high"
+    }
+  ],
+  "console_errors": {
+    "dashboard": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      }
+    ],
+    "analytics": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      }
+    ],
+    "customers": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      }
+    ],
+    "transactions": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      }
+    ],
+    "notifications": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      }
+    ],
+    "wallet": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      }
+    ],
+    "stories": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      }
+    ],
+    "members": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      }
+    ],
+    "settings": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      }
+    ],
+    "support": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      }
+    ],
+    "admin": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()"
+      }
+    ]
+  },
+  "network_errors": {
+    "dashboard": [
+      {
+        "url": "https://ryjyhddvwsmpagggepgk.supabase.co/rest/v1/wallet_passes?select=*&studio_id=eq.00000000-0000-0000-0000-000000000001&status=eq.active",
+        "failure": "net::ERR_ABORTED",
+        "method": "HEAD"
+      }
+    ]
+  }
+}

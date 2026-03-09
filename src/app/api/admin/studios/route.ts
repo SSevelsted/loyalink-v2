@@ -9,7 +9,7 @@ const supabase = createAdminClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const TRIAL_DAYS = 30
+const TRIAL_DAYS = 14
 const stripeEnabled = !!process.env.STRIPE_SECRET_KEY
 
 async function verifySuperAdmin() {

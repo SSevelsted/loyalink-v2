@@ -33,6 +33,7 @@ export async function updateSession(request: NextRequest) {
 
   // Public routes that don't need auth
   const isPublicRoute =
+    path === '/' ||
     path.startsWith('/login') ||
     path.startsWith('/signup') ||
     path.startsWith('/invite') ||
@@ -54,7 +55,7 @@ export async function updateSession(request: NextRequest) {
 
   if (user && path === '/login') {
     const url = request.nextUrl.clone()
-    url.pathname = '/'
+    url.pathname = '/overview'
     return NextResponse.redirect(url)
   }
 

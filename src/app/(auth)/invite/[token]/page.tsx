@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
 import type { Invitation, Studio } from '@/types/database'
+import { LogoMark } from '@/components/logo'
 
 export default function AcceptInvitePage() {
   const params = useParams<{ token: string }>()
@@ -87,7 +88,7 @@ export default function AcceptInvitePage() {
       <div className="relative w-full max-w-sm animate-fade-up">
         <div className="text-center mb-8">
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 mb-4 glow-primary">
-            <span className="text-primary text-2xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>L</span>
+            <LogoMark className="h-full w-full text-primary p-3" />
           </div>
         </div>
         {content}

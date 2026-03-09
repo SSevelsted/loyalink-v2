@@ -29,7 +29,7 @@ import { EmbedCode } from '@/components/landing/embed-code'
 import { SignupQR } from '@/components/landing/signup-qr'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
-import { ArrowRight, Check, ChevronRight, ChevronLeft, Rocket, Palette, CreditCard, Eye, Copy, PartyPopper, Link as LinkIcon, Gift, Plus, Trash2, RotateCcw, Building2, Paintbrush, RefreshCw } from 'lucide-react'
+import { ArrowRight, Check, ChevronRight, ChevronLeft, Rocket, Palette, CreditCard, Eye, Copy, PartyPopper, Link as LinkIcon, Gift, Plus, Trash2, RotateCcw, Building2, Paintbrush, RefreshCw, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const LANDING_PRESETS = [
@@ -42,7 +42,7 @@ const LANDING_PRESETS = [
 ]
 import { toast } from 'sonner'
 import { APP_URL } from '@/lib/constants'
-import { CURRENCY_MAP } from '@/lib/currency'
+import { CURRENCY_MAP, getCurrencyConfig, formatAmount } from '@/lib/currency'
 import type { CustomField, Benefit } from '@/hooks/use-landing-page'
 import { generateDefaultBenefits, BENEFIT_ICON_MAP, BENEFIT_ICON_OPTIONS } from '@/components/landing/value-stack'
 import {
@@ -1412,13 +1412,26 @@ export default function SetupPage() {
                   {/* Referral details */}
                   {rewardsConfig.referrals.enabled && (
                     <p className="text-xs text-muted-foreground">
-                      Referred friends get {rewardsConfig.referrals.friend_cashback_rate}% cashback + {rewardsConfig.referrals.friend_welcome_bonus} kr welcome bonus
+                      Referred friends get {rewardsConfig.referrals.friend_cashback_rate}% cashback{rewardsConfig.referrals.friend_welcome_bonus > 0 ? ` + ${formatAmount(rewardsConfig.referrals.friend_welcome_bonus, getCurrencyConfig(currency))} welcome bonus` : ''}
                     </p>
                   )}
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Stories teaser */}
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 flex items-start gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
+              <Sparkles className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Promote your program with AI Stories</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                Once you go live, use the Stories tool to generate four ready-to-post Instagram Stories — built around your brand colors, your cashback rates, and your signup link. It&apos;s the fastest way to get your first members in the door.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 

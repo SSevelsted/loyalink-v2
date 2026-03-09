@@ -166,7 +166,7 @@ function NewStudioDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
                 <SelectContent>
                   <SelectItem value="trial">
                     <div>
-                      <p className="font-medium">30-day free trial</p>
+                      <p className="font-medium">14-day free trial</p>
                       <p className="text-xs text-muted-foreground">Studio enters trial — credit card required to continue</p>
                     </div>
                   </SelectItem>
@@ -202,7 +202,7 @@ function StudioActions({ studio }: { studio: StudioWithCounts }) {
   async function handleAction(action: 'remove_agency' | 'cancel') {
     try {
       await mutateAsync({ studioId: studio.id, action })
-      toast.success(action === 'remove_agency' ? 'Agency removed — studio enters 30-day trial' : 'Studio subscription cancelled')
+      toast.success(action === 'remove_agency' ? 'Agency removed — studio enters 14-day trial' : 'Studio subscription cancelled')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Action failed')
     }
@@ -263,7 +263,7 @@ export function StudiosSection() {
 
   const handleSwitchToStudio = (studioId: string, studioName: string) => {
     setCurrentStudioId(studioId)
-    router.push('/')
+    router.push('/overview')
     toast.success(`Switched to ${studioName}`)
   }
 

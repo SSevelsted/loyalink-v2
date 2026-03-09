@@ -55,23 +55,25 @@ export default function RecordTransactionPage() {
       if (!currentStudio || parsedAmount <= 0) throw new Error('Invalid amount')
 
       if (balanceUsed > 0) {
-        await supabase.from('transactions').insert({
+        const { error: debitErr } = await supabase.from('transactions').insert({
           customer_id: id,
           studio_id: currentStudio.id,
           type: 'debit',
           amount: balanceUsed,
           description: 'Loyalty balance redeemed',
         })
+        if (debitErr) throw new Error(debitErr.message)
         await supabase.from('customers').update({ balance: currentBalance - balanceUsed }).eq('id', id)
       }
 
-      await supabase.from('transactions').insert({
+      const { error: creditErr } = await supabase.from('transactions').insert({
         customer_id: id,
         studio_id: currentStudio.id,
         type: 'credit',
         amount: parsedAmount,
         description: isDeposit ? 'Deposit' : null,
       })
+      if (creditErr) throw new Error(creditErr.message)
 
       await processTransaction.mutateAsync({
         customerId: id,
@@ -84,6 +86,7 @@ export default function RecordTransactionPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions', id] })
+      queryClient.invalidateQueries({ queryKey: ['all_transactions'] })
       queryClient.invalidateQueries({ queryKey: ['customer', id] })
       queryClient.invalidateQueries({ queryKey: ['customer_events', id] })
       setRecorded({ amount: parsedAmount, cashback: earnsNow, newBalance: newBalanceAfter })

@@ -13,11 +13,15 @@ import {
   Send,
   Loader2,
   RefreshCw,
+  Copy,
+  Check,
 } from 'lucide-react'
+import { useLandingPage } from '@/hooks/use-landing-page'
+import { APP_URL } from '@/lib/constants'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-const MAX_TURNS = 4
+const MAX_TURNS = 3
 
 // Preview size: 216×384 = 1080×1920 scaled to 20%
 const PREVIEW_W = 216
@@ -43,30 +47,61 @@ type DraftSlot = Draft | 'loading' | 'error'
 
 const DRAFT_THEMES = [
   {
-    label: 'Program overview',
-    subtitle: 'What is it?',
+    label: 'The Reward',
+    subtitle: 'Lead with cashback',
     prompt:
-      'Create an Instagram Story that introduces the loyalty program. Show the tier structure visually — list all tiers with their names and cashback percentages. Make it clear that members move up tiers as they engage more. Use the actual tier names and rates from the brand context.',
+      'HERO ZONE brief: Make the cashback percentage the undeniable hero. Display it in massive (150px+) bold type — glowing, centred, with a soft circular glow behind it in the brand color. Below the number: "cashback on every visit" in a large sub-headline. Below that: one short punchy line like "Earn every time. Automatically." in body text. EMOTION: Free money, every single visit — pure FOMO. Premium, exciting, unmissable. Remember: logo zone, trust row, and CTA bar are handled by the Series Design Rules — do NOT duplicate them inside the hero zone.',
   },
   {
-    label: 'How you earn',
-    subtitle: 'Cashback breakdown',
+    label: 'Level Up',
+    subtitle: 'Show the tier journey',
     prompt:
-      'Create an Instagram Story that explains exactly how customers earn cashback. Show the base tier cashback rate prominently in the correct currency. Visualise the step-by-step: visit → scan → cashback added automatically. Reference the "how it works" copy if relevant.',
+      'HERO ZONE brief: Show all loyalty tiers as a vertical progression stack, centred. Each tier is a card/row with its name and cashback %. The base tier is labelled "You start here →" subtly. Each higher tier is progressively brighter and more vivid in the brand color — the top tier blazes brightest with a strong glow. A connecting progress line runs through them. Headline above the stack: "The more you visit, the more you earn." EMOTION: Aspiration and momentum — top rewards feel visible and achievable. Remember: logo zone, trust row, and CTA bar are handled by the Series Design Rules — do NOT duplicate them inside the hero zone.',
   },
   {
-    label: 'Tier benefits',
-    subtitle: 'Level up rewards',
+    label: '30 Seconds',
+    subtitle: 'Zero friction signup',
     prompt:
-      'Create an Instagram Story that shows all loyalty tiers side by side — their names and cashback rates — making it visually exciting to level up. Highlight the jump in cashback rate between the lowest and highest tier. Use the actual tier names and percentages.',
-  },
-  {
-    label: 'Refer & earn',
-    subtitle: 'Referral program',
-    prompt:
-      'Create an Instagram Story promoting the referral program. Show how both the referrer and their friend benefit. Use the actual referral cashback details from the brand context. Make sharing feel rewarding and social. Reference the referral tagline if it fits.',
+      'HERO ZONE brief: Remove every last barrier. Big confident headline: "Join in 30 seconds." Three large numbered steps, centred vertically, each in a branded card: 1 "Tap the link" · 2 "Enter your name" · 3 "Earn cashback today." Below the steps in softer body text: "No app. No card. No commitment." Then a single highlight line in the brand color: "Earn [base cashback rate]% from your very first visit." EMOTION: Impossibly easy — for the person who keeps meaning to sign up. Remember: logo zone, trust row, and CTA bar are handled by the Series Design Rules — do NOT duplicate them inside the hero zone.',
   },
 ]
+
+// ─── Cache helpers ─────────────────────────────────────────────────────────
+
+const CACHE_VERSION = 'v2'
+
+function cacheKey(studioId: string) {
+  return `loyalink_stories_${CACHE_VERSION}_${studioId}`
+}
+
+function loadCachedStories(studioId: string): Draft[] | null {
+  try {
+    const raw = localStorage.getItem(cacheKey(studioId))
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed) || parsed.length === 0) return null
+    // Expire after 7 days
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function saveCachedStories(studioId: string, drafts: Draft[]) {
+  try {
+    localStorage.setItem(cacheKey(studioId), JSON.stringify(drafts))
+  } catch {
+    // localStorage quota exceeded — ignore
+  }
+}
+
+function clearCachedStories(studioId: string) {
+  try {
+    localStorage.removeItem(cacheKey(studioId))
+  } catch {
+    // ignore
+  }
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -99,9 +134,21 @@ function StoryPreview({ html, className = '' }: { html: string; className?: stri
 
 export default function StoriesPage() {
   const { currentStudio } = useStudio()
+  const { data: landingPage } = useLandingPage()
+  const [copied, setCopied] = useState(false)
 
-  const [phase, setPhase] = useState<'idle' | 'generating' | 'drafts' | 'refining'>('idle')
-  const [draftSlots, setDraftSlots] = useState<DraftSlot[]>([])
+  const signupUrl = landingPage?.slug ? `${APP_URL}/join/${landingPage.slug}` : null
+
+  function copySignupUrl() {
+    if (!signupUrl) return
+    navigator.clipboard.writeText(signupUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const [phase, setPhase] = useState<'generating' | 'drafts' | 'refining'>('generating')
+  const [draftSlots, setDraftSlots] = useState<DraftSlot[]>(DRAFT_THEMES.map(() => 'loading'))
   const [selectedDraft, setSelectedDraft] = useState<Draft | null>(null)
   const [messages, setMessages] = useState<StoryMessage[]>([])
   const [prompt, setPrompt] = useState('')
@@ -109,6 +156,7 @@ export default function StoriesPage() {
   const [downloading, setDownloading] = useState(false)
   const [downloadingAll, setDownloadingAll] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const hasInitialized = useRef(false)
 
   // The latest HTML is always the last assistant message's content
   const currentHtml =
@@ -122,6 +170,21 @@ export default function StoriesPage() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // ── Auto-init: load from cache or generate on first studio load ───────
+  useEffect(() => {
+    if (!currentStudio || hasInitialized.current) return
+    hasInitialized.current = true
+
+    const cached = loadCachedStories(currentStudio.id)
+    if (cached) {
+      setDraftSlots(cached)
+      setPhase('drafts')
+    } else {
+      handleGenerateDrafts()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStudio])
 
   // ── Generate a single draft ───────────────────────────────────────────
 
@@ -156,12 +219,22 @@ export default function StoriesPage() {
     }
   }
 
-  async function handleGenerateDrafts() {
+  async function handleGenerateDrafts(opts?: { clearCache?: boolean }) {
     if (!currentStudio) return
+    if (opts?.clearCache) clearCachedStories(currentStudio.id)
     setPhase('generating')
     setDraftSlots(DRAFT_THEMES.map(() => 'loading'))
+
     await Promise.allSettled(DRAFT_THEMES.map((theme, i) => generateSingleDraft(theme, i)))
+
     setPhase('drafts')
+
+    // Save to cache only if all drafts succeeded
+    setDraftSlots((current) => {
+      const allSucceeded = current.every((s): s is Draft => s !== 'loading' && s !== 'error')
+      if (allSucceeded) saveCachedStories(currentStudio.id, current as Draft[])
+      return current
+    })
   }
 
   // ── Select a draft → enter refine phase ──────────────────────────────
@@ -318,32 +391,6 @@ export default function StoriesPage() {
 
   // ── Phases ────────────────────────────────────────────────────────────
 
-  if (phase === 'idle') {
-    return (
-      <div className="flex h-[calc(100vh-4rem)] flex-col items-center justify-center p-8 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 mb-6">
-          <Sparkles className="h-8 w-8 text-primary" />
-        </div>
-        <h1 className="text-xl font-semibold mb-2">AI Story Drafts</h1>
-        <p className="text-sm text-muted-foreground max-w-sm mb-8 leading-relaxed">
-          Generate four ready-to-use Instagram Stories that explain your loyalty program — then pick one and refine it to your liking.
-        </p>
-        <div className="grid grid-cols-2 gap-3 mb-8 text-left max-w-xs w-full">
-          {DRAFT_THEMES.map((t) => (
-            <div key={t.label} className="rounded-xl border border-white/[0.06] bg-secondary/40 px-3 py-2.5">
-              <p className="text-xs font-medium">{t.label}</p>
-              <p className="text-[11px] text-muted-foreground">{t.subtitle}</p>
-            </div>
-          ))}
-        </div>
-        <Button onClick={handleGenerateDrafts} size="lg">
-          <Sparkles className="h-4 w-4 mr-2" />
-          Generate 4 Drafts
-        </Button>
-      </div>
-    )
-  }
-
   if (phase === 'generating' || phase === 'drafts') {
     const allDone = draftSlots.every((s) => s !== 'loading')
     return (
@@ -356,12 +403,21 @@ export default function StoriesPage() {
             <div>
               <h1 className="text-base font-semibold leading-none">AI Stories</h1>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                {allDone ? 'Pick a draft to customise' : 'Generating your drafts…'}
+                {allDone ? 'Pick a draft to refine' : 'Generating your stories…'}
               </p>
             </div>
           </div>
           {allDone && (
             <div className="flex items-center gap-2">
+              {signupUrl && (
+                <button
+                  onClick={copySignupUrl}
+                  className="hidden sm:flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-xs text-primary hover:bg-primary/10 transition-colors"
+                >
+                  {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  {copied ? 'Copied!' : 'Copy signup link'}
+                </button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -375,7 +431,7 @@ export default function StoriesPage() {
                 )}
                 Download all
               </Button>
-              <Button variant="outline" size="sm" onClick={handleGenerateDrafts}>
+              <Button variant="outline" size="sm" onClick={() => handleGenerateDrafts({ clearCache: true })}>
                 <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
                 Regenerate
               </Button>
@@ -384,7 +440,7 @@ export default function StoriesPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
             {DRAFT_THEMES.map((theme, i) => {
               const slot = draftSlots[i]
               return (
@@ -434,16 +490,27 @@ export default function StoriesPage() {
             <p className="text-[11px] text-muted-foreground mt-0.5">{selectedDraft?.subtitle}</p>
           </div>
         </div>
-        {currentHtml && (
-          <Button variant="outline" size="sm" onClick={handleDownload} disabled={downloading}>
-            {downloading ? (
-              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-            ) : (
-              <Download className="h-3.5 w-3.5 mr-1.5" />
-            )}
-            Download
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {signupUrl && (
+            <button
+              onClick={copySignupUrl}
+              className="hidden sm:flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-xs text-primary hover:bg-primary/10 transition-colors"
+            >
+              {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+              {copied ? 'Copied!' : 'Copy signup link'}
+            </button>
+          )}
+          {currentHtml && (
+            <Button variant="outline" size="sm" onClick={handleDownload} disabled={downloading}>
+              {downloading ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Download
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">

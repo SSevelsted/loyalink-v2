@@ -13,7 +13,7 @@ import {
 import { ScanDialog } from '@/components/scanner/scan-dialog'
 
 const leftTabs = [
-  { title: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { title: 'Dashboard', href: '/overview', icon: LayoutDashboard },
   { title: 'Customers', href: '/customers', icon: Users },
 ]
 
@@ -23,7 +23,7 @@ const rightTabs = [
 ]
 
 function NavTab({ tab, pathname }: { tab: typeof leftTabs[number]; pathname: string }) {
-  const isActive = tab.href === '/' ? pathname === '/' : pathname.startsWith(tab.href)
+  const isActive = tab.href === '/overview' ? pathname === '/overview' : pathname.startsWith(tab.href)
   return (
     <Link
       href={tab.href}

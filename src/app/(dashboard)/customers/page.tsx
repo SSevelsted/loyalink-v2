@@ -211,7 +211,7 @@ export default function CustomersPage() {
           />
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           {/* Tier filter */}
           <Select value={tierFilter} onValueChange={setTierFilter}>
             <SelectTrigger className="w-[160px] h-9 text-xs bg-card/50 border-border/50">
