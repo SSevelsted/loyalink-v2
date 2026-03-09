@@ -47,7 +47,38 @@ export function Comparison() {
           </p>
         </div>
 
-        <div className="overflow-x-auto rounded-2xl border border-border/40">
+        {/* Mobile: two-card layout */}
+        <div className="md:hidden grid grid-cols-2 gap-4">
+          <div className="rounded-2xl border border-red-500/15 bg-red-500/5 p-5 space-y-4">
+            <p className="text-xs font-semibold text-red-400 uppercase tracking-wider">The rest</p>
+            <ul className="space-y-3">
+              {criteria.map((c) => (
+                <li key={c} className="flex items-start gap-2.5">
+                  <div className="mt-0.5 h-4 w-4 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                    <X className="h-2.5 w-2.5 text-muted-foreground/40" />
+                  </div>
+                  <span className="text-xs text-muted-foreground leading-snug">{c}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-primary/25 bg-primary/5 p-5 space-y-4">
+            <p className="text-xs font-semibold text-primary uppercase tracking-wider">Loyalink</p>
+            <ul className="space-y-3">
+              {criteria.map((c) => (
+                <li key={c} className="flex items-start gap-2.5">
+                  <div className="mt-0.5 h-4 w-4 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                    <Check className="h-2.5 w-2.5 text-emerald-400" />
+                  </div>
+                  <span className="text-xs text-muted-foreground leading-snug">{c}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Desktop: full table */}
+        <div className="hidden md:block overflow-x-auto rounded-2xl border border-border/40">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/40">
