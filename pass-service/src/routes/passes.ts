@@ -2,11 +2,12 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../config.js';
 import { applePassService } from '../services/applePassService.js';
+import { requireInternalAuth } from '../middleware/internalAuth.js';
 
 export const passRoutes = Router();
 
 // Generate a new pass for a customer
-passRoutes.post('/generate', async (req: Request, res: Response) => {
+passRoutes.post('/generate', requireInternalAuth, async (req: Request, res: Response) => {
   try {
     const { customerId, platform = 'apple' } = req.body;
 
@@ -217,7 +218,7 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
 });
 
 // Diagnostic: return raw pass.json for a serial number (no packaging/signing)
-passRoutes.get('/:serialNumber/inspect', async (req: Request, res: Response) => {
+passRoutes.get('/:serialNumber/inspect', requireInternalAuth, async (req: Request, res: Response) => {
   try {
     const { serialNumber } = req.params;
     const { data: walletPass, error } = await supabase

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { PASS_SERVICE_URL } from '@/lib/constants'
+import { passServiceFetch } from '@/lib/pass-service'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,15 +38,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Notify pass service to push update
-    const res = await fetch(`${PASS_SERVICE_URL}/api/push/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        studioId,
-        targetType: 'customer',
-        customerId,
-      }),
-    })
+    const res = await passServiceFetch(`/api/push/customer/${customerId}`, { method: 'POST' })
 
     if (!res.ok) {
       console.error('Failed to send push:', await res.text())

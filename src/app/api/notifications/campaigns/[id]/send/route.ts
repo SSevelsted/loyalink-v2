@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import type { AudienceFilter } from '@/types/database'
+import { passServiceFetch } from '@/lib/pass-service'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
-
-const PASS_SERVICE_URL = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
 
 async function verifyStudioMember(studioId: string) {
   const userClient = await createClient()
@@ -190,7 +189,7 @@ export async function POST(
 
     // Fire push via pass service (to refresh passes with new data)
     // Pass the campaign announcement as pushMessage — it becomes the notification text
-    fetch(`${PASS_SERVICE_URL}/api/push/studio/${campaign.studio_id}`, {
+    passServiceFetch(`/api/push/studio/${campaign.studio_id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

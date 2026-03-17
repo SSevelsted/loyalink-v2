@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { supabase } from '../config.js';
 import { googleWalletService } from '../services/googleWalletService.js';
+import { requireInternalAuth } from '../middleware/internalAuth.js';
 
 export const googleRoutes = Router();
 
@@ -90,7 +91,7 @@ googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) 
 });
 
 // Update a Google Wallet pass (called when customer data changes)
-googleRoutes.post('/update/:serialNumber', async (req: Request, res: Response) => {
+googleRoutes.post('/update/:serialNumber', requireInternalAuth, async (req: Request, res: Response) => {
   try {
     const { serialNumber } = req.params;
 

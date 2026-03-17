@@ -8,13 +8,13 @@ const testimonials = [
     initials: 'MJ',
   },
   {
-    quote: "The wallet pass thing is genuinely magic. Customers just tap and it's in their Apple Wallet. No app, no faff. We had 60 members in the first week without doing anything special.",
+    quote: "The wallet pass thing is genuinely magic. Clients just tap and it's in their Apple Wallet. No app, no faff. We had 60 members in the first week without doing anything special.",
     name: 'Tom Eriksen',
     role: 'Founder, Inkline Copenhagen',
     initials: 'TE',
   },
   {
-    quote: "I can see exactly who comes in regularly and who's drifting away. The analytics paid for itself the first time I sent a re-engagement push and three customers booked the same day.",
+    quote: "I can see exactly who comes in regularly and who's drifting away. The analytics paid for itself the first time I sent a re-engagement push and three clients booked the same day.",
     name: 'Sophie Andersen',
     role: 'Manager, Studio Noir',
     initials: 'SA',
@@ -40,7 +40,7 @@ export function Testimonials() {
             className="text-4xl sm:text-5xl font-bold text-foreground"
             style={{ fontFamily: 'var(--font-display)' }}
           >
-            Studios that escaped<br />the rat race
+            Studios that stopped<br />discounting
           </h2>
         </div>
 

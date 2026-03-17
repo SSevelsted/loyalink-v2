@@ -4,7 +4,7 @@ const features = [
   {
     icon: Wallet,
     title: 'Apple & Google Wallet',
-    body: 'Passes live in customers\' phones the moment they sign up. No app download, no friction — just tap and go.',
+    body: 'Passes live in clients\' phones the moment they sign up. No app download, no friction — just tap and go.',
     color: 'text-emerald-400',
     bg: 'bg-emerald-500/10',
     border: 'border-emerald-500/20',
@@ -12,7 +12,7 @@ const features = [
   {
     icon: TrendingUp,
     title: 'Cashback Tiers',
-    body: 'Silver, Gold, VIP — bigger spenders automatically earn higher cashback rates. Reward the customers that matter most.',
+    body: 'Silver, Gold, VIP — bigger spenders automatically earn higher cashback rates. Reward the clients that matter most.',
     color: 'text-primary',
     bg: 'bg-primary/10',
     border: 'border-primary/20',
@@ -28,7 +28,7 @@ const features = [
   {
     icon: Bell,
     title: 'Push Notifications',
-    body: 'Re-engage customers who haven\'t visited in a while. Send targeted wallet notifications directly to their lock screen.',
+    body: 'Re-engage clients who haven\'t visited in a while. Send targeted wallet notifications directly to their lock screen.',
     color: 'text-amber-400',
     bg: 'bg-amber-500/10',
     border: 'border-amber-500/20',

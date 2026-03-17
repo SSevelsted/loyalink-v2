@@ -1,143 +1,126 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '@/components/ui/sheet'
 import { useStudio } from '@/hooks/use-studio'
+import { useImageUpload } from '@/hooks/use-image-upload'
+import { createClient } from '@/lib/supabase/client'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   Sparkles,
   Download,
-  ArrowLeft,
-  Send,
   Loader2,
-  RefreshCw,
   Copy,
   Check,
+  X,
+  ImagePlus,
+  Upload,
+  Pencil,
+  RotateCcw,
 } from 'lucide-react'
-import { useLandingPage } from '@/hooks/use-landing-page'
+import { useLandingPage, type LandingPageSettings } from '@/hooks/use-landing-page'
 import { APP_URL } from '@/lib/constants'
+import { migrateRewardsConfig } from '@/types/database'
+import {
+  STORY_TYPES,
+  DESIGN_STYLES,
+  STORY_FIELD_DEFS,
+  buildStoryHtml,
+  getDefaultCopy,
+  type BrandContext,
+  type DesignStyle,
+  type StoryCopyOverrides,
+} from './templates'
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-const MAX_TURNS = 3
-
-// Preview size: 216×384 = 1080×1920 scaled to 20%
-const PREVIEW_W = 216
-const PREVIEW_H = 384
 const STORY_W = 1080
 const STORY_H = 1920
-const SCALE = PREVIEW_W / STORY_W
-
-type StoryMessage = {
-  role: 'user' | 'assistant'
-  content: string // for assistant, this is the raw HTML
-}
-
-type Draft = {
-  label: string
-  subtitle: string
-  html: string
-}
-
-type DraftSlot = Draft | 'loading' | 'error'
-
-// ─── Draft themes ─────────────────────────────────────────────────────────
-
-const DRAFT_THEMES = [
-  {
-    label: 'The Reward',
-    subtitle: 'Lead with cashback',
-    prompt:
-      'HERO ZONE brief: Make the cashback percentage the undeniable hero. Display it in massive (150px+) bold type — glowing, centred, with a soft circular glow behind it in the brand color. Below the number: "cashback on every visit" in a large sub-headline. Below that: one short punchy line like "Earn every time. Automatically." in body text. EMOTION: Free money, every single visit — pure FOMO. Premium, exciting, unmissable. Remember: logo zone, trust row, and CTA bar are handled by the Series Design Rules — do NOT duplicate them inside the hero zone.',
-  },
-  {
-    label: 'Level Up',
-    subtitle: 'Show the tier journey',
-    prompt:
-      'HERO ZONE brief: Show all loyalty tiers as a vertical progression stack, centred. Each tier is a card/row with its name and cashback %. The base tier is labelled "You start here →" subtly. Each higher tier is progressively brighter and more vivid in the brand color — the top tier blazes brightest with a strong glow. A connecting progress line runs through them. Headline above the stack: "The more you visit, the more you earn." EMOTION: Aspiration and momentum — top rewards feel visible and achievable. Remember: logo zone, trust row, and CTA bar are handled by the Series Design Rules — do NOT duplicate them inside the hero zone.',
-  },
-  {
-    label: '30 Seconds',
-    subtitle: 'Zero friction signup',
-    prompt:
-      'HERO ZONE brief: Remove every last barrier. Big confident headline: "Join in 30 seconds." Three large numbered steps, centred vertically, each in a branded card: 1 "Tap the link" · 2 "Enter your name" · 3 "Earn cashback today." Below the steps in softer body text: "No app. No card. No commitment." Then a single highlight line in the brand color: "Earn [base cashback rate]% from your very first visit." EMOTION: Impossibly easy — for the person who keeps meaning to sign up. Remember: logo zone, trust row, and CTA bar are handled by the Series Design Rules — do NOT duplicate them inside the hero zone.',
-  },
-]
-
-// ─── Cache helpers ─────────────────────────────────────────────────────────
-
-const CACHE_VERSION = 'v2'
-
-function cacheKey(studioId: string) {
-  return `loyalink_stories_${CACHE_VERSION}_${studioId}`
-}
-
-function loadCachedStories(studioId: string): Draft[] | null {
-  try {
-    const raw = localStorage.getItem(cacheKey(studioId))
-    if (!raw) return null
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed) || parsed.length === 0) return null
-    // Expire after 7 days
-    return parsed
-  } catch {
-    return null
-  }
-}
-
-function saveCachedStories(studioId: string, drafts: Draft[]) {
-  try {
-    localStorage.setItem(cacheKey(studioId), JSON.stringify(drafts))
-  } catch {
-    // localStorage quota exceeded — ignore
-  }
-}
-
-function clearCachedStories(studioId: string) {
-  try {
-    localStorage.removeItem(cacheKey(studioId))
-  } catch {
-    // ignore
-  }
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-/** Scale-down iframe preview of a 1080×1920 HTML story */
-function StoryPreview({ html, className = '' }: { html: string; className?: string }) {
-  return (
-    <div
-      className={`relative overflow-hidden rounded-2xl border border-white/[0.08] shadow-xl bg-black ${className}`}
-      style={{ width: PREVIEW_W, height: PREVIEW_H }}
-    >
-      <iframe
-        srcDoc={html}
-        sandbox="allow-scripts"
-        scrolling="no"
-        title="Story preview"
-        style={{
-          width: STORY_W,
-          height: STORY_H,
-          transform: `scale(${SCALE})`,
-          transformOrigin: 'top left',
-          border: 'none',
-          pointerEvents: 'none',
-        }}
-      />
-    </div>
-  )
-}
 
 // ─── Main page ────────────────────────────────────────────────────────────
 
 export default function StoriesPage() {
   const { currentStudio } = useStudio()
-  const { data: landingPage } = useLandingPage()
+  const { data: landingPage, isLoading: lpLoading } = useLandingPage()
+  const { upload, uploading } = useImageUpload()
+  const supabase = createClient()
+  const queryClient = useQueryClient()
   const [copied, setCopied] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadingKey, setDownloadingKey] = useState<string | null>(null)
+  const [previewKey, setPreviewKey] = useState<string | null>(null)
+  const [activeDesign, setActiveDesign] = useState(DESIGN_STYLES[0].id)
+  const [bgImageUrl, setBgImageUrl] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [editingStoryId, setEditingStoryId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState<StoryCopyOverrides>({})
+  const [savedOverrides, setSavedOverrides] = useState<StoryCopyOverrides>({})
 
   const signupUrl = landingPage?.slug ? `${APP_URL}/join/${landingPage.slug}` : null
+  const activeDesignDef = DESIGN_STYLES.find((d) => d.id === activeDesign)!
+  const isPhotoDesign = activeDesignDef.usesBackgroundImage
+
+  // Load saved overrides from studio settings
+  useEffect(() => {
+    if (!currentStudio) return
+    const settings = (currentStudio.settings ?? {}) as Record<string, unknown>
+    const stored = (settings.story_copy ?? {}) as StoryCopyOverrides
+    setSavedOverrides(stored)
+  }, [currentStudio])
+
+  // Save mutation
+  const saveCopy = useMutation({
+    mutationFn: async (overrides: StoryCopyOverrides) => {
+      const { error } = await supabase
+        .from('studios')
+        .update({
+          settings: {
+            ...(currentStudio?.settings ?? {}),
+            story_copy: overrides,
+          },
+        })
+        .eq('id', currentStudio!.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['studios'] })
+      toast.success('Story text saved')
+      setEditingStoryId(null)
+    },
+    onError: () => toast.error('Failed to save'),
+  })
+
+  function openEditor(storyId: string) {
+    setEditDraft({ ...savedOverrides })
+    setEditingStoryId(storyId)
+  }
+
+  function handleSaveEdits() {
+    saveCopy.mutate(editDraft)
+    setSavedOverrides(editDraft)
+  }
+
+  function handleResetStory(storyId: string) {
+    const fields = STORY_FIELD_DEFS[storyId]
+    if (!fields) return
+    const cleared = { ...editDraft }
+    for (const f of fields) {
+      if (f.key !== 'cta_text') delete cleared[f.key]
+    }
+    setEditDraft(cleared)
+  }
+
+  // The overrides to use for preview: when editing, use the draft; otherwise use saved
+  const activeOverrides = editingStoryId ? editDraft : savedOverrides
 
   function copySignupUrl() {
     if (!signupUrl) return
@@ -147,232 +130,98 @@ export default function StoriesPage() {
     })
   }
 
-  const [phase, setPhase] = useState<'generating' | 'drafts' | 'refining'>('generating')
-  const [draftSlots, setDraftSlots] = useState<DraftSlot[]>(DRAFT_THEMES.map(() => 'loading'))
-  const [selectedDraft, setSelectedDraft] = useState<Draft | null>(null)
-  const [messages, setMessages] = useState<StoryMessage[]>([])
-  const [prompt, setPrompt] = useState('')
-  const [refineLoading, setRefineLoading] = useState(false)
-  const [downloading, setDownloading] = useState(false)
-  const [downloadingAll, setDownloadingAll] = useState(false)
-  const chatEndRef = useRef<HTMLDivElement>(null)
-  const hasInitialized = useRef(false)
+  // Build brand context
+  const brand = useMemo<BrandContext | null>(() => {
+    if (!currentStudio) return null
 
-  // The latest HTML is always the last assistant message's content
-  const currentHtml =
-    [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? null
+    const settings = (currentStudio.settings ?? {}) as Record<string, unknown>
+    const rewardsConfig = settings?.rewards_config
+      ? migrateRewardsConfig(settings.rewards_config)
+      : null
+    const currency = (settings.currency as string) ?? 'DKK'
 
-  // Refinements = assistant turns after the initial draft (index 0)
-  const refinementTurns = messages.filter((m) => m.role === 'assistant').length - 1
-  const turnsLeft = MAX_TURNS - Math.max(0, refinementTurns)
-  const canSend = !refineLoading && prompt.trim().length > 0 && turnsLeft > 0
+    const tiers =
+      rewardsConfig?.tiers.map((t, i) => ({
+        name: t.name,
+        cashbackRate: t.cashback_rate,
+        isBase: i === 0,
+      })) ?? [{ name: 'Loyalty', cashbackRate: 7.5, isBase: true }]
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    const lpSettings = (landingPage?.settings ?? {}) as LandingPageSettings
 
-  // ── Auto-init: load from cache or generate on first studio load ───────
-  useEffect(() => {
-    if (!currentStudio || hasInitialized.current) return
-    hasInitialized.current = true
+    return {
+      studioName: currentStudio.name ?? 'Studio',
+      signupUrl: signupUrl ?? APP_URL,
+      brandColor: lpSettings.brandColor ?? '#7C3AED',
+      backgroundColor: lpSettings.backgroundColor ?? '#0A0A0A',
+      textColor: lpSettings.textColor ?? '#FFFFFF',
+      logoUrl: lpSettings.logoUrl ?? null,
+      currency,
+      language: (settings.language as string) ?? 'en',
+      tiers,
+      referralEnabled: rewardsConfig?.referrals?.enabled ?? false,
+      referralBonusPerRef: rewardsConfig?.referrals?.referrer_cashback_bonus_per_ref ?? 0,
+      referralCap: rewardsConfig?.referrals?.referrer_cashback_cap ?? 0,
+      friendCashbackRate: rewardsConfig?.referrals?.friend_cashback_rate ?? 0,
+      friendWelcomeBonus: rewardsConfig?.referrals?.friend_welcome_bonus ?? 0,
+      benefits: lpSettings.benefits?.map((b) => b.text).filter(Boolean) ?? [],
+      storyOverrides: activeOverrides,
+    }
+  }, [currentStudio, landingPage, signupUrl, activeOverrides])
 
-    const cached = loadCachedStories(currentStudio.id)
-    if (cached) {
-      setDraftSlots(cached)
-      setPhase('drafts')
+  // Build 3 stories for the active design
+  const stories = useMemo(() => {
+    if (!brand) return []
+    return STORY_TYPES.map((st) => ({
+      storyType: st,
+      html: buildStoryHtml(
+        st.id,
+        activeDesign,
+        brand,
+        isPhotoDesign ? bgImageUrl : undefined
+      ),
+      key: `${activeDesign}-${st.id}`,
+    }))
+  }, [brand, activeDesign, bgImageUrl, isPhotoDesign])
+
+  // ── Photo upload ──────────────────────────────────────────────────────
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const url = await upload(file, 'story-bg.jpg')
+    if (url) {
+      setBgImageUrl(url)
+      toast.success('Background uploaded')
     } else {
-      handleGenerateDrafts()
+      toast.error('Upload failed')
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStudio])
-
-  // ── Generate a single draft ───────────────────────────────────────────
-
-  async function generateSingleDraft(theme: (typeof DRAFT_THEMES)[number], index: number) {
-    if (!currentStudio) return
-    try {
-      const res = await fetch('/api/ai/story', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studioId: currentStudio.id,
-          messages: [{ role: 'user', content: theme.prompt }],
-        }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error ?? `Error ${res.status}`)
-      }
-      const { html } = await res.json()
-      setDraftSlots((prev) => {
-        const next = [...prev]
-        next[index] = { label: theme.label, subtitle: theme.subtitle, html }
-        return next
-      })
-    } catch (err) {
-      console.error(`[draft ${index}] error:`, err)
-      setDraftSlots((prev) => {
-        const next = [...prev]
-        next[index] = 'error'
-        return next
-      })
-    }
+    e.target.value = ''
   }
 
-  async function handleGenerateDrafts(opts?: { clearCache?: boolean }) {
-    if (!currentStudio) return
-    if (opts?.clearCache) clearCachedStories(currentStudio.id)
-    setPhase('generating')
-    setDraftSlots(DRAFT_THEMES.map(() => 'loading'))
-
-    await Promise.allSettled(DRAFT_THEMES.map((theme, i) => generateSingleDraft(theme, i)))
-
-    setPhase('drafts')
-
-    // Save to cache only if all drafts succeeded
-    setDraftSlots((current) => {
-      const allSucceeded = current.every((s): s is Draft => s !== 'loading' && s !== 'error')
-      if (allSucceeded) saveCachedStories(currentStudio.id, current as Draft[])
-      return current
-    })
-  }
-
-  // ── Select a draft → enter refine phase ──────────────────────────────
-
-  function handleSelectDraft(draft: Draft) {
-    setSelectedDraft(draft)
-    setMessages([{ role: 'assistant', content: draft.html }])
-    setPhase('refining')
-  }
-
-  // ── Refine the selected story ─────────────────────────────────────────
-
-  async function handleRefine() {
-    if (!canSend || !currentStudio) return
-
-    const userMessage: StoryMessage = { role: 'user', content: prompt.trim() }
-    const updatedMessages = [...messages, userMessage]
-    setMessages(updatedMessages)
-    setPrompt('')
-    setRefineLoading(true)
-
-    try {
-      const res = await fetch('/api/ai/story', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studioId: currentStudio.id,
-          messages: updatedMessages,
-        }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error ?? `Error ${res.status}`)
-      }
-      const { html } = await res.json()
-      setMessages((prev) => [...prev, { role: 'assistant', content: html }])
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to refine story')
-      setMessages(messages)
-    } finally {
-      setRefineLoading(false)
-    }
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleRefine()
-    }
+  function triggerFileInput() {
+    fileInputRef.current?.click()
   }
 
   // ── Download ──────────────────────────────────────────────────────────
 
-  async function handleDownload() {
-    if (!currentHtml) return
-    setDownloading(true)
-
+  async function renderToPng(html: string): Promise<string | null> {
     try {
       const res = await fetch('/api/ai/story/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ html: currentHtml }),
+        body: JSON.stringify({ html }),
       })
-
-      if (res.status === 503) {
-        downloadAsHtml(currentHtml, 'refined')
-        toast.info('Tip: add HCTI credentials to download as PNG')
-        return
-      }
-
-      if (!res.ok) throw new Error('Render failed')
-
+      if (res.status === 503) return null
+      if (!res.ok) return null
       const { imageUrl } = await res.json()
-      const a = document.createElement('a')
-      a.href = imageUrl
-      a.download = `story-${Date.now()}.png`
-      a.target = '_blank'
-      a.rel = 'noopener noreferrer'
-      a.click()
+      return imageUrl as string
     } catch {
-      downloadAsHtml(currentHtml, 'refined')
-    } finally {
-      setDownloading(false)
+      return null
     }
   }
 
-  async function handleDownloadAll() {
-    const successfulDrafts = draftSlots.filter(
-      (s): s is Draft => s !== 'loading' && s !== 'error'
-    )
-    if (successfulDrafts.length === 0) return
-
-    setDownloadingAll(true)
-    toast.info(`Preparing ${successfulDrafts.length} stories…`)
-
-    try {
-      // Render all in parallel
-      const results = await Promise.all(
-        successfulDrafts.map(async (draft, i) => {
-          try {
-            const res = await fetch('/api/ai/story/render', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ html: draft.html }),
-            })
-            if (res.status === 503) return { draft, imageUrl: null }
-            if (!res.ok) return { draft, imageUrl: null }
-            const { imageUrl } = await res.json()
-            return { draft, imageUrl: imageUrl as string }
-          } catch {
-            return { draft, imageUrl: null, index: i }
-          }
-        })
-      )
-
-      // Download sequentially with a small gap so the browser doesn't block them
-      for (const { draft, imageUrl } of results) {
-        const slug = draft.label.toLowerCase().replace(/\s+/g, '-')
-        if (imageUrl) {
-          const a = document.createElement('a')
-          a.href = imageUrl
-          a.download = `story-${slug}.png`
-          a.target = '_blank'
-          a.rel = 'noopener noreferrer'
-          a.click()
-        } else {
-          downloadAsHtml(draft.html, slug)
-        }
-        await new Promise((r) => setTimeout(r, 400))
-      }
-
-      toast.success(`Downloaded ${results.length} stories`)
-    } finally {
-      setDownloadingAll(false)
-    }
-  }
-
-  function downloadAsHtml(html: string, slug = 'story') {
+  function downloadAsHtml(html: string, slug: string) {
     const blob = new Blob([html], { type: 'text/html' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -382,112 +231,97 @@ export default function StoriesPage() {
     URL.revokeObjectURL(url)
   }
 
-  function handleBackToDrafts() {
-    setPhase('drafts')
-    setSelectedDraft(null)
-    setMessages([])
-    setPrompt('')
+  async function handleDownloadOne(key: string, html: string) {
+    setDownloadingKey(key)
+    try {
+      const imageUrl = await renderToPng(html)
+      if (imageUrl) {
+        const a = document.createElement('a')
+        a.href = imageUrl
+        a.download = `story-${key}.png`
+        a.target = '_blank'
+        a.rel = 'noopener noreferrer'
+        a.click()
+      } else {
+        downloadAsHtml(html, key)
+        toast.info('Downloaded as HTML — add HCTI credentials for PNG export')
+      }
+    } catch {
+      downloadAsHtml(html, key)
+    } finally {
+      setDownloadingKey(null)
+    }
   }
 
-  // ── Phases ────────────────────────────────────────────────────────────
+  async function handleDownloadAll() {
+    if (stories.length === 0) return
+    setDownloading(true)
+    toast.info(`Preparing ${stories.length} stories…`)
 
-  if (phase === 'generating' || phase === 'drafts') {
-    const allDone = draftSlots.every((s) => s !== 'loading')
+    try {
+      const results = await Promise.all(
+        stories.map(async ({ key, html }) => {
+          const imageUrl = await renderToPng(html)
+          return { key, html, imageUrl }
+        })
+      )
+
+      for (const { key, html, imageUrl } of results) {
+        if (imageUrl) {
+          const a = document.createElement('a')
+          a.href = imageUrl
+          a.download = `story-${key}.png`
+          a.target = '_blank'
+          a.rel = 'noopener noreferrer'
+          a.click()
+        } else {
+          downloadAsHtml(html, key)
+        }
+        await new Promise((r) => setTimeout(r, 400))
+      }
+
+      toast.success(`Downloaded ${results.length} stories`)
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  // ── Loading ────────────────────────────────────────────────────────────
+
+  if (!currentStudio || lpLoading) {
     return (
       <div className="flex flex-col h-[calc(100vh-4rem)]">
-        <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-4 flex-shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
-              <Sparkles className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-base font-semibold leading-none">AI Stories</h1>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                {allDone ? 'Pick a draft to refine' : 'Generating your stories…'}
-              </p>
-            </div>
+        <div className="flex items-center gap-2.5 border-b border-white/[0.06] px-6 py-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+            <Sparkles className="h-4 w-4 text-primary" />
           </div>
-          {allDone && (
-            <div className="flex items-center gap-2">
-              {signupUrl && (
-                <button
-                  onClick={copySignupUrl}
-                  className="hidden sm:flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-xs text-primary hover:bg-primary/10 transition-colors"
-                >
-                  {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  {copied ? 'Copied!' : 'Copy signup link'}
-                </button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownloadAll}
-                disabled={downloadingAll}
-              >
-                {downloadingAll ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5 mr-1.5" />
-                )}
-                Download all
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => handleGenerateDrafts({ clearCache: true })}>
-                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                Regenerate
-              </Button>
-            </div>
-          )}
+          <div>
+            <h1 className="text-base font-semibold leading-none">Stories</h1>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Loading…</p>
+          </div>
         </div>
-
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
-            {DRAFT_THEMES.map((theme, i) => {
-              const slot = draftSlots[i]
-              return (
-                <DraftCard
-                  key={theme.label}
-                  theme={theme}
-                  slot={slot}
-                  onSelect={() => {
-                    if (slot && slot !== 'loading' && slot !== 'error') {
-                      handleSelectDraft(slot)
-                    }
-                  }}
-                  onRetry={() => {
-                    setDraftSlots((prev) => {
-                      const next = [...prev]
-                      next[i] = 'loading'
-                      return next
-                    })
-                    generateSingleDraft(theme, i)
-                  }}
-                />
-              )
-            })}
-          </div>
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       </div>
     )
   }
 
-  // ── Refine phase ─────────────────────────────────────────────────────────
+  const previewStory = previewKey ? stories.find((s) => s.key === previewKey) : null
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-4 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleBackToDrafts}
-            className="h-8 px-2 text-muted-foreground"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Drafts
-          </Button>
-          <div className="h-4 w-px bg-white/[0.1]" />
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+            <Sparkles className="h-4 w-4 text-primary" />
+          </div>
           <div>
-            <p className="text-sm font-medium leading-none">{selectedDraft?.label}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">{selectedDraft?.subtitle}</p>
+            <h1 className="text-base font-semibold leading-none">Stories</h1>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Pick a design, download your set
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -500,109 +334,184 @@ export default function StoriesPage() {
               {copied ? 'Copied!' : 'Copy signup link'}
             </button>
           )}
-          {currentHtml && (
-            <Button variant="outline" size="sm" onClick={handleDownload} disabled={downloading}>
-              {downloading ? (
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5 mr-1.5" />
-              )}
-              Download
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left: live preview */}
-        <div className="hidden md:flex w-72 flex-shrink-0 flex-col items-center justify-center border-r border-white/[0.06] bg-secondary/10 p-6 gap-3">
-          {currentHtml ? (
-            <>
-              {refineLoading ? (
-                <div className="relative">
-                  <StoryPreview html={currentHtml} />
-                  <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-white" />
-                  </div>
-                </div>
-              ) : (
-                <StoryPreview html={currentHtml} />
-              )}
-              <p className="text-[11px] text-muted-foreground">1080 × 1920 px</p>
-            </>
-          ) : (
-            <Skeleton className="rounded-2xl" style={{ width: PREVIEW_W, height: PREVIEW_H }} />
-          )}
-        </div>
-
-        {/* Right: chat panel */}
-        <div className="flex flex-1 flex-col">
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* Mobile: show current preview */}
-            {currentHtml && (
-              <div className="md:hidden flex justify-center py-2">
-                <StoryPreview html={currentHtml} />
-              </div>
-            )}
-
-            {/* Refinement conversation (skip the first assistant message = initial draft) */}
-            {messages.slice(1).map((msg, i) => (
-              <RefinementBubble key={i} message={msg} />
-            ))}
-
-            {refineLoading && <ThinkingBubble />}
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Input */}
-          <div className="border-t border-white/[0.06] p-4 space-y-2 flex-shrink-0">
-            {turnsLeft === 0 && !refineLoading ? (
-              <div className="rounded-lg bg-muted/50 border border-white/[0.06] p-3 text-center text-sm text-muted-foreground">
-                Max refinements reached.{' '}
-                <button
-                  className="text-primary underline underline-offset-2"
-                  onClick={handleBackToDrafts}
-                >
-                  Go back to drafts
-                </button>
-              </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadAll}
+            disabled={downloading}
+          >
+            {downloading ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
             ) : (
-              <>
-                <Textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={'What would you like to change? e.g. "Make the text bigger" or "Use a darker background"'}
-                  className="min-h-[80px] resize-none text-sm bg-secondary/50 border-white/[0.08] focus-visible:ring-primary/30"
-                  disabled={refineLoading}
-                />
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-muted-foreground">
-                    {refinementTurns > 0
-                      ? `${turnsLeft} refinement${turnsLeft !== 1 ? 's' : ''} left`
-                      : 'Describe any changes · Enter to send'}
-                  </span>
-                  <Button size="sm" onClick={handleRefine} disabled={!canSend}>
-                    {refineLoading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Send className="h-3.5 w-3.5" />
-                    )}
-                    <span className="ml-1.5">Refine</span>
-                  </Button>
-                </div>
-              </>
+              <Download className="h-3.5 w-3.5 mr-1.5" />
             )}
-          </div>
+            Download all 3
+          </Button>
         </div>
       </div>
+
+      {/* Design tabs */}
+      <div className="flex items-center gap-1 border-b border-white/[0.06] px-6 py-2 flex-shrink-0 overflow-x-auto">
+        {DESIGN_STYLES.map((ds) => (
+          <button
+            key={ds.id}
+            onClick={() => setActiveDesign(ds.id)}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap ${
+              activeDesign === ds.id
+                ? 'bg-primary/10 text-primary border border-primary/20'
+                : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+            }`}
+          >
+            {ds.usesBackgroundImage && <ImagePlus className="h-3.5 w-3.5" />}
+            {ds.label}
+          </button>
+        ))}
+        <span className="text-[11px] text-muted-foreground ml-2 hidden sm:inline">
+          {activeDesignDef.subtitle}
+        </span>
+      </div>
+
+      {/* Photo upload dropzone (only when Photo tab active) */}
+      {isPhotoDesign && (
+        <div className="flex-shrink-0 px-6 py-3 border-b border-white/[0.06]">
+          {bgImageUrl ? (
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg overflow-hidden border border-white/[0.08] flex-shrink-0">
+                <img
+                  src={bgImageUrl}
+                  alt="Background"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <span className="text-xs text-muted-foreground">Background uploaded</span>
+              <button
+                onClick={triggerFileInput}
+                disabled={uploading}
+                className="text-xs text-primary hover:text-primary/80 transition-colors"
+              >
+                {uploading ? 'Uploading…' : 'Change photo'}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={triggerFileInput}
+              disabled={uploading}
+              className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/[0.1] hover:border-primary/30 bg-secondary/20 hover:bg-secondary/30 transition-colors py-5"
+            >
+              {uploading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : (
+                <Upload className="h-4 w-4 text-muted-foreground" />
+              )}
+              <span className="text-sm text-muted-foreground">
+                {uploading ? 'Uploading…' : 'Upload your background image (1080×1920 recommended)'}
+              </span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Story grid — 3 stories */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
+          {stories.map(({ storyType, html, key }) => (
+            <StoryCard
+              key={key}
+              storyType={storyType}
+              html={html}
+              storyKey={key}
+              downloadingKey={downloadingKey}
+              onPreview={() => setPreviewKey(key)}
+              onDownload={() => handleDownloadOne(key, html)}
+              onEdit={() => openEditor(storyType.id)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handlePhotoUpload}
+        className="hidden"
+      />
+
+      {/* Preview overlay */}
+      {previewStory && (
+        <PreviewOverlay
+          label={previewStory.storyType.label}
+          subtitle={previewStory.storyType.subtitle}
+          html={previewStory.html}
+          storyKey={previewStory.key}
+          downloadingKey={downloadingKey}
+          onClose={() => setPreviewKey(null)}
+          onDownload={() => handleDownloadOne(previewStory.key, previewStory.html)}
+        />
+      )}
+
+      {/* Edit sheet */}
+      <Sheet open={!!editingStoryId} onOpenChange={(open) => !open && setEditingStoryId(null)}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          {editingStoryId && (
+            <>
+              <SheetHeader>
+                <SheetTitle>
+                  Edit: {STORY_TYPES.find((s) => s.id === editingStoryId)?.label}
+                </SheetTitle>
+                <SheetDescription>
+                  Use {'{baseRate}'}, {'{topRate}'}, {'{studioName}'} for dynamic values
+                </SheetDescription>
+              </SheetHeader>
+              <div className="flex flex-col gap-4 py-4">
+                {STORY_FIELD_DEFS[editingStoryId]?.map((field) => {
+                  const baseRate = brand?.tiers[0]?.cashbackRate ?? 0
+                  const topRate = brand?.tiers[brand.tiers.length - 1]?.cashbackRate ?? baseRate
+                  const lang = brand?.language ?? 'en'
+                  const defaultVal = getDefaultCopy(lang, field.key, baseRate, topRate)
+                  return (
+                    <div key={field.key} className="space-y-1.5">
+                      <Label className="text-xs">{field.label}</Label>
+                      <Input
+                        value={editDraft[field.key] ?? ''}
+                        placeholder={defaultVal}
+                        onChange={(e) =>
+                          setEditDraft((prev) => ({ ...prev, [field.key]: e.target.value }))
+                        }
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+              <SheetFooter className="flex gap-2 pt-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleResetStory(editingStoryId)}
+                >
+                  <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                  Reset to defaults
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSaveEdits}
+                  disabled={saveCopy.isPending}
+                >
+                  {saveCopy.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                  Save
+                </Button>
+              </SheetFooter>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────
 
-/** Iframe that auto-scales to fill its container width (ResizeObserver-based) */
 function AutoScaledIframe({ html, title }: { html: string; title: string }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(0.2)
@@ -637,99 +546,165 @@ function AutoScaledIframe({ html, title }: { html: string; title: string }) {
   )
 }
 
-function DraftCard({
-  theme,
-  slot,
-  onSelect,
-  onRetry,
+function StoryCard({
+  storyType,
+  html,
+  storyKey,
+  downloadingKey,
+  onPreview,
+  onDownload,
+  onEdit,
 }: {
-  theme: (typeof DRAFT_THEMES)[number]
-  slot: DraftSlot
-  onSelect: () => void
-  onRetry: () => void
+  storyType: (typeof STORY_TYPES)[number]
+  html: string
+  storyKey: string
+  downloadingKey: string | null
+  onPreview: () => void
+  onDownload: () => void
+  onEdit: () => void
 }) {
-  const isLoading = slot === 'loading'
-  const isError = slot === 'error'
-  const draft = !isLoading && !isError ? (slot as Draft) : null
+  const isDownloading = downloadingKey === storyKey
 
   return (
     <div className="flex flex-col gap-2">
       <button
-        onClick={onSelect}
-        disabled={isLoading || isError}
-        className={`relative overflow-hidden rounded-2xl border transition-all duration-200 group ${
-          draft
-            ? 'border-white/[0.08] hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1 cursor-pointer'
-            : 'border-white/[0.06] cursor-default'
-        }`}
+        onClick={onPreview}
+        className="relative overflow-hidden rounded-2xl border border-white/[0.08] hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1 transition-all duration-200 cursor-pointer group"
         style={{ aspectRatio: '9/16' }}
       >
-        {isLoading && (
-          <div className="absolute inset-0 bg-secondary/40 flex flex-col items-center justify-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            <p className="text-[11px] text-muted-foreground">Generating…</p>
-          </div>
-        )}
-        {isError && (
-          <div className="absolute inset-0 bg-secondary/40 flex flex-col items-center justify-center gap-2 p-4">
-            <p className="text-[11px] text-muted-foreground text-center">Failed to generate</p>
-            <button
-              onClick={(e) => { e.stopPropagation(); onRetry() }}
-              className="text-[11px] text-primary underline underline-offset-2"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-        {draft && (
-          <>
-            <AutoScaledIframe html={draft.html} title={draft.label} />
-            <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
-              <span className="text-xs font-semibold text-white bg-primary rounded-full px-4 py-1.5 shadow-lg">
-                Select
-              </span>
-            </div>
-          </>
-        )}
+        <AutoScaledIframe html={html} title={storyType.label} />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
+          <span className="text-xs font-semibold text-white bg-white/20 backdrop-blur-sm rounded-full px-4 py-1.5">
+            Preview
+          </span>
+        </div>
       </button>
-      <div>
-        <p className="text-xs font-medium leading-none">{theme.label}</p>
-        <p className="text-[11px] text-muted-foreground mt-0.5">{theme.subtitle}</p>
-      </div>
-    </div>
-  )
-}
-
-function RefinementBubble({ message }: { message: StoryMessage }) {
-  if (message.role === 'user') {
-    return (
-      <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-3.5 py-2.5">
-          <p className="text-sm text-primary-foreground leading-relaxed whitespace-pre-wrap">
-            {message.content}
-          </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-medium leading-none">{storyType.label}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{storyType.subtitle}</p>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit()
+            }}
+            className="flex items-center gap-1 rounded-md border border-white/[0.08] px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:border-white/20 transition-colors"
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onDownload()
+            }}
+            disabled={isDownloading}
+            className="flex items-center gap-1 rounded-md border border-white/[0.08] px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:border-white/20 transition-colors disabled:opacity-50"
+          >
+            {isDownloading ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Download className="h-3 w-3" />
+            )}
+          </button>
         </div>
       </div>
-    )
-  }
-
-  return (
-    <div className="flex justify-start">
-      <div className="space-y-1.5">
-        <StoryPreview html={message.content} />
-        <p className="text-[11px] text-muted-foreground pl-1">Story updated</p>
-      </div>
     </div>
   )
 }
 
-function ThinkingBubble() {
+function PreviewOverlay({
+  label,
+  subtitle,
+  html,
+  storyKey,
+  downloadingKey,
+  onClose,
+  onDownload,
+}: {
+  label: string
+  subtitle: string
+  html: string
+  storyKey: string
+  downloadingKey: string | null
+  onClose: () => void
+  onDownload: () => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(0.3)
+  const isDownloading = downloadingKey === storyKey
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const update = () => {
+      const rect = el.getBoundingClientRect()
+      setScale(Math.min(rect.width / STORY_W, rect.height / STORY_H))
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const handleClose = useCallback(() => onClose(), [onClose])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [handleClose])
+
   return (
-    <div className="flex justify-start">
-      <div className="rounded-2xl rounded-tl-sm bg-secondary/70 border border-white/[0.06] px-3.5 py-2.5 flex items-center gap-1.5">
-        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.3s]" />
-        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.15s]" />
-        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce" />
+    <div
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-6"
+      onClick={handleClose}
+    >
+      <div
+        className="flex flex-col items-center gap-4 max-h-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3">
+          <p className="text-sm font-medium">{label}</p>
+          <span className="text-[11px] text-muted-foreground">{subtitle}</span>
+          <div className="h-4 w-px bg-white/10" />
+          <Button size="sm" variant="outline" onClick={onDownload} disabled={isDownloading}>
+            {isDownloading ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+            )}
+            Download
+          </Button>
+          <Button size="sm" variant="ghost" onClick={handleClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div
+          ref={containerRef}
+          className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-black"
+          style={{ width: '100%', maxWidth: 400, aspectRatio: '9/16' }}
+        >
+          <iframe
+            srcDoc={html}
+            sandbox="allow-scripts"
+            scrolling="no"
+            title={label}
+            style={{
+              width: STORY_W,
+              height: STORY_H,
+              transform: `scale(${scale})`,
+              transformOrigin: 'top left',
+              border: 'none',
+              pointerEvents: 'none',
+            }}
+          />
+        </div>
+        <p className="text-[11px] text-muted-foreground">1080 × 1920 px</p>
       </div>
     </div>
   )

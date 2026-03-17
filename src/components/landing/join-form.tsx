@@ -165,20 +165,23 @@ export function JoinForm({
       // Fetch alternate platform URL for fallback link
       if (data.passUrl && data.customerId) {
         try {
-          const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
+          if (!data.customerAccessToken) return
           const altPlatform = platform === 'apple' ? 'google' : 'apple'
-          const altRes = await fetch(`${PASS_SERVICE}/api/passes/generate`, {
+          const altRes = await fetch('/api/pass/generate', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${data.customerAccessToken}`,
+            },
             body: JSON.stringify({
               customerId: data.customerId,
-              studioId,
               platform: altPlatform,
             }),
           })
           if (altRes.ok) {
             const altData = await altRes.json()
             if (altPlatform === 'google' && altData.saveUrl) {
+              const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
               const saveUrl = altData.saveUrl.startsWith('http')
                 ? altData.saveUrl
                 : `${PASS_SERVICE}${altData.saveUrl}`
@@ -188,6 +191,7 @@ export function JoinForm({
                 if (saveData.saveUrl) setAltPassUrl(saveData.saveUrl)
               }
             } else if (altPlatform === 'apple' && altData.passUrl) {
+              const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
               const url = altData.passUrl.startsWith('http')
                 ? altData.passUrl
                 : `${PASS_SERVICE}${altData.passUrl}`

@@ -18,6 +18,7 @@ function detectPlatform(): 'apple' | 'google' {
 
 type Props = {
   customerId: string
+  customerAccessToken: string
   customerName: string
   balance: number
   cashbackRate: number
@@ -35,6 +36,7 @@ type Props = {
 
 export function SuccessHub({
   customerId,
+  customerAccessToken,
   customerName,
   cashbackRate,
   welcomeBonus,
@@ -75,7 +77,10 @@ export function SuccessHub({
     try {
       await fetch(`/api/loyalty/${customerId}/track`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${customerAccessToken}`,
+        },
         body: JSON.stringify({ event: 'pass_downloaded' }),
       })
     } catch {
@@ -104,15 +109,18 @@ export function SuccessHub({
       // If we don't have a valid URL yet, generate a fresh one
       if (!googleSaveUrl) {
         try {
-          const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
-          const res = await fetch(`${PASS_SERVICE}/api/passes/generate`, {
+          const res = await fetch('/api/pass/generate', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${customerAccessToken}`,
+            },
             body: JSON.stringify({ customerId, platform: 'google' }),
           })
           if (res.ok) {
             const data = await res.json()
             if (data.saveUrl) {
+              const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
               const url = data.saveUrl.startsWith('http') ? data.saveUrl : `${PASS_SERVICE}${data.saveUrl}`
               // Resolve intermediate endpoint
               if (!url.includes('pay.google.com')) {
@@ -138,16 +146,19 @@ export function SuccessHub({
         window.location.href = passUrl
       } else {
         try {
-          const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
-          const res = await fetch(`${PASS_SERVICE}/api/passes/generate`, {
+          const res = await fetch('/api/pass/generate', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${customerAccessToken}`,
+            },
             body: JSON.stringify({ customerId, platform: 'apple' }),
           })
           if (res.ok) {
             const data = await res.json()
             const dl = data.downloadUrl ?? data.passUrl
             if (dl) {
+              const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
               const url = dl.startsWith('http') ? dl : `${PASS_SERVICE}${dl}`
               window.location.href = url
             }

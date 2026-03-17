@@ -3,13 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig, getReferralUnlockTier } from '@/types/database'
 import type { RewardsConfig, UpgradeTriggerConfig } from '@/types/database'
+import { passServiceFetch } from '@/lib/pass-service'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
-
-const PASS_SERVICE_URL = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
 
 export async function POST(request: NextRequest) {
   try {
@@ -284,9 +283,6 @@ function shouldUpgrade(
 
 function triggerPassUpdate(customerId: string, studioId: string) {
   // Fire and forget - push update to wallet pass
-  fetch(`${PASS_SERVICE_URL}/api/push/customer/${customerId}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ studioId }),
-  }).catch(() => {})
+  void studioId
+  passServiceFetch(`/api/push/customer/${customerId}`, { method: 'POST' }).catch(() => {})
 }

@@ -7,12 +7,12 @@ import {
 
 const faqs = [
   {
-    q: 'Do my customers need to download an app?',
-    a: 'No. Loyalink passes go directly into Apple Wallet or Google Wallet — the pre-installed apps on every iPhone and Android. Customers scan a QR code with their camera and the pass is added in seconds. Zero app downloads required.',
+    q: 'Do my clients need to download an app?',
+    a: 'No. Loyalink passes go directly into Apple Wallet or Google Wallet — the pre-installed apps on every iPhone and Android. Clients scan a QR code with their camera and the pass is added in seconds. Zero app downloads required.',
   },
   {
     q: 'How does the 14-day free trial work?',
-    a: 'You get full access to all features on your chosen plan for 14 days at no cost. We collect your payment details upfront to make activation seamless when the trial ends, but you will not be charged a single euro during the trial period.',
+    a: 'You get full access to all features on your chosen plan for 14 days at no cost. We ask for your card upfront so there\'s nothing to do when the trial ends, but you will not be charged a single euro during the trial period.',
   },
   {
     q: 'What happens when the trial ends?',
@@ -20,11 +20,11 @@ const faqs = [
   },
   {
     q: 'Can I cancel anytime?',
-    a: 'Yes. Cancel from your settings page with one click — no phone calls, no retention flows. Your program stays active until the end of the billing period and your customer data is exportable at any time.',
+    a: 'Yes. Cancel from your settings page with one click — no phone calls, no retention flows. Your program stays active until the end of the billing period and your client data is exportable at any time.',
   },
   {
     q: 'How does cashback work — does it cost me money?',
-    a: 'Cashback is funded entirely by you as a configurable percentage of each transaction (typically 3–10%). The key difference from a discount is that cashback can only be spent back at your studio, so the money stays in your ecosystem. Customers feel rewarded without you ever selling at a loss.',
+    a: 'Cashback is funded entirely by you as a configurable percentage of each transaction (typically 3–10%). The key difference from a discount is that cashback can only be spent back at your studio, so the money stays in your ecosystem. Clients feel rewarded without you ever selling at a loss.',
   },
   {
     q: "What's the difference between Basic and Pro?",

@@ -5,7 +5,6 @@ import type { PassTemplate, WalletPass, WalletPushLog, WalletDeviceRegistration 
 import { DEFAULT_TIER_THEMES, DEFAULT_CARD_FIELDS, DEFAULT_STATIC_TEXTS } from '@/types/database'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useStudio } from './use-studio'
-import { PASS_SERVICE_URL } from '@/lib/constants'
 
 export function usePassTemplates() {
   const { currentStudio } = useStudio()
@@ -69,10 +68,10 @@ export function useGeneratePass() {
 
   return useMutation({
     mutationFn: async (params: { customerId: string; studioId: string; templateId: string }) => {
-      const res = await fetch(`${PASS_SERVICE_URL}/api/passes/generate`, {
+      const res = await fetch('/api/pass/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
+        body: JSON.stringify({ customerId: params.customerId }),
       })
       if (!res.ok) throw new Error('Failed to generate pass')
       return res.json()
@@ -89,10 +88,20 @@ export function useSendPush() {
 
   return useMutation({
     mutationFn: async (params: { targetType: string; customerId?: string }) => {
-      const res = await fetch(`${PASS_SERVICE_URL}/api/push/send`, {
+      const endpoint =
+        params.targetType === 'customer' && params.customerId
+          ? '/api/pass/push/customer'
+          : '/api/pass/push/studio'
+
+      const body =
+        endpoint === '/api/pass/push/customer'
+          ? { customerId: params.customerId }
+          : { studioId: currentStudio!.id }
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...params, studioId: currentStudio!.id }),
+        body: JSON.stringify(body),
       })
       if (!res.ok) throw new Error('Failed to send push')
       return res.json()

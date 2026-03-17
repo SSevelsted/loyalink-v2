@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import type { AudienceFilter } from '@/types/database'
+import { passServiceFetch } from '@/lib/pass-service'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const PASS_SERVICE_URL = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
 const CRON_SECRET = process.env.CRON_SECRET!
 if (!CRON_SECRET) throw new Error('CRON_SECRET env var is required')
 
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
         await applyContentActions(customerIds, campaign.studio_id, campaignContent)
       }
 
-      const res = await fetch(`${PASS_SERVICE_URL}/api/push/studio/${campaign.studio_id}`, {
+      const res = await passServiceFetch(`/api/push/studio/${campaign.studio_id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ segmentFilter: filter, campaignId: campaign.id }),
@@ -217,7 +217,7 @@ export async function POST(request: NextRequest) {
       await applyContentActions(newCustomerIds, automation.studio_id, content)
 
       // Send push
-      await fetch(`${PASS_SERVICE_URL}/api/push/studio/${automation.studio_id}`, {
+      await passServiceFetch(`/api/push/studio/${automation.studio_id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

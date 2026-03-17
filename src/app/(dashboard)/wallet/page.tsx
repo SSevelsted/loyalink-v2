@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { APP_URL, PASS_SERVICE_URL } from '@/lib/constants'
+import { APP_URL } from '@/lib/constants'
 import { generateDefaultBenefits, BENEFIT_ICON_MAP, BENEFIT_ICON_OPTIONS } from '@/components/landing/value-stack'
 
 // Only the first tier is protected from deletion; custom tiers can be removed
@@ -245,7 +245,11 @@ export default function WalletPage() {
       toast.success('Card design saved — pushing to installed passes…')
 
       // Push updated design to all installed passes in the background
-      fetch(`${PASS_SERVICE_URL}/push/studio/${currentStudio.id}`, { method: 'POST' })
+      fetch('/api/pass/push/studio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studioId: currentStudio.id }),
+      })
         .then(async (res) => {
           if (res.ok) {
             const data = await res.json()

@@ -1,7 +1,9 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
 import { ReferralProgram } from '@/components/rewards/referral-program'
+import { PreExistingClientsUpload } from '@/components/settings/pre-existing-clients-upload'
 import type { RewardsConfig } from '@/types/database'
 
 type ReferralsSectionProps = {
@@ -34,6 +36,16 @@ export function ReferralsSection({ config, onChange, onSave, saving, currency, i
           </Button>
         </div>
       )}
+
+      <Separator />
+
+      <div>
+        <h3 className="text-base font-semibold">Existing Client List</h3>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Clients on this list won&apos;t count as referrals if they sign up via a referral link.
+        </p>
+      </div>
+      <PreExistingClientsUpload />
     </div>
   )
 }

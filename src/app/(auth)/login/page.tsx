@@ -33,7 +33,7 @@ function LoginForm() {
       return
     }
 
-    const redirect = searchParams.get('redirect') || '/'
+    const redirect = searchParams.get('redirect') || '/overview'
     router.push(redirect)
   }
 

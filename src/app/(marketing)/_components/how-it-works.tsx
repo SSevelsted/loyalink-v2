@@ -10,8 +10,8 @@ const steps = [
   {
     number: '02',
     icon: Smartphone,
-    title: 'Customers join in 30 seconds',
-    body: 'No app download required. Customers scan your QR code and your loyalty pass lands straight in Apple or Google Wallet.',
+    title: 'Clients join in 30 seconds',
+    body: 'No app download required. Clients scan your QR code and your loyalty pass lands straight in Apple or Google Wallet.',
   },
   {
     number: '03',
@@ -33,7 +33,7 @@ export function HowItWorks() {
             Loyalty in 3 Steps
           </h2>
           <p className="text-muted-foreground max-w-md mx-auto">
-            From zero to a fully running loyalty program before your next customer walks in.
+            From zero to a fully running loyalty program before your next client walks in.
           </p>
         </div>
 

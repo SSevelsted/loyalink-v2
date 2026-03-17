@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getBearerToken, verifyCustomerAccessToken } from '@/lib/customer-access'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,6 +12,11 @@ export async function POST(
   { params }: { params: Promise<{ memberId: string }> }
 ) {
   const { memberId } = await params
+  const access = verifyCustomerAccessToken(getBearerToken(request.headers.get('authorization')))
+
+  if (!access) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { event } = await request.json()
   if (!event || typeof event !== 'string') {
@@ -38,6 +44,10 @@ export async function POST(
 
   if (!customer) {
     return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+  }
+
+  if (customer.id !== access.customerId) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const existingMetadata = (customer.metadata as Record<string, unknown>) ?? {}

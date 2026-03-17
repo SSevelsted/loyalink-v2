@@ -17,7 +17,7 @@ const spaceGrotesk = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: 'Loyalink',
-  description: 'Customer loyalty & wallet pass management for studios',
+  description: 'Cashback loyalty, wallet passes, and referrals — built for tattoo studios.',
 }
 
 export default function RootLayout({

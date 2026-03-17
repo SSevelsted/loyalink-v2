@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig } from '@/types/database'
 import type { RewardsConfig, Referral, Transaction } from '@/types/database'
 import { LoyaltyHub } from './loyalty-hub'
+import { createCustomerAccessToken } from '@/lib/customer-access'
 
 type Props = {
   params: Promise<{ memberId: string }>
@@ -76,6 +77,7 @@ export default async function LoyaltyPage({ params }: Props) {
   return (
     <LoyaltyHub
       memberId={memberId}
+      customerAccessToken={createCustomerAccessToken(customer.id, 24 * 60 * 60)}
       avatarUrl={avatarUrl}
       customer={{
         id: customer.id,

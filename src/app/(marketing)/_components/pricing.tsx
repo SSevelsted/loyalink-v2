@@ -136,7 +136,7 @@ export function Pricing() {
             </table>
           </div>
           <p className="text-center text-xs text-muted-foreground mt-3">
-            An active member is any customer who earned or redeemed cashback in that calendar month.
+            An active member is any client who earned or redeemed cashback in that calendar month.
           </p>
         </details>
       </div>

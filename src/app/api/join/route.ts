@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig } from '@/types/database'
 import type { RewardsConfig } from '@/types/database'
 import { customAlphabet } from 'nanoid'
+import { createCustomerAccessToken } from '@/lib/customer-access'
+import { passServiceFetch } from '@/lib/pass-service'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,6 +53,30 @@ export async function POST(request: NextRequest) {
         referrerCustomerId = referrer.id
         cashbackRate = config.referrals.friend_cashback_rate
         loyaltyStage = config.referrals.friend_tier_slug
+      }
+    }
+
+    // Check if new customer is a pre-existing client (referral blocklist)
+    if (referrerCustomerId && (email || phone)) {
+      let blockQuery = supabase
+        .from('studio_pre_existing_clients')
+        .select('id')
+        .eq('studio_id', studioId)
+        .limit(1)
+
+      if (email && phone) {
+        blockQuery = blockQuery.or(`email.eq.${email},phone.eq.${phone}`)
+      } else if (email) {
+        blockQuery = blockQuery.eq('email', email)
+      } else {
+        blockQuery = blockQuery.eq('phone', phone)
+      }
+
+      const { data: blocked } = await blockQuery.maybeSingle()
+      if (blocked) {
+        referrerCustomerId = null
+        cashbackRate = config.tiers[0].cashback_rate
+        loyaltyStage = config.tiers[0].slug
       }
     }
 
@@ -135,12 +161,11 @@ export async function POST(request: NextRequest) {
     // Generate pass - use the appropriate tier
     let passUrl: string | null = null
     try {
-      const passRes = await fetch(`${PASS_SERVICE_URL}/api/passes/generate`, {
+      const passRes = await passServiceFetch('/api/passes/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerId: customer.id,
-          studioId,
           platform: platform || 'apple',
         }),
       })
@@ -194,6 +219,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       customerId: customer.id,
       passUrl,
+      customerAccessToken: createCustomerAccessToken(customer.id, 30 * 60),
     })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

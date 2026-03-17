@@ -4,6 +4,7 @@ import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig } from '@/types/database'
 import type { RewardsConfig } from '@/types/database'
 import type { Metadata } from 'next'
 import { SuccessHub } from './success-hub'
+import { createCustomerAccessToken } from '@/lib/customer-access'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -104,6 +105,7 @@ export default async function ReferralSuccessPage({ params, searchParams }: Prop
   return (
     <SuccessHub
       customerId={customer.id}
+      customerAccessToken={createCustomerAccessToken(customer.id, 24 * 60 * 60)}
       customerName={customer.name}
       balance={customer.balance}
       cashbackRate={Number(customer.cashback_rate ?? rewardsConfig.tiers[0].cashback_rate)}

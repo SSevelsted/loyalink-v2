@@ -21,6 +21,7 @@ import { getReferralUnlockTier, computeReferralMilestones } from '@/types/databa
 
 type Props = {
   memberId: string
+  customerAccessToken: string
   avatarUrl: string | null
   customer: {
     id: string
@@ -208,7 +209,7 @@ function groupTransactions(txs: Transaction[]): TxDisplayRow[] {
   return rows
 }
 
-export function LoyaltyHub({ memberId, avatarUrl, customer, studio, branding, logoUrl, rewardsConfig, referrals, transactions, currency, language }: Props) {
+export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer, studio, branding, logoUrl, rewardsConfig, referrals, transactions, currency, language }: Props) {
   const [copied, setCopied] = useState(false)
   const [selectedReferral, setSelectedReferral] = useState<
     (Referral & { referred_customer: { name: string; has_purchased: boolean; metadata: Record<string, unknown> | null } }) | null
@@ -289,7 +290,11 @@ export function LoyaltyHub({ memberId, avatarUrl, customer, studio, branding, lo
       const blob = await resizeToSquare(file)
       const form = new FormData()
       form.append('avatar', blob, 'avatar.webp')
-      const res = await fetch(`/api/loyalty/${memberId}/avatar`, { method: 'POST', body: form })
+      const res = await fetch(`/api/loyalty/${memberId}/avatar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${customerAccessToken}` },
+        body: form,
+      })
       if (res.ok) {
         const { avatar_url } = await res.json()
         setAvatarSrc(avatar_url)

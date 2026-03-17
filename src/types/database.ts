@@ -1,3 +1,12 @@
+export type PreExistingClient = {
+  id: string
+  studio_id: string
+  email: string | null
+  phone: string | null
+  name: string | null
+  created_at: string
+}
+
 export type Studio = {
   id: string
   name: string

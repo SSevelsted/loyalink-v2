@@ -3,8 +3,11 @@ import { supabase } from '../config.js';
 import { apnsConfig, appleConfig } from '../config.js';
 import { apnsService } from '../services/apnsService.js';
 import { googleWalletService } from '../services/googleWalletService.js';
+import { requireInternalAuth } from '../middleware/internalAuth.js';
 
 export const pushRoutes = Router();
+
+pushRoutes.use(requireInternalAuth);
 
 // Helper: get active device registrations for a list of customer IDs
 // wallet_device_registrations has no customer_id column — join through wallet_passes
