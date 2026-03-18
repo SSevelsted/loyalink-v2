@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { PLATFORM_URL } from '@/lib/constants'
 
 export function FinalCta() {
   return (
@@ -21,10 +21,10 @@ export function FinalCta() {
           Join 200+ studios that replaced vouchers with a program that actually pays off.
         </p>
         <Button size="lg" className="gap-2 text-base h-12 px-8 rounded-xl" asChild>
-          <Link href="/signup">
+          <a href={`${PLATFORM_URL}/signup`}>
             Start your 14-day free trial
             <ArrowRight className="h-4 w-4" />
-          </Link>
+          </a>
         </Button>
         <p className="text-xs text-muted-foreground">
           14 days free · 5-minute setup · Cancel anytime

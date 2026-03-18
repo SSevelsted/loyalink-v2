@@ -234,7 +234,7 @@ export class GoogleWalletService {
       const claims = {
         iss: credentials.client_email,
         aud: 'google',
-        origins: ['https://loyalink.ai'],
+        origins: ['https://loyalink.ai', 'https://my.loyalink.ai'],
         typ: 'savetowallet',
         payload: {
           loyaltyClasses: [

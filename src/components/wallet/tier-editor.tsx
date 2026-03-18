@@ -197,6 +197,7 @@ export function TierEditor({
         onUpload={onLogoOverrideUpload}
         onRemove={onLogoOverrideRemove}
         uploading={uploading}
+        removeBgType="graphic"
       />
     </div>
   )

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { LogoMark } from '@/components/logo'
 import { Button } from '@/components/ui/button'
+import { PLATFORM_URL } from '@/lib/constants'
 import { MarketingNav } from '../_components/nav'
 import { Footer } from '../_components/footer'
 
@@ -52,7 +52,7 @@ export default function AboutPage() {
 
           <div className="pt-4">
             <Button asChild>
-              <Link href="/signup">Start your free trial</Link>
+              <a href={`${PLATFORM_URL}/signup`}>Start your free trial</a>
             </Button>
           </div>
         </div>

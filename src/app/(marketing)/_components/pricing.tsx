@@ -1,7 +1,7 @@
-import Link from 'next/link'
 import { Check, Zap, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { PLATFORM_URL } from '@/lib/constants'
 
 const plans = [
   {
@@ -105,7 +105,7 @@ export function Pricing() {
                 className="w-full"
                 asChild
               >
-                <Link href={`/signup?plan=${plan.key}`}>Start free trial</Link>
+                <a href={`${PLATFORM_URL}/signup?plan=${plan.key}`}>Start free trial</a>
               </Button>
             </div>
           ))}

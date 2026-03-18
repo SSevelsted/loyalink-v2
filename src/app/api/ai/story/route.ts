@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { migrateRewardsConfig } from '@/types/database'
-import { APP_URL } from '@/lib/constants'
+import { MARKETING_URL } from '@/lib/constants'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -235,8 +235,8 @@ export async function POST(request: NextRequest) {
 
   // Signup URL
   const signupUrl = landingPage?.slug
-    ? `${APP_URL}/join/${landingPage.slug}`
-    : APP_URL
+    ? `${MARKETING_URL}/join/${landingPage.slug}`
+    : MARKETING_URL
 
   const brand: BrandContext = {
     studioName: studio?.name ?? 'Studio',
@@ -268,7 +268,7 @@ export async function POST(request: NextRequest) {
       headers: {
         Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL ?? 'https://loyalink.ai',
+        'HTTP-Referer': process.env.NEXT_PUBLIC_MARKETING_URL ?? 'https://loyalink.ai',
         'X-Title': 'Loyalink Stories',
       },
       body: JSON.stringify({

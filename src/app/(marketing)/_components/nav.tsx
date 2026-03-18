@@ -6,6 +6,7 @@ import { Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { LogoMark } from '@/components/logo'
+import { PLATFORM_URL } from '@/lib/constants'
 
 const links = [
   { label: 'Features', href: '#features' },
@@ -44,10 +45,10 @@ export function MarketingNav() {
         {/* Desktop CTAs */}
         <div className="hidden md:flex items-center gap-2 shrink-0">
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/login">Log in</Link>
+            <a href={`${PLATFORM_URL}/login`}>Log in</a>
           </Button>
           <Button size="sm" asChild className="rounded-full">
-            <Link href="/signup">Start free trial</Link>
+            <a href={`${PLATFORM_URL}/signup`}>Start free trial</a>
           </Button>
         </div>
 
@@ -72,10 +73,10 @@ export function MarketingNav() {
               ))}
               <div className="mt-4 space-y-2">
                 <Button variant="outline" className="w-full" asChild>
-                  <Link href="/login" onClick={() => setOpen(false)}>Log in</Link>
+                  <a href={`${PLATFORM_URL}/login`} onClick={() => setOpen(false)}>Log in</a>
                 </Button>
                 <Button className="w-full" asChild>
-                  <Link href="/signup" onClick={() => setOpen(false)}>Start free trial</Link>
+                  <a href={`${PLATFORM_URL}/signup`} onClick={() => setOpen(false)}>Start free trial</a>
                 </Button>
               </div>
             </div>

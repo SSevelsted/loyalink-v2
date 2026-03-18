@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Copy, Check } from 'lucide-react'
-import { APP_URL } from '@/lib/constants'
+import { MARKETING_URL } from '@/lib/constants'
 
 type Props = {
   slug: string
@@ -12,7 +12,7 @@ type Props = {
 export function EmbedCode({ slug }: Props) {
   const [copied, setCopied] = useState<string | null>(null)
 
-  const joinUrl = `${APP_URL}/join/${slug}`
+  const joinUrl = `${MARKETING_URL}/join/${slug}`
 
   const iframeCode = `<iframe src="${joinUrl}" width="100%" height="600" frameborder="0" style="border:none;max-width:480px;margin:0 auto;display:block;"></iframe>`
 

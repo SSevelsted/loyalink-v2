@@ -14,7 +14,7 @@ const supabase = createAdminClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+const APP_URL = process.env.NEXT_PUBLIC_PLATFORM_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
 async function sendWarningEmail(
   ownerEmail: string,

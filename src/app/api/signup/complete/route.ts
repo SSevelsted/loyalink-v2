@@ -37,152 +37,166 @@ const PLAN_PRICE_IDS: Record<string, string | undefined> = {
 }
 
 export async function POST(request: NextRequest) {
-  const { name, email, password, studioName, plan, customerId, paymentMethodId, promoCode } =
-    await request.json()
+  try {
+    const { name, email, password, studioName, plan, customerId, paymentMethodId, promoCode } =
+      await request.json()
 
-  if (!name?.trim() || !email?.trim() || !password || !studioName?.trim()) {
-    return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
-  }
+    if (!name?.trim() || !email?.trim() || !password || !studioName?.trim()) {
+      return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
+    }
 
-  const selectedPlan = plan === 'pro' ? 'pro' : 'basic'
+    const selectedPlan = plan === 'pro' ? 'pro' : 'basic'
 
-  // 1. Create Supabase user
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-    email: email.trim(),
-    password,
-    email_confirm: true,
-    user_metadata: { full_name: name.trim() },
-  })
-
-  if (authError || !authData.user) {
-    console.error('[signup/complete] auth error:', authError)
-    const message = authError?.message?.includes('already been registered')
-      ? 'An account with this email already exists.'
-      : (authError?.message ?? 'Failed to create account')
-    return NextResponse.json({ error: message }, { status: 400 })
-  }
-
-  const user = authData.user
-
-  // 2. Create studio
-  const slug = await generateUniqueSlug(studioName)
-  const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString()
-
-  const { data: studio, error: studioError } = await supabase
-    .from('studios')
-    .insert({
-      name: studioName.trim(),
-      slug,
-      subscription_status: 'trial',
-      trial_ends_at: trialEndsAt,
-      is_agency: false,
-      settings: { plan: selectedPlan },
+    // 1. Create Supabase user
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: email.trim(),
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: name.trim() },
     })
-    .select()
-    .single()
 
-  if (studioError || !studio) {
-    console.error('[signup/complete] studio error:', studioError)
-    await supabase.auth.admin.deleteUser(user.id)
-    return NextResponse.json({ error: 'Failed to create studio' }, { status: 500 })
-  }
+    if (authError || !authData.user) {
+      console.error('[signup/complete] auth error:', authError)
+      const message = authError?.message?.includes('already been registered')
+        ? 'An account with this email already exists.'
+        : (authError?.message ?? 'Failed to create account')
+      return NextResponse.json({ error: message }, { status: 400 })
+    }
 
-  // 3. Add owner membership
-  await supabase.from('studio_members').insert({
-    studio_id: studio.id,
-    user_id: user.id,
-    role: 'owner',
-  })
+    const user = authData.user
 
-  // 4. Stripe subscription with flat base + metered member price
-  if (process.env.STRIPE_SECRET_KEY && customerId && paymentMethodId) {
-    try {
-      await getStripe().paymentMethods.attach(paymentMethodId, { customer: customerId })
-      await getStripe().customers.update(customerId, {
-        invoice_settings: { default_payment_method: paymentMethodId },
-        metadata: { studio_id: studio.id, studio_slug: slug, plan: selectedPlan },
+    // 2. Create studio
+    const slug = await generateUniqueSlug(studioName)
+    const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString()
+
+    const { data: studio, error: studioError } = await supabase
+      .from('studios')
+      .insert({
+        name: studioName.trim(),
+        slug,
+        subscription_status: 'trial',
+        trial_ends_at: trialEndsAt,
+        is_agency: false,
+        settings: { plan: selectedPlan },
+      })
+      .select()
+      .single()
+
+    if (studioError || !studio) {
+      console.error('[signup/complete] studio error:', studioError)
+      await supabase.auth.admin.deleteUser(user.id)
+      return NextResponse.json({ error: 'Failed to create studio' }, { status: 500 })
+    }
+
+    // 3. Add owner membership
+    const { error: memberError } = await supabase.from('studio_members').insert({
+      studio_id: studio.id,
+      user_id: user.id,
+      role: 'owner',
+    })
+
+    if (memberError) {
+      console.error('[signup/complete] member error:', memberError)
+      await supabase.from('studios').delete().eq('id', studio.id)
+      await supabase.auth.admin.deleteUser(user.id)
+      return NextResponse.json({ error: 'Failed to set up studio membership' }, { status: 500 })
+    }
+
+    // 4. Stripe subscription with flat base + metered member price
+    if (process.env.STRIPE_SECRET_KEY && customerId && paymentMethodId) {
+      try {
+        const stripe = getStripe()
+
+        // Parallel: attach payment method + resolve promo code
+        const couponPromise = promoCode?.trim()
+          ? stripe.coupons.retrieve(promoCode.trim().toUpperCase()).catch(() => null)
+          : Promise.resolve(null)
+
+        const [, coupon] = await Promise.all([
+          stripe.paymentMethods.attach(paymentMethodId, { customer: customerId }),
+          couponPromise,
+        ])
+
+        const couponId = coupon?.valid ? coupon.id : undefined
+
+        const basePriceId = PLAN_PRICE_IDS[selectedPlan]
+        const memberPriceId = process.env.STRIPE_MEMBER_PRICE_ID
+
+        if (!basePriceId || !memberPriceId) {
+          console.warn('[signup/complete] Missing Stripe price IDs — skipping subscription')
+        } else {
+          // Parallel: update customer metadata + create subscription
+          const [, subscription] = await Promise.all([
+            stripe.customers.update(customerId, {
+              invoice_settings: { default_payment_method: paymentMethodId },
+              metadata: { studio_id: studio.id, studio_slug: slug, plan: selectedPlan },
+            }),
+            stripe.subscriptions.create({
+              customer: customerId,
+              items: [
+                { price: basePriceId },
+                { price: memberPriceId },
+              ],
+              default_payment_method: paymentMethodId,
+              trial_period_days: TRIAL_DAYS,
+              trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
+              metadata: { studio_id: studio.id, plan: selectedPlan },
+              ...(couponId ? { discounts: [{ coupon: couponId }] } : {}),
+            }),
+          ])
+
+          await supabase
+            .from('studios')
+            .update({
+              stripe_customer_id: customerId,
+              stripe_subscription_id: subscription.id,
+            })
+            .eq('id', studio.id)
+        }
+      } catch (err) {
+        console.error('[signup/complete] Stripe error:', err)
+        // Non-fatal — studio is created, Stripe can be linked later
+      }
+    }
+
+    // 5. Send welcome email (fire-and-forget)
+    if (process.env.RESEND_API_KEY) {
+      const appUrl = process.env.NEXT_PUBLIC_PLATFORM_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+      const planLabel = selectedPlan === 'pro' ? 'Pro' : 'Basic'
+      const trialEnd = new Date(trialEndsAt).toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'long', year: 'numeric',
       })
 
-      const basePriceId = PLAN_PRICE_IDS[selectedPlan]
-      const memberPriceId = process.env.STRIPE_MEMBER_PRICE_ID
-
-      if (!basePriceId || !memberPriceId) {
-        console.warn('[signup/complete] Missing Stripe price IDs — skipping subscription')
-      } else {
-        // Resolve promo code to coupon ID if provided
-        let couponId: string | undefined
-        if (promoCode?.trim()) {
-          try {
-            const coupon = await getStripe().coupons.retrieve(promoCode.trim().toUpperCase())
-            if (coupon.valid) {
-              couponId = coupon.id
-            }
-          } catch {
-            // Invalid promo code — ignore and continue without discount
-          }
-        }
-
-        const subscription = await getStripe().subscriptions.create({
-          customer: customerId,
-          items: [
-            { price: basePriceId },        // flat monthly base (€49 or €79)
-            { price: memberPriceId },       // graduated metered per-member price
-          ],
-          default_payment_method: paymentMethodId,
-          trial_period_days: TRIAL_DAYS,
-          trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
-          metadata: { studio_id: studio.id, plan: selectedPlan },
-          ...(couponId ? { coupon: couponId } : {}),
-        })
-
-        await supabase
-          .from('studios')
-          .update({
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscription.id,
-          })
-          .eq('id', studio.id)
-      }
-    } catch (err) {
-      console.error('[signup/complete] Stripe error:', err)
-      // Non-fatal — studio is created, Stripe can be linked later
+      getResend().emails.send({
+        from: FROM,
+        to: email.trim(),
+        subject: 'Welcome to Loyalink — your 14-day trial has started',
+        html: `
+          <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;color:#111">
+            <h2 style="font-size:20px;font-weight:600;margin-bottom:8px">Welcome to Loyalink!</h2>
+            <p style="color:#555;margin:0 0 16px">Hi ${name.trim()},</p>
+            <p style="color:#555;margin:0 0 16px">
+              Your studio <strong>${studioName.trim()}</strong> is ready on the <strong>${planLabel}</strong> plan.
+              Your free 14-day trial runs until <strong>${trialEnd}</strong>.
+            </p>
+            <p style="margin:0 0 24px">
+              <a href="${appUrl}/setup"
+                 style="display:inline-block;background:#000;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:500">
+                Complete setup →
+              </a>
+            </p>
+            <p style="color:#888;font-size:13px">
+              Questions? Reply to this email or visit
+              <a href="mailto:hello@loyalink.ai" style="color:#555">hello@loyalink.ai</a>
+            </p>
+          </div>
+        `,
+      }).catch((err) => console.error('[signup/complete] welcome email error:', err))
     }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('[signup/complete] unhandled error:', error)
+    return NextResponse.json({ error: 'Failed to finish signup' }, { status: 500 })
   }
-
-  // 5. Send welcome email (fire-and-forget)
-  if (process.env.RESEND_API_KEY) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-    const planLabel = selectedPlan === 'pro' ? 'Pro' : 'Basic'
-    const trialEnd = new Date(trialEndsAt).toLocaleDateString('en-GB', {
-      day: 'numeric', month: 'long', year: 'numeric',
-    })
-
-    getResend().emails.send({
-      from: FROM,
-      to: email.trim(),
-      subject: 'Welcome to Loyalink — your 14-day trial has started',
-      html: `
-        <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;color:#111">
-          <h2 style="font-size:20px;font-weight:600;margin-bottom:8px">Welcome to Loyalink!</h2>
-          <p style="color:#555;margin:0 0 16px">Hi ${name.trim()},</p>
-          <p style="color:#555;margin:0 0 16px">
-            Your studio <strong>${studioName.trim()}</strong> is ready on the <strong>${planLabel}</strong> plan.
-            Your free 14-day trial runs until <strong>${trialEnd}</strong>.
-          </p>
-          <p style="margin:0 0 24px">
-            <a href="${appUrl}/setup"
-               style="display:inline-block;background:#000;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:500">
-              Complete setup →
-            </a>
-          </p>
-          <p style="color:#888;font-size:13px">
-            Questions? Reply to this email or visit
-            <a href="mailto:hello@loyalink.ai" style="color:#555">hello@loyalink.ai</a>
-          </p>
-        </div>
-      `,
-    }).catch((err) => console.error('[signup/complete] welcome email error:', err))
-  }
-
-  return NextResponse.json({ success: true })
 }

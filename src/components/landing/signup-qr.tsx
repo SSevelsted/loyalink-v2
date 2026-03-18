@@ -13,17 +13,18 @@ type Props = {
   className?: string
 }
 
+const DOWNLOAD_QR_SIZE = 800
+
 export function SignupQR({ url, studioName, size = 160, className }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const hiResRef = useRef<HTMLCanvasElement>(null)
 
   const handleDownload = () => {
-    const qrCanvas = canvasRef.current
+    const qrCanvas = hiResRef.current
     if (!qrCanvas) return
 
-    const padding = 32
-    const labelHeight = 64
-    const qrSize = 400 // high-res for printing
-    const scale = qrSize / size
+    const padding = 64
+    const labelHeight = 80
+    const qrSize = DOWNLOAD_QR_SIZE
 
     const totalW = qrSize + padding * 2
     const totalH = qrSize + padding * 2 + labelHeight
@@ -37,23 +38,23 @@ export function SignupQR({ url, studioName, size = 160, className }: Props) {
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, totalW, totalH)
 
-    // QR code — scale up from rendered canvas
+    // QR code — drawn 1:1 from the hi-res canvas, no scaling
     ctx.imageSmoothingEnabled = false
     ctx.drawImage(qrCanvas, padding, padding, qrSize, qrSize)
 
     // Studio name
     if (studioName) {
-      ctx.font = `bold ${Math.round(14 * scale * 0.06)}px system-ui, -apple-system, sans-serif`
+      ctx.font = 'bold 24px system-ui, -apple-system, sans-serif'
       ctx.fillStyle = '#111827'
       ctx.textAlign = 'center'
-      ctx.fillText(studioName, totalW / 2, qrSize + padding + 26)
+      ctx.fillText(studioName, totalW / 2, qrSize + padding + 36)
     }
 
     // Short URL
-    ctx.font = `${Math.round(11 * scale * 0.06)}px system-ui, -apple-system, sans-serif`
+    ctx.font = '18px system-ui, -apple-system, sans-serif'
     ctx.fillStyle = '#6b7280'
     ctx.textAlign = 'center'
-    ctx.fillText(url.replace(/^https?:\/\//, ''), totalW / 2, qrSize + padding + (studioName ? 48 : 30))
+    ctx.fillText(url.replace(/^https?:\/\//, ''), totalW / 2, qrSize + padding + (studioName ? 64 : 36))
 
     const link = document.createElement('a')
     link.download = `${(studioName ?? 'loyalty').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-qr.png`
@@ -65,9 +66,20 @@ export function SignupQR({ url, studioName, size = 160, className }: Props) {
     <div className={cn('flex flex-col items-center gap-3', className)}>
       <div className="rounded-xl overflow-hidden bg-white p-2.5 border border-border/40 shadow-sm">
         <QRCodeCanvas
-          ref={canvasRef}
           value={url}
-          size={size}
+          size={size * 2}
+          level="M"
+          bgColor="#ffffff"
+          fgColor="#111827"
+          style={{ width: size, height: size, imageRendering: 'pixelated' }}
+        />
+      </div>
+      {/* Hidden hi-res canvas for crisp downloads */}
+      <div className="hidden">
+        <QRCodeCanvas
+          ref={hiResRef}
+          value={url}
+          size={DOWNLOAD_QR_SIZE}
           level="M"
           bgColor="#ffffff"
           fgColor="#111827"

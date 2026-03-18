@@ -73,7 +73,7 @@ export default function AcceptInvitePage() {
         throw new Error(body.error || 'Failed to accept invitation')
       }
 
-      router.push('/')
+      router.push('/overview')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
       setAccepting(false)

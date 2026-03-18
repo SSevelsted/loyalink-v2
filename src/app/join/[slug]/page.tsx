@@ -8,7 +8,7 @@ import { TierProgression } from '@/components/landing/tier-progression'
 import { ReferralBanner } from '@/components/landing/referral-banner'
 import { migrateRewardsConfig } from '@/types/database'
 import { WalletTrustBadge } from '@/components/landing/wallet-trust-badge'
-import { APP_URL } from '@/lib/constants'
+import { MARKETING_URL } from '@/lib/constants'
 
 type Props = {
   params: Promise<{ slug: string }>
@@ -163,7 +163,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
           customFields={settings.customFields}
           successHeading={settings.successHeading}
           successMessage={settings.successMessage}
-          termsUrl={settings.termsUrl || `${APP_URL}/join/${slug}/terms`}
+          termsUrl={settings.termsUrl || `${MARKETING_URL}/join/${slug}/terms`}
         />
 
         <WalletTrustBadge textColor={txtColor} />

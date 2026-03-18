@@ -27,6 +27,7 @@ type ImageUploadProps = {
   targetWidth?: number
   targetHeight?: number
   className?: string
+  removeBgType?: 'auto' | 'graphic'
 }
 
 function resizeImage(
@@ -108,6 +109,7 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
   targetWidth,
   targetHeight,
   className,
+  removeBgType,
 }: ImageUploadProps, ref) {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -136,6 +138,7 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
 
       const formData = new FormData()
       formData.append('image', imageBlob, 'image.png')
+      if (removeBgType) formData.append('type', removeBgType)
 
       const res = await fetch('/api/remove-bg', { method: 'POST', body: formData })
 

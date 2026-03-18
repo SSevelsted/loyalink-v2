@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { loadStripe } from '@stripe/stripe-js'
@@ -14,13 +14,22 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, ArrowLeft, Check, Zap, Wallet, Users, TrendingUp, Bell } from 'lucide-react'
+import { Loader2, ArrowLeft, Check, Zap, Wallet, Users, TrendingUp, Bell, Tag } from 'lucide-react'
 import { LogoMark } from '@/components/logo'
 
-const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null
-
 type Plan = 'basic' | 'pro'
+
+type CouponData = {
+  id: string
+  percentOff: number | null
+  amountOff: number | null
+  currency: string | null
+  duration: 'once' | 'repeating' | 'forever'
+  durationInMonths: number | null
+  name: string | null
+}
+
+const PLAN_PRICES: Record<Plan, number> = { basic: 49, pro: 79 }
 
 const PLANS: Record<Plan, {
   name: string
@@ -96,13 +105,58 @@ type Step1Data = {
   promoCode: string
 }
 
+type StripeStatus = 'loading' | 'ready' | 'unavailable'
+
 type PaymentStepProps = {
   step1: Step1Data
   customerId: string
+  coupon: CouponData | null
   onBack: () => void
 }
 
-function PaymentStep({ step1, customerId, onBack }: PaymentStepProps) {
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  return fallback
+}
+
+async function parseResponseData(response: Response) {
+  const text = await response.text()
+
+  if (!text) {
+    return null
+  }
+
+  try {
+    return JSON.parse(text) as { error?: string }
+  } catch {
+    return null
+  }
+}
+
+function formatDiscountLabel(coupon: CouponData): string {
+  const discount = coupon.percentOff
+    ? `${coupon.percentOff}% off`
+    : coupon.amountOff
+      ? `€${(coupon.amountOff / 100).toFixed(coupon.amountOff % 100 === 0 ? 0 : 2)} off`
+      : ''
+  if (coupon.duration === 'once') return `${discount} first month`
+  if (coupon.duration === 'repeating' && coupon.durationInMonths)
+    return `${discount} for ${coupon.durationInMonths} months`
+  if (coupon.duration === 'forever') return `${discount} forever`
+  return discount
+}
+
+function getDiscountedPrice(plan: Plan, coupon: CouponData): number {
+  const base = PLAN_PRICES[plan]
+  if (coupon.percentOff) return base * (1 - coupon.percentOff / 100)
+  if (coupon.amountOff) return Math.max(0, base - coupon.amountOff / 100)
+  return base
+}
+
+function PaymentStep({ step1, customerId, coupon, onBack }: PaymentStepProps) {
   const stripe = useStripe()
   const elements = useElements()
   const router = useRouter()
@@ -110,11 +164,11 @@ function PaymentStep({ step1, customerId, onBack }: PaymentStepProps) {
   const [loading, setLoading] = useState(false)
   const plan = PLANS[step1.plan]
 
-  const trialEndDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', {
+  const [trialEndDate] = useState(() => new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  })
+  }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -122,58 +176,75 @@ function PaymentStep({ step1, customerId, onBack }: PaymentStepProps) {
 
     setError(null)
     setLoading(true)
+    try {
+      const { error: setupError, setupIntent } = await stripe.confirmSetup({
+        elements,
+        redirect: 'if_required',
+      })
 
-    const { error: setupError, setupIntent } = await stripe.confirmSetup({
-      elements,
-      redirect: 'if_required',
-    })
+      if (setupError) {
+        setError(setupError.message ?? 'Payment setup failed')
+        return
+      }
 
-    if (setupError) {
-      setError(setupError.message ?? 'Payment setup failed')
+      const paymentMethodId =
+        typeof setupIntent?.payment_method === 'string'
+          ? setupIntent.payment_method
+          : setupIntent?.payment_method?.id ?? null
+
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 25_000)
+
+      let res: Response
+      try {
+        res = await fetch('/api/signup/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: step1.name,
+            email: step1.email,
+            password: step1.password,
+            studioName: step1.studioName,
+            plan: step1.plan,
+            customerId,
+            paymentMethodId,
+            promoCode: step1.promoCode || undefined,
+          }),
+          signal: controller.signal,
+        })
+      } finally {
+        clearTimeout(timeout)
+      }
+
+      const data = await parseResponseData(res)
+      if (!res.ok) {
+        setError(data?.error ?? 'Signup failed')
+        return
+      }
+
+      const supabase = createClient()
+      const signInResult = await Promise.race([
+        supabase.auth.signInWithPassword({
+          email: step1.email,
+          password: step1.password,
+        }),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Sign-in took too long. Please try signing in manually.')), 15_000)
+        }),
+      ])
+      const { error: signInError } = signInResult
+
+      if (signInError) {
+        setError('Account created but sign-in failed. Please go to the login page.')
+        return
+      }
+
+      router.push('/setup')
+    } catch (error) {
+      setError(getErrorMessage(error, 'Setup took too long. Your account may have been created. Please try signing in.'))
+    } finally {
       setLoading(false)
-      return
     }
-
-    const paymentMethodId =
-      typeof setupIntent?.payment_method === 'string'
-        ? setupIntent.payment_method
-        : setupIntent?.payment_method?.id ?? null
-
-    const res = await fetch('/api/signup/complete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: step1.name,
-        email: step1.email,
-        password: step1.password,
-        studioName: step1.studioName,
-        plan: step1.plan,
-        customerId,
-        paymentMethodId,
-        promoCode: step1.promoCode || undefined,
-      }),
-    })
-
-    const data = await res.json()
-    if (!res.ok) {
-      setError(data.error ?? 'Signup failed')
-      setLoading(false)
-      return
-    }
-
-    const supabase = createClient()
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: step1.email,
-      password: step1.password,
-    })
-
-    if (signInError) {
-      setError('Account created but sign-in failed. Please go to the login page.')
-      setLoading(false)
-      return
-    }
-
-    router.push('/setup')
   }
 
   return (
@@ -191,7 +262,15 @@ function PaymentStep({ step1, customerId, onBack }: PaymentStepProps) {
       <div className="rounded-xl bg-secondary/40 border border-border/50 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-foreground">{plan.name} plan</span>
-          <span className="text-sm font-semibold text-foreground">{plan.base} + usage</span>
+          {coupon ? (
+            <span className="text-sm font-semibold">
+              <span className="line-through text-muted-foreground">{plan.base}</span>{' '}
+              <span className="text-emerald-400">€{getDiscountedPrice(step1.plan, coupon).toFixed(getDiscountedPrice(step1.plan, coupon) % 1 === 0 ? 0 : 2)}/mo</span>
+              <span className="text-foreground"> + usage</span>
+            </span>
+          ) : (
+            <span className="text-sm font-semibold text-foreground">{plan.base} + usage</span>
+          )}
         </div>
         <div className="border-t border-border/40 pt-3 space-y-1.5">
           {MEMBER_RATES.map((r) => (
@@ -201,6 +280,15 @@ function PaymentStep({ step1, customerId, onBack }: PaymentStepProps) {
             </div>
           ))}
         </div>
+        {step1.promoCode && coupon && (
+          <div className="border-t border-border/40 pt-3">
+            <div className="flex items-center gap-2 rounded-lg bg-emerald-500/8 border border-emerald-500/20 px-3 py-2">
+              <Tag className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+              <span className="text-xs font-medium text-emerald-400">{step1.promoCode}</span>
+              <span className="text-xs text-muted-foreground">— {formatDiscountLabel(coupon)}</span>
+            </div>
+          </div>
+        )}
         <div className="border-t border-border/40 pt-3 space-y-1.5">
           {['14-day free trial', 'Cancel anytime before day 15'].map((item) => (
             <div key={item} className="flex items-center gap-2">
@@ -214,7 +302,7 @@ function PaymentStep({ step1, customerId, onBack }: PaymentStepProps) {
       </div>
 
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <PaymentElement options={{ wallets: { applePay: 'never', googlePay: 'never' }, fields: { billingDetails: { address: { country: 'never' } } }, link: { display: 'never' } } as any} />
+      <PaymentElement options={{ wallets: { applePay: 'never', googlePay: 'never' }, link: { display: 'never' } } as any} />
 
       {error && (
         <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2">
@@ -250,6 +338,57 @@ function SignupForm() {
   const searchParams = useSearchParams()
   const initialPlan = (searchParams.get('plan') === 'basic' ? 'basic' : 'pro') as Plan
 
+  const stripePromiseRef = useRef<ReturnType<typeof loadStripe> | null>(null)
+  const [stripePromise, setStripePromise] = useState<ReturnType<typeof loadStripe> | null>(null)
+  const [stripeStatus, setStripeStatus] = useState<StripeStatus>('loading')
+  const [stripeMessage, setStripeMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadStripeConfig = async () => {
+      try {
+        const response = await fetch('/api/stripe/config', { cache: 'no-store' })
+
+        if (!response.ok) {
+          throw new Error('Failed to load Stripe config')
+        }
+
+        const data = await response.json() as { billingEnabled: boolean; publishableKey: string }
+
+        if (cancelled) {
+          return
+        }
+
+        if (!data.billingEnabled || !data.publishableKey) {
+          setStripeStatus('unavailable')
+          setStripeMessage('Payments are temporarily unavailable. Please try again shortly.')
+          return
+        }
+
+        if (!stripePromiseRef.current) {
+          stripePromiseRef.current = loadStripe(data.publishableKey)
+        }
+
+        setStripePromise(stripePromiseRef.current)
+        setStripeStatus('ready')
+      } catch {
+        if (cancelled) {
+          return
+        }
+
+        setStripeStatus('unavailable')
+        setStripeMessage('We could not initialize secure payment setup. Please refresh and try again.')
+      }
+    }
+
+    void loadStripeConfig()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const [step, setStep] = useState<1 | 2>(1)
   const [showPromo, setShowPromo] = useState(false)
   const [step1, setStep1] = useState<Step1Data>({
@@ -262,37 +401,52 @@ function SignupForm() {
   })
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [customerId, setCustomerId] = useState<string | null>(null)
+  const [coupon, setCoupon] = useState<CouponData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const handleStep1 = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    if (stripeStatus === 'loading') {
+      setError('Secure payment setup is still loading. Please try again in a moment.')
+      return
+    }
+
+    if (stripeStatus === 'unavailable' || !stripePromise) {
+      setError(stripeMessage ?? 'Payments are temporarily unavailable. Please try again shortly.')
+      return
+    }
+
     setLoading(true)
 
-    if (!stripePromise) {
-      setError('Stripe is not configured. Please contact support.')
+    try {
+      const res = await fetch('/api/signup/prepare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: step1.email,
+          studioName: step1.studioName,
+          promoCode: step1.promoCode || undefined,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? 'Something went wrong')
+        return
+      }
+
+      setClientSecret(data.clientSecret)
+      setCustomerId(data.customerId)
+      setCoupon(data.coupon ?? null)
+      setStep(2)
+    } catch {
+      setError('We could not start secure payment setup. Please try again.')
+    } finally {
       setLoading(false)
-      return
     }
-
-    const res = await fetch('/api/signup/prepare', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: step1.email, studioName: step1.studioName }),
-    })
-
-    const data = await res.json()
-    if (!res.ok) {
-      setError(data.error ?? 'Something went wrong')
-      setLoading(false)
-      return
-    }
-
-    setClientSecret(data.clientSecret)
-    setCustomerId(data.customerId)
-    setStep(2)
-    setLoading(false)
   }
 
   return (
@@ -426,11 +580,32 @@ function SignupForm() {
               <p className="text-sm text-destructive">{error}</p>
             </div>
           )}
-          <Button type="submit" variant="glow" size="lg" className="w-full font-medium" disabled={loading}>
+          {!error && stripeStatus === 'loading' && (
+            <div className="rounded-lg border border-border/50 bg-secondary/20 px-3 py-2">
+              <p className="text-sm text-muted-foreground">Loading secure payment setup...</p>
+            </div>
+          )}
+          {!error && stripeStatus === 'unavailable' && stripeMessage && (
+            <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2">
+              <p className="text-sm text-destructive">{stripeMessage}</p>
+            </div>
+          )}
+          <Button
+            type="submit"
+            variant="glow"
+            size="lg"
+            className="w-full font-medium"
+            disabled={loading || stripeStatus === 'loading' || stripeStatus === 'unavailable'}
+          >
             {loading ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Continuing...
+              </span>
+            ) : stripeStatus === 'loading' ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading secure checkout...
               </span>
             ) : (
               'Continue →'
@@ -489,9 +664,17 @@ function SignupForm() {
           <PaymentStep
             step1={step1}
             customerId={customerId}
+            coupon={coupon}
             onBack={() => setStep(1)}
           />
         </Elements>
+      ) : clientSecret && customerId ? (
+        <div className="flex min-h-[320px] items-center justify-center">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading secure payment form...
+          </div>
+        </div>
       ) : null}
     </div>
   )

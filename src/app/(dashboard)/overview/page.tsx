@@ -14,7 +14,7 @@ import type { Transaction } from '@/types/database'
 import { ScanDialog } from '@/components/scanner/scan-dialog'
 import { useLandingPage } from '@/hooks/use-landing-page'
 import { SignupQR } from '@/components/landing/signup-qr'
-import { APP_URL } from '@/lib/constants'
+import { MARKETING_URL } from '@/lib/constants'
 import { TRANSACTION_META, groupRelatedTransactions } from '@/lib/format'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 
@@ -159,7 +159,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-2 flex-1 min-w-0 overflow-x-auto scrollbar-none">
                 <Input
-                  value={`${APP_URL}/join/${landingPage.slug}`}
+                  value={`${MARKETING_URL}/join/${landingPage.slug}`}
                   readOnly
                   className="font-mono text-xs"
                 />
@@ -168,7 +168,7 @@ export default function DashboardPage() {
                   size="sm"
                   className="gap-1.5 shrink-0"
                   onClick={async () => {
-                    await navigator.clipboard.writeText(`${APP_URL}/join/${landingPage.slug}`)
+                    await navigator.clipboard.writeText(`${MARKETING_URL}/join/${landingPage.slug}`)
                     setLinkCopied(true)
                     setTimeout(() => setLinkCopied(false), 2000)
                   }}
@@ -177,7 +177,7 @@ export default function DashboardPage() {
                   {linkCopied ? 'Copied!' : 'Copy'}
                 </Button>
                 <Button variant="ghost" size="sm" asChild className="shrink-0 px-2">
-                  <a href={`${APP_URL}/join/${landingPage.slug}`} target="_blank" rel="noopener noreferrer">
+                  <a href={`${MARKETING_URL}/join/${landingPage.slug}`} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 </Button>
@@ -195,7 +195,7 @@ export default function DashboardPage() {
             {showQR && (
               <div className="flex flex-col sm:flex-row items-center gap-5 pt-1 border-t border-border/30">
                 <SignupQR
-                  url={`${APP_URL}/join/${landingPage.slug}`}
+                  url={`${MARKETING_URL}/join/${landingPage.slug}`}
                   studioName={currentStudio?.name}
                   size={120}
                   className="w-36"

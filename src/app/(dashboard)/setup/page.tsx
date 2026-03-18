@@ -41,7 +41,7 @@ const LANDING_PRESETS = [
   { name: 'Amber', bg: '#1A1000', text: '#FFFBEB', brand: '#F59E0B' },
 ]
 import { toast } from 'sonner'
-import { APP_URL } from '@/lib/constants'
+import { MARKETING_URL } from '@/lib/constants'
 import { CURRENCY_MAP, getCurrencyConfig, formatAmount } from '@/lib/currency'
 import type { CustomField, Benefit } from '@/hooks/use-landing-page'
 import { generateDefaultBenefits, BENEFIT_ICON_MAP, BENEFIT_ICON_OPTIONS } from '@/components/landing/value-stack'
@@ -172,7 +172,7 @@ export default function SetupPage() {
       setHeadline(landingPage.headline ?? '')
       setDescription(landingPage.description ?? '')
       const s = landingPage.settings as LandingPageSettings | null
-      const generatedTermsUrl = `${APP_URL}/join/${landingPage.slug}/terms`
+      const generatedTermsUrl = `${MARKETING_URL}/join/${landingPage.slug}/terms`
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (s) setSettings({ ...DEFAULT_LANDING_SETTINGS, ...s, termsUrl: s.termsUrl || generatedTermsUrl })
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -244,11 +244,12 @@ export default function SetupPage() {
     if (s?.language) setSelectedLanguage(s.language as string)
   }, [currentStudio?.id])
 
-  // Auto-generate tier themes for new tier slugs
+  // Auto-generate tier themes for new tier slugs and sync sortOrder to match rewards config order
   useEffect(() => {
     const newThemes = { ...tierThemes }
     let changed = false
-    for (const tier of rewardsConfig.tiers) {
+    for (let i = 0; i < rewardsConfig.tiers.length; i++) {
+      const tier = rewardsConfig.tiers[i]
       if (!newThemes[tier.slug]) {
         newThemes[tier.slug] = DEFAULT_TIER_THEMES[tier.slug] ?? {
           name: tier.name,
@@ -257,8 +258,11 @@ export default function SetupPage() {
           labelColor: '#AAAAAA',
           stripImage: null,
           logoOverride: null,
-          sortOrder: Object.keys(newThemes).length,
+          sortOrder: i,
         }
+        changed = true
+      } else if (newThemes[tier.slug].sortOrder !== i) {
+        newThemes[tier.slug] = { ...newThemes[tier.slug], sortOrder: i }
         changed = true
       }
     }
@@ -472,18 +476,22 @@ export default function SetupPage() {
 
   // Filter tiers to only show active ones (from rewards config) + custom tiers.
   // Always include a theme entry for every active slug, generating defaults for missing ones.
+  // Use rewards config index as sortOrder to ensure consistent ordering.
   const activeSlugs = getActiveTierSlugs(rewardsConfig)
   const visibleTierThemes: Record<string, TierTheme> = {}
   for (const slug of activeSlugs) {
-    visibleTierThemes[slug] = tierThemes[slug] ?? DEFAULT_TIER_THEMES[slug] ?? {
+    const tierIndex = rewardsConfig.tiers.findIndex(t => t.slug === slug)
+    const sortOrder = tierIndex >= 0 ? tierIndex : Object.keys(visibleTierThemes).length
+    const base = tierThemes[slug] ?? DEFAULT_TIER_THEMES[slug] ?? {
       name: rewardsConfig.tiers.find(t => t.slug === slug)?.name ?? slug,
       backgroundColor: '#333333',
       foregroundColor: '#FFFFFF',
       labelColor: '#AAAAAA',
       stripImage: null,
       logoOverride: null,
-      sortOrder: Object.keys(visibleTierThemes).length,
+      sortOrder,
     }
+    visibleTierThemes[slug] = { ...base, sortOrder }
   }
   // Also include custom tiers that exist in tierThemes
   for (const [slug, theme] of Object.entries(tierThemes)) {
@@ -592,6 +600,7 @@ export default function SetupPage() {
                     onUpload={handleLogoUpload}
                     onRemove={() => updateSetting('logoUrl', null)}
                     uploading={uploading}
+                    removeBgType="graphic"
                   />
                 </div>
               </div>
@@ -1054,7 +1063,7 @@ export default function SetupPage() {
                     onChange={(e) => updateSetting('termsUrl', e.target.value)}
                     placeholder="https://yourstudio.com/terms"
                   />
-                  {landingPage && settings.termsUrl === `${APP_URL}/join/${landingPage.slug}/terms` ? (
+                  {landingPage && settings.termsUrl === `${MARKETING_URL}/join/${landingPage.slug}/terms` ? (
                     <p className="text-xs text-muted-foreground">
                       Using your <a href={settings.termsUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">auto-generated terms page</a> — replace with your own URL if you have one.
                     </p>
@@ -1248,7 +1257,7 @@ export default function SetupPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <ImageUpload
                   ref={logoUploadRef}
-                  label="Logo"
+                  label="Logo (required)"
                   hint="PNG, 480x150 px"
                   aspect={480 / 150}
                   targetWidth={480}
@@ -1257,6 +1266,7 @@ export default function SetupPage() {
                   onUpload={handleCardLogoUpload}
                   onRemove={() => setLogoUrl(null)}
                   uploading={uploading}
+                  removeBgType="graphic"
                 />
                 <ImageUpload
                   ref={stripUploadRef}
@@ -1273,7 +1283,7 @@ export default function SetupPage() {
                 />
                 <ImageUpload
                   ref={iconUploadRef}
-                  label="Icon"
+                  label="Icon (required)"
                   hint="PNG, 512x512 px"
                   aspect={1}
                   targetWidth={512}
@@ -1282,6 +1292,7 @@ export default function SetupPage() {
                   onUpload={handleIconUpload}
                   onRemove={() => setIconUrl(null)}
                   uploading={uploading}
+                  removeBgType="graphic"
                 />
               </div>
             </CardContent>
@@ -1487,7 +1498,7 @@ export default function SetupPage() {
                     </label>
                     <div className="flex items-center gap-2">
                       <Input
-                        value={`${APP_URL}/join/${landingPage.slug}`}
+                        value={`${MARKETING_URL}/join/${landingPage.slug}`}
                         readOnly
                         className="font-mono text-xs"
                       />
@@ -1496,7 +1507,7 @@ export default function SetupPage() {
                         size="sm"
                         className="gap-1.5 shrink-0"
                         onClick={async () => {
-                          await navigator.clipboard.writeText(`${APP_URL}/join/${landingPage.slug}`)
+                          await navigator.clipboard.writeText(`${MARKETING_URL}/join/${landingPage.slug}`)
                           setLinkCopied(true)
                           setTimeout(() => setLinkCopied(false), 2000)
                         }}
@@ -1516,7 +1527,7 @@ export default function SetupPage() {
                     </p>
                     <div className="flex justify-center pt-1">
                       <SignupQR
-                        url={`${APP_URL}/join/${landingPage.slug}`}
+                        url={`${MARKETING_URL}/join/${landingPage.slug}`}
                         studioName={currentStudio?.name}
                         size={160}
                         className="w-48"
@@ -1536,7 +1547,7 @@ export default function SetupPage() {
               variant="glow"
               onClick={() => {
                 setShowLiveDialog(false)
-                router.push('/')
+                router.push('/overview')
               }}
             >
               Go to Dashboard

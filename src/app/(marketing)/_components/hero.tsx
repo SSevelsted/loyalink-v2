@@ -1,7 +1,7 @@
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowRight, Users, Wallet, TrendingUp, ArrowLeftRight, Sparkles } from 'lucide-react'
+import { PLATFORM_URL } from '@/lib/constants'
 
 export function Hero() {
   return (
@@ -32,10 +32,10 @@ export function Hero() {
 
           <div className="flex flex-col sm:flex-row gap-3">
             <Button size="lg" className="gap-2 text-base h-12 px-6 rounded-xl" asChild>
-              <Link href="/signup">
+              <a href={`${PLATFORM_URL}/signup`}>
                 Start your 14-day free trial
                 <ArrowRight className="h-4 w-4" />
-              </Link>
+              </a>
             </Button>
             <Button size="lg" variant="outline" className="gap-2 text-base h-12 px-6 rounded-xl" asChild>
               <a href="#how-it-works">See how it works ↓</a>

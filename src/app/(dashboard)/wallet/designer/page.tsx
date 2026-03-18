@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { usePassTemplates, useUpdatePassTemplate, useEnsureDefaultTemplate } from '@/hooks/use-wallet'
+import { useRewardsConfig } from '@/hooks/use-rewards'
 import { useImageUpload } from '@/hooks/use-image-upload'
 import { useStudio } from '@/hooks/use-studio'
 import { CardPreview } from '@/components/wallet/card-preview'
@@ -21,6 +22,7 @@ const FIRST_TIER_SLUG = DEFAULT_REWARDS_CONFIG.tiers[0].slug
 export default function DesignerPage() {
   const { currentStudio } = useStudio()
   const { data: templates, isLoading } = usePassTemplates()
+  const { data: rewardsConfig } = useRewardsConfig()
   const updateTemplate = useUpdatePassTemplate()
   const ensureTemplate = useEnsureDefaultTemplate()
   const { upload, uploading } = useImageUpload()
@@ -63,6 +65,23 @@ export default function DesignerPage() {
       setStripUrl(firstTheme?.stripImage ?? null)
     }
   }, [template?.id])
+
+  // Sync sortOrder from rewards config tier order
+  useEffect(() => {
+    if (!rewardsConfig?.tiers?.length) return
+    setTierThemes((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (let i = 0; i < rewardsConfig.tiers.length; i++) {
+        const slug = rewardsConfig.tiers[i].slug
+        if (next[slug] && next[slug].sortOrder !== i) {
+          next[slug] = { ...next[slug], sortOrder: i }
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [rewardsConfig?.tiers])
 
   const handleTierChange = useCallback(
     (updates: Partial<TierTheme>) => {
@@ -209,6 +228,7 @@ export default function DesignerPage() {
                 setDirty(true)
               }}
               uploading={uploading}
+              removeBgType="graphic"
             />
             <ImageUpload
               label="Strip / Center Image"

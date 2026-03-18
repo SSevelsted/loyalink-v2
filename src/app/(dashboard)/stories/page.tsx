@@ -30,7 +30,7 @@ import {
   RotateCcw,
 } from 'lucide-react'
 import { useLandingPage, type LandingPageSettings } from '@/hooks/use-landing-page'
-import { APP_URL } from '@/lib/constants'
+import { MARKETING_URL } from '@/lib/constants'
 import { migrateRewardsConfig } from '@/types/database'
 import {
   STORY_TYPES,
@@ -65,7 +65,7 @@ export default function StoriesPage() {
   const [editDraft, setEditDraft] = useState<StoryCopyOverrides>({})
   const [savedOverrides, setSavedOverrides] = useState<StoryCopyOverrides>({})
 
-  const signupUrl = landingPage?.slug ? `${APP_URL}/join/${landingPage.slug}` : null
+  const signupUrl = landingPage?.slug ? `${MARKETING_URL}/join/${landingPage.slug}` : null
   const activeDesignDef = DESIGN_STYLES.find((d) => d.id === activeDesign)!
   const isPhotoDesign = activeDesignDef.usesBackgroundImage
 
@@ -151,7 +151,7 @@ export default function StoriesPage() {
 
     return {
       studioName: currentStudio.name ?? 'Studio',
-      signupUrl: signupUrl ?? APP_URL,
+      signupUrl: signupUrl ?? MARKETING_URL,
       brandColor: lpSettings.brandColor ?? '#7C3AED',
       backgroundColor: lpSettings.backgroundColor ?? '#0A0A0A',
       textColor: lpSettings.textColor ?? '#FFFFFF',

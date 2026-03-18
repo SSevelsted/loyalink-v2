@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
     expires_at: expiresAt,
   })
 
-  const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite?token=${token}`
+  const inviteUrl = `${process.env.NEXT_PUBLIC_PLATFORM_URL ?? process.env.NEXT_PUBLIC_APP_URL}/invite?token=${token}`
 
   return NextResponse.json({ success: true, studio, inviteUrl })
 }

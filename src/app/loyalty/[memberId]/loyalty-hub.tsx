@@ -12,7 +12,7 @@ import {
   Clock, Copy, CreditCard, Gift, Loader2, MessageCircle,
   Share2, Smartphone, Sparkles, TrendingUp, Trophy, Users, Wallet, Zap,
 } from 'lucide-react'
-import { APP_URL } from '@/lib/constants'
+import { MARKETING_URL } from '@/lib/constants'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { getLoyaltyTranslations } from '@/lib/loyalty-translations'
 import type { LoyaltyTranslations } from '@/lib/loyalty-translations'
@@ -222,7 +222,7 @@ export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer,
   const brandColor = (branding?.brandColor as string) || '#6366f1'
   const cashbackRate = Number(customer.cashback_rate ?? rewardsConfig.tiers[0].cashback_rate)
   const referralLink = customer.referral_code
-    ? `${APP_URL}/refer/${memberId}`
+    ? `${MARKETING_URL}/refer/${memberId}`
     : null
   const currencyConfig = getCurrencyConfig(currency)
 

@@ -178,9 +178,48 @@ export type CardField = {
 }
 
 export const DEFAULT_TIER_THEMES: Record<string, TierTheme> = {
+  // Classic template tiers
+  starter: {
+    name: 'Starter',
+    backgroundColor: '#FAFAF9',
+    foregroundColor: '#1C1917',
+    labelColor: '#A8A29E',
+    stripImage: null,
+    logoOverride: null,
+    sortOrder: 0,
+  },
+  member: {
+    name: 'Member',
+    backgroundColor: '#B8B8BD',
+    foregroundColor: '#18181B',
+    labelColor: '#52525B',
+    stripImage: null,
+    logoOverride: null,
+    sortOrder: 1,
+  },
+  loyal: {
+    name: 'Loyal',
+    backgroundColor: '#09090B',
+    foregroundColor: '#FAFAFA',
+    labelColor: '#71717A',
+    stripImage: null,
+    logoOverride: null,
+    sortOrder: 2,
+  },
+  // Simple Start template tiers
+  vip: {
+    name: 'VIP',
+    backgroundColor: '#D4AF37',
+    foregroundColor: '#1A1A1A',
+    labelColor: '#4A3B00',
+    stripImage: null,
+    logoOverride: null,
+    sortOrder: 1,
+  },
+  // Prestige template tiers (DEFAULT_REWARDS_CONFIG)
   silver: {
     name: 'Base (Silver)',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F0EB',
     foregroundColor: '#2D2A26',
     labelColor: '#8A857F',
     stripImage: null,
@@ -189,9 +228,9 @@ export const DEFAULT_TIER_THEMES: Record<string, TierTheme> = {
   },
   gold: {
     name: 'Loyalty Club (Gold)',
-    backgroundColor: '#2D2D2D',
-    foregroundColor: '#F5F5F5',
-    labelColor: '#999999',
+    backgroundColor: '#D4AF37',
+    foregroundColor: '#1A1A1A',
+    labelColor: '#4A3B00',
     stripImage: null,
     logoOverride: null,
     sortOrder: 1,
@@ -207,9 +246,9 @@ export const DEFAULT_TIER_THEMES: Record<string, TierTheme> = {
   },
   platinum: {
     name: 'Platinum',
-    backgroundColor: '#1A3A2A',
-    foregroundColor: '#E8F1EC',
-    labelColor: '#7BAF8E',
+    backgroundColor: '#1B2A4A',
+    foregroundColor: '#E8ECF1',
+    labelColor: '#8096B8',
     stripImage: null,
     logoOverride: null,
     sortOrder: 3,

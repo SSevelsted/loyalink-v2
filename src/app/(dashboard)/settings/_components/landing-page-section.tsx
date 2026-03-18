@@ -22,7 +22,7 @@ import { useImageUpload } from '@/hooks/use-image-upload'
 import { useStudio } from '@/hooks/use-studio'
 import { toast } from 'sonner'
 import { FileText, Palette, ListChecks, FormInput, PartyPopper, Scale, Plus, Trash2, ExternalLink, RotateCcw, TrendingUp, Paintbrush, RefreshCw } from 'lucide-react'
-import { APP_URL } from '@/lib/constants'
+import { MARKETING_URL } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
 const LANDING_PRESETS = [
@@ -58,7 +58,7 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
       setHeadline(landingPage.headline ?? '')
       setDescription(landingPage.description ?? '')
       const s = landingPage.settings as LandingPageSettings | null
-      const generatedTermsUrl = `${APP_URL}/join/${landingPage.slug}/terms`
+      const generatedTermsUrl = `${MARKETING_URL}/join/${landingPage.slug}/terms`
       if (s) setSettings({ ...DEFAULT_LANDING_SETTINGS, ...s, termsUrl: s.termsUrl || generatedTermsUrl })
       else setSettings({ ...DEFAULT_LANDING_SETTINGS, termsUrl: generatedTermsUrl })
     }
@@ -122,7 +122,7 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
           <p className="text-sm text-muted-foreground">Customize your public signup page.</p>
         </div>
         <a
-          href={`${APP_URL}/join/${landingPage.slug}`}
+          href={`${MARKETING_URL}/join/${landingPage.slug}`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -176,6 +176,7 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
                   onUpload={handleLogoUpload}
                   onRemove={() => updateSetting('logoUrl', null)}
                   uploading={uploading}
+                  removeBgType="graphic"
                 />
               </div>
             </CardContent>
@@ -717,7 +718,7 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
                   placeholder="https://yourstudio.com/terms"
                   disabled={!isAdmin}
                 />
-                {landingPage && settings.termsUrl === `${APP_URL}/join/${landingPage.slug}/terms` ? (
+                {landingPage && settings.termsUrl === `${MARKETING_URL}/join/${landingPage.slug}/terms` ? (
                   <p className="text-xs text-muted-foreground">
                     Using your <a href={settings.termsUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">auto-generated terms page</a> — replace with your own URL if you have one.
                   </p>

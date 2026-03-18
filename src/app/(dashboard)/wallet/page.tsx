@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { APP_URL } from '@/lib/constants'
+import { MARKETING_URL } from '@/lib/constants'
 import { generateDefaultBenefits, BENEFIT_ICON_MAP, BENEFIT_ICON_OPTIONS } from '@/components/landing/value-stack'
 
 // Only the first tier is protected from deletion; custom tiers can be removed
@@ -117,7 +117,7 @@ export default function WalletPage() {
 
   const handleCopyLink = async () => {
     if (!landingPage) return
-    await navigator.clipboard.writeText(`${APP_URL}/join/${landingPage.slug}`)
+    await navigator.clipboard.writeText(`${MARKETING_URL}/join/${landingPage.slug}`)
     setLinkCopied(true)
     setTimeout(() => setLinkCopied(false), 2000)
   }
@@ -368,6 +368,7 @@ export default function WalletPage() {
                   onUpload={handleLogoUpload}
                   onRemove={() => { setLogoUrl(null); setDirty(true) }}
                   uploading={uploading}
+                  removeBgType="graphic"
                 />
                 <ImageUpload
                   ref={stripUploadRef}
@@ -393,6 +394,7 @@ export default function WalletPage() {
                   onUpload={handleIconUpload}
                   onRemove={() => { setIconUrl(null); setDirty(true) }}
                   uploading={uploading}
+                  removeBgType="graphic"
                 />
               </div>
             </CardContent>
@@ -523,6 +525,7 @@ export default function WalletPage() {
                         onUpload={handleLpLogoUpload}
                         onRemove={() => updateLpSetting('logoUrl', null)}
                         uploading={uploading}
+                        removeBgType="graphic"
                       />
                     </div>
                     <div className="flex items-center gap-6">
@@ -658,7 +661,7 @@ export default function WalletPage() {
                           <Link className="h-4 w-4" /> Share
                         </h3>
                         <div className="flex items-center gap-2">
-                          <Input value={`${APP_URL}/join/${landingPage.slug}`} readOnly className="font-mono text-xs" />
+                          <Input value={`${MARKETING_URL}/join/${landingPage.slug}`} readOnly className="font-mono text-xs" />
                           <Button variant="outline" size="sm" onClick={handleCopyLink} className="gap-1.5 shrink-0">
                             {linkCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                             {linkCopied ? 'Copied' : 'Copy'}

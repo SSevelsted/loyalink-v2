@@ -106,8 +106,23 @@ export function JoinForm({
     }
   }, [status])
 
+  // Detect light backgrounds to use stronger input borders/fills
+  const isLightBg = backgroundColor
+    ? (() => {
+        const hex = backgroundColor.replace('#', '')
+        const r = parseInt(hex.substring(0, 2), 16)
+        const g = parseInt(hex.substring(2, 4), 16)
+        const b = parseInt(hex.substring(4, 6), 16)
+        return (r * 299 + g * 587 + b * 114) / 1000 > 160
+      })()
+    : false
+
   const inputStyle = textColor
-    ? { color: textColor, borderColor: `${textColor}30`, backgroundColor: `${textColor}08` }
+    ? {
+        color: textColor,
+        borderColor: isLightBg ? `${textColor}40` : `${textColor}30`,
+        backgroundColor: isLightBg ? `${textColor}08` : `${textColor}08`,
+      }
     : undefined
 
   const focusRingStyle = brandColor

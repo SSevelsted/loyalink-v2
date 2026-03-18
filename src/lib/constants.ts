@@ -1,4 +1,6 @@
-export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+export const MARKETING_URL = process.env.NEXT_PUBLIC_MARKETING_URL || 'http://localhost:3000'
+export const PLATFORM_URL  = process.env.NEXT_PUBLIC_PLATFORM_URL  || 'http://localhost:3000'
+export const APP_URL = PLATFORM_URL
 export const PASS_SERVICE_URL = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
 
 export const ROLES = ['owner', 'admin', 'member'] as const
