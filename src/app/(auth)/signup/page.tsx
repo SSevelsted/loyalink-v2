@@ -415,7 +415,7 @@ function SignupForm() {
                 value={step1.promoCode}
                 onChange={(e) => setStep1((p) => ({ ...p, promoCode: e.target.value.toUpperCase() }))}
                 className="bg-secondary/50 h-12"
-                placeholder="e.g. LOYALINK6FREE"
+                placeholder="e.g. WELCOME2025"
                 autoComplete="off"
                 autoFocus
               />
