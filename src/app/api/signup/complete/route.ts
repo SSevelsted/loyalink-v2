@@ -37,7 +37,7 @@ const PLAN_PRICE_IDS: Record<string, string | undefined> = {
 }
 
 export async function POST(request: NextRequest) {
-  const { name, email, password, studioName, plan, customerId, paymentMethodId } =
+  const { name, email, password, studioName, plan, customerId, paymentMethodId, promoCode } =
     await request.json()
 
   if (!name?.trim() || !email?.trim() || !password || !studioName?.trim()) {
@@ -109,6 +109,19 @@ export async function POST(request: NextRequest) {
       if (!basePriceId || !memberPriceId) {
         console.warn('[signup/complete] Missing Stripe price IDs — skipping subscription')
       } else {
+        // Resolve promo code to coupon ID if provided
+        let couponId: string | undefined
+        if (promoCode?.trim()) {
+          try {
+            const coupon = await getStripe().coupons.retrieve(promoCode.trim().toUpperCase())
+            if (coupon.valid) {
+              couponId = coupon.id
+            }
+          } catch {
+            // Invalid promo code — ignore and continue without discount
+          }
+        }
+
         const subscription = await getStripe().subscriptions.create({
           customer: customerId,
           items: [
@@ -119,6 +132,7 @@ export async function POST(request: NextRequest) {
           trial_period_days: TRIAL_DAYS,
           trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
           metadata: { studio_id: studio.id, plan: selectedPlan },
+          ...(couponId ? { coupon: couponId } : {}),
         })
 
         await supabase

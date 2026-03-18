@@ -93,6 +93,7 @@ type Step1Data = {
   email: string
   password: string
   plan: Plan
+  promoCode: string
 }
 
 type PaymentStepProps = {
@@ -149,6 +150,7 @@ function PaymentStep({ step1, customerId, onBack }: PaymentStepProps) {
         plan: step1.plan,
         customerId,
         paymentMethodId,
+        promoCode: step1.promoCode || undefined,
       }),
     })
 
@@ -255,6 +257,7 @@ function SignupForm() {
     email: '',
     password: '',
     plan: initialPlan,
+    promoCode: '',
   })
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [customerId, setCustomerId] = useState<string | null>(null)
@@ -390,6 +393,20 @@ function SignupForm() {
               autoComplete="new-password"
               minLength={8}
               required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="promoCode" className="text-xs text-muted-foreground uppercase tracking-wider">
+              Promo code <span className="normal-case">(optional)</span>
+            </Label>
+            <Input
+              id="promoCode"
+              type="text"
+              value={step1.promoCode}
+              onChange={(e) => setStep1((p) => ({ ...p, promoCode: e.target.value.toUpperCase() }))}
+              className="bg-secondary/50 h-12"
+              placeholder="e.g. LOYALINK6FREE"
+              autoComplete="off"
             />
           </div>
           {error && (
