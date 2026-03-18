@@ -1,7 +1,85 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Paths that only exist on the marketing domain (loyalink.ai)
+function isMarketingOnlyRoute(path: string): boolean {
+  return (
+    path === '/' ||
+    path.startsWith('/about') ||
+    path.startsWith('/blog') ||
+    path.startsWith('/privacy') ||
+    path.startsWith('/terms') ||
+    path.startsWith('/v2')
+  )
+}
+
+// Paths that only exist on the platform domain (my.loyalink.ai)
+function isPlatformOnlyRoute(path: string): boolean {
+  return (
+    path.startsWith('/overview') ||
+    path.startsWith('/analytics') ||
+    path.startsWith('/customers') ||
+    path.startsWith('/transactions') ||
+    path.startsWith('/notifications') ||
+    path.startsWith('/wallet') ||
+    path.startsWith('/stories') ||
+    path.startsWith('/settings') ||
+    path.startsWith('/support') ||
+    path.startsWith('/admin') ||
+    path.startsWith('/scan') ||
+    path.startsWith('/setup') ||
+    path.startsWith('/login') ||
+    path.startsWith('/signup') ||
+    path.startsWith('/reset-password') ||
+    path.startsWith('/invite') ||
+    path.startsWith('/auth')
+  )
+}
+
+function stripProtocol(url: string): string {
+  return url.replace(/^https?:\/\//, '')
+}
+
 export async function updateSession(request: NextRequest) {
+  const host = request.headers.get('host') ?? ''
+  const path = request.nextUrl.pathname
+
+  const marketingHost = stripProtocol(process.env.NEXT_PUBLIC_MARKETING_URL ?? '')
+  const platformHost  = stripProtocol(process.env.NEXT_PUBLIC_PLATFORM_URL ?? '')
+
+  const isMarketing = !!marketingHost && host === marketingHost
+  const isPlatform  = !!platformHost && host === platformHost
+  const hasDomainSplit = marketingHost !== platformHost && (isMarketing || isPlatform)
+
+  // --- Catch Supabase auth errors (e.g. expired OTP links) on root ---
+  if (path === '/' && request.nextUrl.searchParams.get('error_code') === 'otp_expired') {
+    const url = new URL('/reset-password', request.nextUrl.origin)
+    url.searchParams.set('expired', 'true')
+    return NextResponse.redirect(url)
+  }
+
+  // --- Domain-based routing (only in production with two domains) ---
+  if (hasDomainSplit) {
+    if (isMarketing && isPlatformOnlyRoute(path)) {
+      return NextResponse.redirect(
+        new URL(path + request.nextUrl.search, process.env.NEXT_PUBLIC_PLATFORM_URL),
+        301
+      )
+    }
+    if (isPlatform && isMarketingOnlyRoute(path)) {
+      return NextResponse.redirect(
+        new URL(path + request.nextUrl.search, process.env.NEXT_PUBLIC_MARKETING_URL),
+        301
+      )
+    }
+
+    // Marketing domain: no auth needed, return early
+    if (isMarketing) {
+      return NextResponse.next({ request })
+    }
+  }
+
+  // --- Auth (platform domain or dev/single-domain) ---
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -28,8 +106,6 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
-  const path = request.nextUrl.pathname
 
   // Public routes that don't need auth
   const isPublicRoute =
