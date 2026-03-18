@@ -6,14 +6,15 @@ import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2 } from 'lucide-react'
+import { Loader2, AlertCircle } from 'lucide-react'
+import Link from 'next/link'
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const { updatePassword } = useAuth()
+  const { user, loading: authLoading, updatePassword } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,7 +40,40 @@ export default function ResetPasswordPage() {
       return
     }
 
-    router.push('/')
+    router.push('/overview')
+  }
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4 bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4 bg-background">
+        <div className="fixed inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-primary/8 blur-[150px]" />
+        </div>
+
+        <div className="relative w-full max-w-sm animate-fade-up text-center">
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl bg-destructive/10 border border-destructive/20 mb-4">
+            <AlertCircle className="h-7 w-7 text-destructive" />
+          </div>
+          <h1 className="text-display-xl text-foreground mb-2" style={{ fontFamily: 'var(--font-display)' }}>
+            Link expired
+          </h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            This password reset link has expired or is invalid. Please request a new one.
+          </p>
+          <Button asChild variant="glow" size="lg" className="w-full font-medium">
+            <Link href="/login">Back to login</Link>
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
