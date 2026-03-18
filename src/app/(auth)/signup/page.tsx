@@ -251,6 +251,7 @@ function SignupForm() {
   const initialPlan = (searchParams.get('plan') === 'basic' ? 'basic' : 'pro') as Plan
 
   const [step, setStep] = useState<1 | 2>(1)
+  const [showPromo, setShowPromo] = useState(false)
   const [step1, setStep1] = useState<Step1Data>({
     studioName: '',
     name: '',
@@ -395,20 +396,31 @@ function SignupForm() {
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="promoCode" className="text-xs text-muted-foreground uppercase tracking-wider">
-              Promo code <span className="normal-case">(optional)</span>
-            </Label>
-            <Input
-              id="promoCode"
-              type="text"
-              value={step1.promoCode}
-              onChange={(e) => setStep1((p) => ({ ...p, promoCode: e.target.value.toUpperCase() }))}
-              className="bg-secondary/50 h-12"
-              placeholder="e.g. LOYALINK6FREE"
-              autoComplete="off"
-            />
-          </div>
+          {!showPromo ? (
+            <button
+              type="button"
+              onClick={() => setShowPromo(true)}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+            >
+              Have a promo code?
+            </button>
+          ) : (
+            <div className="space-y-2 animate-fade-up">
+              <Label htmlFor="promoCode" className="text-xs text-muted-foreground uppercase tracking-wider">
+                Promo code
+              </Label>
+              <Input
+                id="promoCode"
+                type="text"
+                value={step1.promoCode}
+                onChange={(e) => setStep1((p) => ({ ...p, promoCode: e.target.value.toUpperCase() }))}
+                className="bg-secondary/50 h-12"
+                placeholder="e.g. LOYALINK6FREE"
+                autoComplete="off"
+                autoFocus
+              />
+            </div>
+          )}
           {error && (
             <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2">
               <p className="text-sm text-destructive">{error}</p>
