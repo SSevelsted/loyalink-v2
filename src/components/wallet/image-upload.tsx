@@ -128,28 +128,50 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
   const [removingBg, setRemovingBg] = useState(false)
   const [applying, setApplying] = useState(false)
 
+  const removeBackground = async (imageSource: string | Blob): Promise<Blob> => {
+    let imageBlob: Blob
+    if (typeof imageSource === 'string') {
+      const imageRes = await fetch(imageSource)
+      if (!imageRes.ok) throw new Error('Failed to fetch image')
+      imageBlob = await imageRes.blob()
+    } else {
+      imageBlob = imageSource
+    }
+
+    const formData = new FormData()
+    formData.append('image', imageBlob, 'image.png')
+
+    const res = await fetch('/api/remove-bg', { method: 'POST', body: formData })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: 'Background removal failed' }))
+      throw new Error(data.error ?? 'Background removal failed')
+    }
+    return await res.blob()
+  }
+
   const handleRemoveBg = async () => {
     if (!currentUrl) return
     setRemovingBg(true)
     try {
-      const imageRes = await fetch(currentUrl)
-      if (!imageRes.ok) throw new Error('Failed to fetch current image')
-      const imageBlob = await imageRes.blob()
-
-      const formData = new FormData()
-      formData.append('image', imageBlob, 'image.png')
-      if (removeBgType) formData.append('type', removeBgType)
-
-      const res = await fetch('/api/remove-bg', { method: 'POST', body: formData })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: 'Background removal failed' }))
-        throw new Error(data.error ?? 'Background removal failed')
-      }
-
-      const resultBlob = await res.blob()
+      const resultBlob = await removeBackground(currentUrl)
       const file = new File([resultBlob], 'bg-removed.png', { type: 'image/png' })
       onUpload(file)
+      toast.success('Background removed')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Background removal failed')
+    } finally {
+      setRemovingBg(false)
+    }
+  }
+
+  const handleRemoveBgInCrop = async () => {
+    if (!rawImage) return
+    setRemovingBg(true)
+    try {
+      const resultBlob = await removeBackground(rawImage)
+      const url = URL.createObjectURL(resultBlob)
+      URL.revokeObjectURL(rawImage)
+      setRawImage(url)
       toast.success('Background removed')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Background removal failed')
@@ -463,6 +485,12 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
           <div className="flex items-center justify-between">
             <p className="text-[11px] text-muted-foreground">Scroll to zoom. Double-click to fit.</p>
             <div className="flex gap-2">
+              {removeBgType && (
+                <Button variant="outline" size="sm" onClick={handleRemoveBgInCrop} disabled={removingBg} className="gap-1">
+                  <Wand2 className="h-3 w-3" />
+                  {removingBg ? 'Removing...' : 'Remove BG'}
+                </Button>
+              )}
               <Button variant="ghost" onClick={handleCropCancel}>
                 Cancel
               </Button>
