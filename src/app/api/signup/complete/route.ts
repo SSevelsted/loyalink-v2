@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getStripe } from '@/lib/stripe'
 import { getResend, FROM } from '@/lib/resend'
+import { PLATFORM_URL } from '@/lib/constants'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -161,7 +162,7 @@ export async function POST(request: NextRequest) {
 
     // 5. Send welcome email (fire-and-forget)
     if (process.env.RESEND_API_KEY) {
-      const appUrl = process.env.NEXT_PUBLIC_PLATFORM_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+      const appUrl = PLATFORM_URL
       const planLabel = selectedPlan === 'pro' ? 'Pro' : 'Basic'
       const trialEnd = new Date(trialEndsAt).toLocaleDateString('en-GB', {
         day: 'numeric', month: 'long', year: 'numeric',

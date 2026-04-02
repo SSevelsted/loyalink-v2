@@ -29,7 +29,7 @@ export const googleConfig = {
 };
 
 // Public URL for web service callbacks
-export const publicUrl = process.env.PUBLIC_URL || 'http://localhost:3000';
+export const publicUrl = process.env.PUBLIC_URL || 'https://pass.loyalink.ai';
 
 // App (Next.js) public URL — used for loyalty page links embedded in passes
 export const appUrl = process.env.APP_URL || 'https://loyalink.ai';

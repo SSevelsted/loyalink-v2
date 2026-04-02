@@ -8,13 +8,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getResend, FROM } from '@/lib/resend'
+import { PLATFORM_URL } from '@/lib/constants'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
-
-const APP_URL = process.env.NEXT_PUBLIC_PLATFORM_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
 async function sendWarningEmail(
   ownerEmail: string,
@@ -40,7 +39,7 @@ async function sendWarningEmail(
         After that, your studio will be paused until you add a payment method.
       </p>
       <p style="margin:0 0 24px">
-        <a href="${APP_URL}/settings?tab=billing"
+        <a href="${PLATFORM_URL}/settings?tab=billing"
            style="display:inline-block;background:#000;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:500">
           Manage billing →
         </a>

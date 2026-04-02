@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getStripe } from '@/lib/stripe'
-
-const APP_URL = process.env.NEXT_PUBLIC_PLATFORM_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+import { PLATFORM_URL } from '@/lib/constants'
 
 export async function POST() {
   const supabase = await createClient()
@@ -34,7 +33,7 @@ export async function POST() {
 
   const session = await getStripe().billingPortal.sessions.create({
     customer: customerId,
-    return_url: `${APP_URL}/settings`,
+    return_url: `${PLATFORM_URL}/settings`,
   })
 
   return NextResponse.json({ url: session.url })
