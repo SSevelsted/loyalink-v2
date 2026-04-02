@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 const DISMISS_KEY = 'loyalink_trial_banner_dismissed'
 
@@ -21,12 +22,13 @@ export function TrialBanner({ trialEndsAt }: TrialBannerProps) {
     if (typeof window === 'undefined') return false
     return sessionStorage.getItem(DISMISS_KEY) === '1'
   })
+  const [loading, setLoading] = useState(false)
 
   const daysLeft = getDaysRemaining(trialEndsAt)
 
   if (dismissed || daysLeft > 7) return null
 
-  const isUrgent = daysLeft <= 5
+  const isUrgent = daysLeft <= 3
 
   function handleDismiss() {
     sessionStorage.setItem(DISMISS_KEY, '1')
@@ -35,30 +37,40 @@ export function TrialBanner({ trialEndsAt }: TrialBannerProps) {
 
   async function handleManageBilling(e: React.MouseEvent) {
     e.preventDefault()
-    const res = await fetch('/api/billing/portal', { method: 'POST' })
-    const data = await res.json()
-    if (data.url) window.location.href = data.url
+    setLoading(true)
+    try {
+      const res = await fetch('/api/billing/portal', { method: 'POST' })
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        toast.error(data.error || 'Could not open billing portal')
+        setLoading(false)
+      }
+    } catch {
+      toast.error('Something went wrong. Please try again.')
+      setLoading(false)
+    }
   }
 
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-3 px-4 py-2.5 text-sm',
+        'flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-medium',
         isUrgent
-          ? 'bg-amber-500/10 border-b border-amber-500/20 text-amber-700 dark:text-amber-400'
-          : 'bg-secondary border-b border-border text-muted-foreground'
+          ? 'bg-amber-500/15 border-b border-amber-500/30 text-amber-600 dark:text-amber-400'
+          : 'bg-primary/5 border-b border-primary/15 text-primary'
       )}
     >
       <span>
-        <strong className="font-medium text-foreground">
-          {daysLeft === 0 ? 'Your trial ends today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left in your free trial`}
-        </strong>
+        {daysLeft === 0 ? 'Your trial ends today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left in your free trial`}
         {' — '}
         <button
           onClick={handleManageBilling}
-          className="underline underline-offset-2 hover:no-underline transition-all"
+          disabled={loading}
+          className="underline underline-offset-2 hover:no-underline transition-all disabled:opacity-50"
         >
-          Manage billing →
+          {loading ? 'Opening…' : 'Manage billing →'}
         </button>
       </span>
       <button
