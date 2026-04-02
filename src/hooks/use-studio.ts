@@ -10,6 +10,7 @@ type StudioContextValue = {
   currentStudio: Studio | null
   membership: StudioMember | null
   setCurrentStudioId: (id: string) => void
+  refresh: () => void
   loading: boolean
   isSuperAdmin: boolean
   ownStudioIds: Set<string>
@@ -20,6 +21,7 @@ export const StudioContext = createContext<StudioContextValue>({
   currentStudio: null,
   membership: null,
   setCurrentStudioId: () => {},
+  refresh: () => {},
   loading: true,
   isSuperAdmin: false,
   ownStudioIds: new Set(),
@@ -37,6 +39,7 @@ export function useStudioLoader() {
   const [loading, setLoading] = useState(true)
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [ownStudioIds, setOwnStudioIds] = useState<Set<string>>(new Set())
+  const [refreshKey, setRefreshKey] = useState(0)
   const supabase = createClient()
 
   useEffect(() => {
@@ -117,7 +120,8 @@ export function useStudioLoader() {
     }
 
     load()
-  }, [user, supabase])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, supabase, refreshKey])
 
   const handleSetStudioId = (id: string) => {
     setCurrentStudioId(id)
@@ -132,6 +136,7 @@ export function useStudioLoader() {
     currentStudio,
     membership,
     setCurrentStudioId: handleSetStudioId,
+    refresh: () => setRefreshKey((k) => k + 1),
     loading,
     isSuperAdmin,
     ownStudioIds,

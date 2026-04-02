@@ -106,7 +106,7 @@ const STEPS = [
 
 export default function SetupPage() {
   const router = useRouter()
-  const { currentStudio } = useStudio()
+  const { currentStudio, refresh: refreshStudio } = useStudio()
   const supabase = createClient()
 
   const [step, setStep] = useState(0)
@@ -466,6 +466,7 @@ export default function SetupPage() {
           },
         })
         .eq('id', currentStudio.id)
+      refreshStudio()
       setShowLiveDialog(true)
     } catch {
       toast.error('Failed to go live. Please try again.')
