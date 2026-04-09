@@ -220,6 +220,7 @@ interface PassData {
   cashbackRate: number;
   loyaltyTier: string;
   memberId: string;
+  studioName: string;
   currency: string;
   language?: string;
   pushMessage?: string;
@@ -430,7 +431,7 @@ export class ApplePassService {
       teamIdentifier: appleConfig.teamId,
       webServiceURL: `${publicUrl}/wallet`,
       authenticationToken: data.authenticationToken,
-      organizationName: 'LoyaLink',
+      organizationName: data.studioName,
       description: t.description,
       backgroundColor: toRgb(data.backgroundColor),
       foregroundColor: toRgb(data.foregroundColor),

@@ -26,7 +26,9 @@ passRoutes.post('/generate', requireInternalAuth, async (req: Request, res: Resp
       return res.status(404).json({ error: 'Customer not found' });
     }
 
-    const studioSettings = (customer.studios as { name: string; settings: Record<string, unknown> } | null)?.settings ?? {};
+    const studioJoin = customer.studios as { name: string; settings: Record<string, unknown> } | null;
+    const studioName = studioJoin?.name ?? 'Loyalink';
+    const studioSettings = studioJoin?.settings ?? {};
     const studioLanguage = (studioSettings.language as string) ?? 'en';
 
     // Fetch template for the studio
@@ -85,6 +87,7 @@ passRoutes.post('/generate', requireInternalAuth, async (req: Request, res: Resp
       await applePassService.generatePass({
         serialNumber,
         authenticationToken,
+        studioName,
         customerName: customer.name,
         balance: customer.balance,
         cashbackRate: customer.cashback_rate,
@@ -172,18 +175,20 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
 
     const staticTexts = template?.static_texts as Record<string, string> || {};
 
-    // Fetch studio language
+    // Fetch studio name and language
     const { data: studioData } = await supabase
       .from('studios')
-      .select('settings')
+      .select('name, settings')
       .eq('id', walletPass.studio_id)
       .single();
+    const studioName = studioData?.name ?? 'Loyalink';
     const studioLanguage = (studioData?.settings as { language?: string } | null)?.language ?? 'en';
 
     // Generate pass
     const generatedPass = await applePassService.generatePass({
       serialNumber: walletPass.serial_number,
       authenticationToken: walletPass.authentication_token,
+      studioName,
       customerName: customer.name,
       balance: customer.balance,
       cashbackRate: customer.cashback_rate,
@@ -229,12 +234,14 @@ passRoutes.get('/:serialNumber/inspect', requireInternalAuth, async (req: Reques
     if (error || !walletPass) return res.status(404).json({ error: 'Pass not found' });
     const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string };
     const { data: template } = await supabase.from('pass_templates').select('*').eq('studio_id', walletPass.studio_id).eq('is_active', true).single();
+    const { data: inspectStudio } = await supabase.from('studios').select('name').eq('id', walletPass.studio_id).single();
     const loyaltyTier = customer.loyalty_stage || 'base';
     const tierThemes = template?.tier_themes as Record<string, { backgroundColor: string; foregroundColor: string; labelColor: string }> || {};
     const tierTheme = tierThemes[loyaltyTier] || tierThemes['base'] || { backgroundColor: '#ffffff', foregroundColor: '#000000', labelColor: '#666666' };
     const passJson = (applePassService as unknown as { createPassJson: (d: unknown) => unknown })['createPassJson']?.({
       serialNumber: walletPass.serial_number,
       authenticationToken: walletPass.authentication_token,
+      studioName: inspectStudio?.name ?? 'Loyalink',
       customerName: customer.name,
       balance: customer.balance,
       cashbackRate: customer.cashback_rate,

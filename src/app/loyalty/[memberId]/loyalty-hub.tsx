@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import {
   Clock, Copy, CreditCard, Gift, Loader2, MessageCircle,
   Share2, Smartphone, Sparkles, TrendingUp, Trophy, Users, Wallet, Zap,
 } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
 import { MARKETING_URL } from '@/lib/constants'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { getLoyaltyTranslations } from '@/lib/loyalty-translations'
@@ -209,7 +210,158 @@ function groupTransactions(txs: Transaction[]): TxDisplayRow[] {
   return rows
 }
 
+function detectPlatform(): 'apple' | 'google' {
+  if (typeof navigator === 'undefined') return 'apple'
+  const ua = navigator.userAgent || ''
+  if (/android/i.test(ua)) return 'google'
+  if (/iphone|ipad|ipod/i.test(ua)) return 'apple'
+  if (/CrOS/i.test(ua)) return 'google'
+  if (/macintosh|mac os/i.test(ua)) return 'apple'
+  return 'apple'
+}
+
+function AddToWalletCard({ customerId, customerAccessToken, brandColor, autoAdd, tokenOverride }: {
+  customerId: string
+  customerAccessToken: string
+  brandColor: string
+  autoAdd?: boolean
+  tokenOverride?: string | null
+}) {
+  const [loading, setLoading] = useState(false)
+  const [added, setAdded] = useState(false)
+  const [isDesktop, setIsDesktop] = useState<boolean | null>(null)
+  const triggeredRef = useRef(false)
+  const platform = detectPlatform()
+  const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
+  const token = tokenOverride || customerAccessToken
+
+  useEffect(() => {
+    if (typeof navigator !== 'undefined') {
+      const ua = navigator.userAgent || ''
+      setIsDesktop(!(/android|iphone|ipad|ipod/i.test(ua)))
+    }
+  }, [])
+
+  const handleAdd = useCallback(async (targetPlatform: 'apple' | 'google') => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/pass/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ customerId, platform: targetPlatform }),
+      })
+      if (!res.ok) throw new Error('Failed')
+      const data = await res.json()
+
+      if (targetPlatform === 'google' && data.saveUrl) {
+        const saveEndpoint = data.saveUrl.startsWith('http') ? data.saveUrl : `${PASS_SERVICE}${data.saveUrl}`
+        if (saveEndpoint.includes('pay.google.com')) {
+          window.location.href = saveEndpoint
+        } else {
+          const saveRes = await fetch(saveEndpoint)
+          if (saveRes.ok) {
+            const saveData = await saveRes.json()
+            if (saveData.saveUrl) window.location.href = saveData.saveUrl
+          }
+        }
+      } else {
+        const dl = data.downloadUrl ?? `/api/passes/${data.serialNumber}/download`
+        const url = dl.startsWith('http') ? dl : `${PASS_SERVICE}${dl}`
+        window.location.href = url
+      }
+      setAdded(true)
+    } catch {
+      // ignore — buttons remain visible so user can retry
+    } finally {
+      setLoading(false)
+    }
+  }, [customerId, token, PASS_SERVICE])
+
+  // Auto-trigger pass download on mount — only on mobile (e.g. from QR code scan or email link)
+  // Wait for isDesktop to be determined (non-null) before deciding
+  useEffect(() => {
+    if (isDesktop === null) return // not yet determined
+    if (autoAdd && !isDesktop && !triggeredRef.current) {
+      triggeredRef.current = true
+      handleAdd(platform)
+    }
+  }, [autoAdd, isDesktop, platform, handleAdd])
+
+  if (added) return null
+  if (isDesktop === null) return null // wait for detection
+
+  // Desktop: show message to open on phone
+  if (isDesktop) {
+    return (
+      <Card className="rounded-xl">
+        <CardContent className="p-4 text-center space-y-2">
+          <div className="flex items-center justify-center gap-2">
+            <Smartphone className="h-5 w-5" style={{ color: brandColor }} />
+            <p className="text-sm font-semibold">Open this link on your phone</p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            To add the loyalty card to your wallet, open this page on your phone.
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="rounded-xl">
+      <CardContent className="p-4 text-center space-y-3">
+        <div className="flex items-center justify-center gap-2">
+          <Wallet className="h-5 w-5" style={{ color: brandColor }} />
+          <p className="text-sm font-semibold">
+            {loading ? 'Preparing your pass...' : 'Add to Wallet'}
+          </p>
+        </div>
+        {!loading && (
+          <div className="flex justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={loading}
+              onClick={() => handleAdd('apple')}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+              </svg>
+              Apple Wallet
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={loading}
+              onClick={() => handleAdd('google')}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21.35 11.1h-9.18v2.73h5.51c-.24 1.23-.98 2.28-2.08 2.97l3.36 2.61c1.96-1.81 3.09-4.47 3.09-7.63 0-.64-.06-1.25-.17-1.84z" />
+                <path d="M12.17 22c2.79 0 5.13-.92 6.84-2.5l-3.36-2.61c-.92.62-2.1.99-3.48.99-2.68 0-4.95-1.81-5.76-4.24l-3.44 2.66C4.73 19.78 8.17 22 12.17 22z" />
+                <path d="M6.41 13.64c-.21-.62-.33-1.28-.33-1.96s.12-1.35.33-1.96L2.97 7.06C2.06 8.87 1.5 10.87 1.5 13s.56 4.13 1.47 5.94l3.44-2.66z" />
+                <path d="M12.17 5.44c1.51 0 2.87.52 3.94 1.54l2.96-2.96C17.3 2.31 14.96 1.28 12.17 1.28 8.17 1.28 4.73 3.5 2.97 7.06l3.44 2.66c.81-2.43 3.08-4.28 5.76-4.28z" />
+              </svg>
+              Google Wallet
+            </Button>
+          </div>
+        )}
+        {loading && (
+          <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer, studio, branding, logoUrl, rewardsConfig, referrals, transactions, currency, language }: Props) {
+  const searchParams = useSearchParams()
+  const autoAddPass = searchParams.get('addPass') === '1'
+  const tokenFromQR = searchParams.get('token')
   const [copied, setCopied] = useState(false)
   const [selectedReferral, setSelectedReferral] = useState<
     (Referral & { referred_customer: { name: string; has_purchased: boolean; metadata: Record<string, unknown> | null } }) | null
@@ -401,6 +553,15 @@ export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer,
             </div>
           </div>
         </div>
+
+        {/* ===== ADD TO WALLET ===== */}
+        <AddToWalletCard
+          customerId={customer.id}
+          customerAccessToken={customerAccessToken}
+          brandColor={brandColor}
+          autoAdd={autoAddPass}
+          tokenOverride={tokenFromQR}
+        />
 
         {/* ===== 2. QUICK STATS ===== */}
         <div className="grid grid-cols-2 gap-3">

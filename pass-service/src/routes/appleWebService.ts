@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { supabase } from '../config.js';
+import { supabase, appUrl } from '../config.js';
 
 export const appleWebServiceRoutes = Router();
 
@@ -114,7 +114,7 @@ appleWebServiceRoutes.delete(
       // Verify the pass exists and auth token matches
       const { data: walletPass } = await supabase
         .from('wallet_passes')
-        .select('id, authentication_token')
+        .select('id, customer_id, studio_id, authentication_token')
         .eq('serial_number', serialNumber)
         .single();
 
@@ -135,6 +135,21 @@ appleWebServiceRoutes.delete(
         .from('wallet_passes')
         .update({ status: 'uninstalled' })
         .eq('id', walletPass.id);
+
+      // Fire-and-forget: trigger uninstall email via the Next.js app
+      const emailSecret = process.env.PASS_SERVICE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+      fetch(`${appUrl}/api/emails/pass-lifecycle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-loyalink-internal-secret': emailSecret || '',
+        },
+        body: JSON.stringify({
+          type: 'pass_uninstalled',
+          customerId: walletPass.customer_id,
+          studioId: walletPass.studio_id,
+        }),
+      }).catch((err: unknown) => console.error('[unregister] Failed to trigger uninstall email:', err));
 
       res.status(200).send();
     } catch (error) {
@@ -244,18 +259,20 @@ appleWebServiceRoutes.get(
       const tierTheme = tierThemes[loyaltyTier] || tierThemes['base'] || { backgroundColor: '#ffffff', foregroundColor: '#000000', labelColor: '#666666' };
       const staticTexts = template?.static_texts as Record<string, string> || {};
 
-      // Fetch studio language
+      // Fetch studio name and language
       const { data: studioData } = await supabase
         .from('studios')
-        .select('settings')
+        .select('name, settings')
         .eq('id', walletPass.studio_id)
         .single();
+      const studioName = studioData?.name ?? 'Loyalink';
       const studioLanguage = (studioData?.settings as { language?: string } | null)?.language ?? 'en';
 
       const { applePassService } = await import('../services/applePassService.js');
       const passBuffer = await applePassService.generatePass({
         serialNumber: walletPass.serial_number,
         authenticationToken: walletPass.authentication_token,
+        studioName,
         customerName: customer.name,
         balance: customer.balance,
         cashbackRate: customer.cashback_rate,

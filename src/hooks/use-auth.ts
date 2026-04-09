@@ -48,11 +48,21 @@ export function useAuth() {
     return { error }
   }
 
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=/overview`,
+      },
+    })
+    return { error }
+  }
+
   const signOut = async () => {
     await supabase.auth.signOut()
   }
 
-  return { user, loading, signInWithEmail, signUp, signOut, resetPasswordForEmail, updatePassword, updateEmail }
+  return { user, loading, signInWithEmail, signInWithGoogle, signUp, signOut, resetPasswordForEmail, updatePassword, updateEmail }
 }
 
 export function useUserRole(studioId: string | null) {

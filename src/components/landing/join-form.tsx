@@ -84,7 +84,11 @@ export function JoinForm({
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [passUrl, setPassUrl] = useState<string | null>(null)
   const [altPassUrl, setAltPassUrl] = useState<string | null>(null)
+  const [customerId, setCustomerId] = useState<string | null>(null)
+  const [accessToken, setAccessToken] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [duplicateEmail, setDuplicateEmail] = useState<string | null>(null)
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent'>('idle')
   const [platform, setPlatform] = useState<'apple' | 'google'>('apple')
   const [isDesktop, setIsDesktop] = useState(false)
   const [qrPlatform, setQrPlatform] = useState<'apple' | 'google'>('apple')
@@ -133,6 +137,8 @@ export function JoinForm({
     e.preventDefault()
     setStatus('loading')
     setError(null)
+    setDuplicateEmail(null)
+    setResendStatus('idle')
 
     const rawPhone = form.phone.replace(/\s/g, '')
     const fullPhone = rawPhone ? `${countryCode}${rawPhone.replace(/^0+/, '')}` : null
@@ -156,6 +162,10 @@ export function JoinForm({
       const data = await res.json()
 
       if (!res.ok) {
+        if (res.status === 409 && data.error?.includes('email')) {
+          setDuplicateEmail(form.email)
+          setResendStatus('idle')
+        }
         throw new Error(data.error || 'Something went wrong')
       }
 
@@ -167,6 +177,8 @@ export function JoinForm({
 
       setStatus('success')
       setQrPlatform(platform)
+      if (data.customerId) setCustomerId(data.customerId)
+      if (data.customerAccessToken) setAccessToken(data.customerAccessToken)
 
       if (data.passUrl) {
         setPassUrl(data.passUrl)
@@ -223,6 +235,21 @@ export function JoinForm({
     }
   }
 
+  const handleResendPass = async () => {
+    if (!duplicateEmail) return
+    setResendStatus('sending')
+    try {
+      await fetch('/api/join/resend-pass', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studioId, email: duplicateEmail }),
+      })
+      setResendStatus('sent')
+    } catch {
+      setResendStatus('idle')
+    }
+  }
+
   if (status === 'success') {
     const accent = brandColor || '#7C3AED'
     return (
@@ -246,9 +273,32 @@ export function JoinForm({
           </div>
           <div className="space-y-3 pt-2">
             {passUrl === 'failed' ? (
-              <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.5 } : { color: 'var(--muted-foreground)' }}>
-                Your card will be sent to you shortly.
-              </p>
+              isDesktop && customerId && accessToken ? (
+                // Desktop fallback: QR code that auto-adds pass on phone
+                <div className="space-y-4">
+                  <p className="text-sm font-medium" style={textColor ? { color: textColor, opacity: 0.8 } : { color: 'var(--foreground)' }}>
+                    Scan with your phone to add the pass
+                  </p>
+                  <div className="flex justify-center">
+                    <div className="rounded-2xl bg-white p-4 shadow-md inline-block">
+                      <QRCodeSVG
+                        value={`${window.location.origin}/loyalty/${customerId}?addPass=1&token=${accessToken}`}
+                        size={180}
+                        bgColor="#ffffff"
+                        fgColor="#000000"
+                        level="M"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs" style={textColor ? { color: textColor, opacity: 0.4 } : { color: 'var(--muted-foreground)' }}>
+                    Point your phone camera at the QR code above
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.5 } : { color: 'var(--muted-foreground)' }}>
+                  Your card will be sent to you shortly.
+                </p>
+              )
             ) : passUrl ? (
               isDesktop ? (
                 // Desktop: QR code with platform picker
@@ -472,9 +522,30 @@ export function JoinForm({
             </div>
           ))}
           {error && (
-            <div className={`flex items-center gap-2 text-sm text-destructive ${shake ? 'animate-shake' : ''}`}>
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <p>{error}</p>
+            <div className="space-y-2">
+              <div className={`flex items-center gap-2 text-sm text-destructive ${shake ? 'animate-shake' : ''}`}>
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <p>{error}</p>
+              </div>
+              {duplicateEmail && resendStatus === 'sent' ? (
+                <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.6 } : { color: 'var(--muted-foreground)' }}>
+                  Check your email for a link to add your card.
+                </p>
+              ) : duplicateEmail ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={resendStatus === 'sending'}
+                  onClick={handleResendPass}
+                  className="w-full"
+                >
+                  {resendStatus === 'sending' ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
+                  Send me a link to add my card
+                </Button>
+              ) : null}
             </div>
           )}
           <div className="pt-2">

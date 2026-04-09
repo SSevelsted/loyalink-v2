@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig } from '@/types/database'
@@ -75,31 +76,33 @@ export default async function LoyaltyPage({ params }: Props) {
   const avatarUrl = ((customer.metadata as Record<string, unknown>)?.avatar_url as string) ?? null
 
   return (
-    <LoyaltyHub
-      memberId={memberId}
-      customerAccessToken={createCustomerAccessToken(customer.id, 24 * 60 * 60)}
-      avatarUrl={avatarUrl}
-      customer={{
-        id: customer.id,
-        name: customer.name,
-        balance: customer.balance,
-        cashback_rate: customer.cashback_rate,
-        loyalty_stage: customer.loyalty_stage,
-        referral_code: customer.referral_code ?? null,
-        referral_count: customer.referral_count ?? 0,
-      }}
-      studio={{
-        id: studio?.id ?? '',
-        name: studio?.name ?? '',
-        slug: studio?.slug ?? '',
-      }}
-      branding={branding}
-      logoUrl={logoUrl}
-      rewardsConfig={rewardsConfig}
-      referrals={(referrals ?? []) as (Referral & { referred_customer: { name: string; has_purchased: boolean; metadata: Record<string, unknown> | null } })[]}
-      transactions={(transactions ?? []) as Transaction[]}
-      currency={currency}
-      language={language}
-    />
+    <Suspense>
+      <LoyaltyHub
+        memberId={memberId}
+        customerAccessToken={createCustomerAccessToken(customer.id, 24 * 60 * 60)}
+        avatarUrl={avatarUrl}
+        customer={{
+          id: customer.id,
+          name: customer.name,
+          balance: customer.balance,
+          cashback_rate: customer.cashback_rate,
+          loyalty_stage: customer.loyalty_stage,
+          referral_code: customer.referral_code ?? null,
+          referral_count: customer.referral_count ?? 0,
+        }}
+        studio={{
+          id: studio?.id ?? '',
+          name: studio?.name ?? '',
+          slug: studio?.slug ?? '',
+        }}
+        branding={branding}
+        logoUrl={logoUrl}
+        rewardsConfig={rewardsConfig}
+        referrals={(referrals ?? []) as (Referral & { referred_customer: { name: string; has_purchased: boolean; metadata: Record<string, unknown> | null } })[]}
+        transactions={(transactions ?? []) as Transaction[]}
+        currency={currency}
+        language={language}
+      />
+    </Suspense>
   )
 }

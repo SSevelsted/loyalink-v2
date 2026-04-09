@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { useProcessTransaction, useRewardsConfig } from '@/hooks/use-rewards'
-import { ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ArrowUp, TrendingUp, Trophy, Mail, Loader2, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { useRef, useState } from 'react'
@@ -36,8 +36,28 @@ export default function RecordTransactionPage() {
   const [amount, setAmount] = useState('')
   const [isDeposit, setIsDeposit] = useState(false)
   const [useBalance, setUseBalance] = useState(true)
-  const [recorded, setRecorded] = useState<{ amount: number; cashback: number; newBalance: number } | null>(null)
+  const [recorded, setRecorded] = useState<{
+    amount: number
+    cashback: number
+    newBalance: number
+    balanceUsed: number
+    chargeOnPOS: number
+    summary: {
+      tierUpgraded: boolean
+      previousTier: { slug: string; name: string; cashbackRate: number } | null
+      currentTier: { slug: string; name: string; cashbackRate: number; index: number }
+      nextTier: {
+        slug: string; name: string; cashbackRate: number
+        trigger: { type: string; threshold?: number } | null
+        progress: { current: number; threshold: number; remaining: number } | null
+      } | null
+      cashbackRate: number
+      totalSpend: number
+      isMaxTier: boolean
+    } | null
+  } | null>(null)
   const [showScanner, setShowScanner] = useState(false)
+  const [receiptStatus, setReceiptStatus] = useState<'idle' | 'sending' | 'sent'>('idle')
 
   const currentBalance = Number(customer?.balance ?? 0)
   const effectiveTierSlug = getEffectiveTierSlug(customer?.loyalty_stage ?? '', rewardsConfig)
@@ -75,7 +95,7 @@ export default function RecordTransactionPage() {
       })
       if (creditErr) throw new Error(creditErr.message)
 
-      await processTransaction.mutateAsync({
+      const result = await processTransaction.mutateAsync({
         customerId: id,
         studioId: currentStudio.id,
         transactionId: '',
@@ -83,18 +103,61 @@ export default function RecordTransactionPage() {
         cashAmount: chargeOnPOS,
         isDeposit,
       })
+      return result
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['transactions', id] })
       queryClient.invalidateQueries({ queryKey: ['all_transactions'] })
       queryClient.invalidateQueries({ queryKey: ['customer', id] })
       queryClient.invalidateQueries({ queryKey: ['customer_events', id] })
-      setRecorded({ amount: parsedAmount, cashback: earnsNow, newBalance: newBalanceAfter })
+      setRecorded({
+        amount: parsedAmount,
+        cashback: earnsNow,
+        newBalance: newBalanceAfter,
+        balanceUsed,
+        chargeOnPOS,
+        summary: result?.summary ?? null,
+      })
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : 'Failed to record transaction')
     },
   })
+
+  async function sendReceipt() {
+    if (!recorded || !currentStudio || receiptStatus !== 'idle') return
+    setReceiptStatus('sending')
+    try {
+      const s = recorded.summary
+      const res = await fetch('/api/rewards/send-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: id,
+          studioId: currentStudio.id,
+          amount: recorded.amount,
+          chargeOnPOS: recorded.chargeOnPOS,
+          balanceUsed: recorded.balanceUsed,
+          cashbackEarned: recorded.cashback,
+          cashbackRate: s?.cashbackRate ?? cashbackRate,
+          newBalance: recorded.newBalance,
+          tierName: s?.currentTier.name ?? getTierDisplayName(customer?.loyalty_stage ?? '', rewardsConfig),
+          tierUpgraded: s?.tierUpgraded ?? false,
+          newTierName: s?.tierUpgraded ? s.currentTier.name : null,
+          currency: currencyConfig.symbol,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error ?? 'Failed to send')
+      }
+      setReceiptStatus('sent')
+      toast.success('Receipt sent')
+    } catch (err) {
+      setReceiptStatus('idle')
+      toast.error(err instanceof Error ? err.message : 'Failed to send receipt')
+    }
+  }
 
   if (isLoading || !customer) {
     return (
@@ -111,38 +174,157 @@ export default function RecordTransactionPage() {
 
   // ── Success state ──────────────────────────────────────────────────────────
   if (recorded) {
+    const s = recorded.summary
+    const currentTierPalette = s
+      ? TIER_COLOR_PALETTE[s.currentTier.index % TIER_COLOR_PALETTE.length]
+      : tierPalette
+    const nextTierPalette = s?.nextTier
+      ? TIER_COLOR_PALETTE[(s.currentTier.index + 1) % TIER_COLOR_PALETTE.length]
+      : null
+
     return (
-      <div className="max-w-sm mx-auto pt-10 text-center space-y-6">
-        <div className="space-y-4">
-          <div className="h-16 w-16 rounded-full bg-emerald-500/10 border-2 border-emerald-500/20 flex items-center justify-center mx-auto">
-            <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+      <div className="max-w-sm mx-auto pt-6 space-y-4">
+        {/* Header */}
+        <div className="text-center space-y-3">
+          <div className="h-14 w-14 rounded-full bg-emerald-500/10 border-2 border-emerald-500/20 flex items-center justify-center mx-auto">
+            <CheckCircle2 className="h-7 w-7 text-emerald-400" />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Transaction recorded</p>
-            <p className="text-4xl font-bold tracking-tight text-foreground">
+            <p className="text-sm text-muted-foreground mb-0.5">Transaction recorded</p>
+            <p className="text-3xl font-bold tracking-tight text-foreground">
               {formatAmount(recorded.amount, currencyConfig)}
             </p>
-            {recorded.cashback > 0 && (
-              <p className="text-sm text-emerald-400 mt-1.5">
-                +{formatAmount(recorded.cashback, currencyConfig)} cashback earned
-              </p>
+          </div>
+        </div>
+
+        {/* Tier upgrade banner */}
+        {s?.tierUpgraded && s.previousTier && (
+          <div className={`rounded-xl border ${currentTierPalette.border} ${currentTierPalette.bg} px-4 py-3`}>
+            <div className="flex items-center gap-2.5">
+              <div className={`h-8 w-8 rounded-full ${currentTierPalette.bg} border ${currentTierPalette.border} flex items-center justify-center`}>
+                <ArrowUp className={`h-4 w-4 ${currentTierPalette.text}`} />
+              </div>
+              <div className="flex-1">
+                <p className={`text-sm font-semibold ${currentTierPalette.text}`}>
+                  Upgraded to {s.currentTier.name}!
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {s.previousTier.name} ({s.previousTier.cashbackRate}%) &rarr; {s.currentTier.name} ({s.currentTier.cashbackRate}%)
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Transaction breakdown */}
+        <div className="rounded-xl bg-secondary/30 px-3.5 py-3 space-y-2">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Breakdown</p>
+          {recorded.balanceUsed > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Balance redeemed</span>
+              <span className="text-xs font-medium text-emerald-400">-{formatAmount(recorded.balanceUsed, currencyConfig)}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Charged on POS</span>
+            <span className="text-xs font-medium text-foreground">{formatAmount(recorded.chargeOnPOS, currencyConfig)}</span>
+          </div>
+          {recorded.cashback > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Cashback earned ({s?.cashbackRate ?? cashbackRate}%)</span>
+              <span className="text-xs font-medium text-emerald-400">+{formatAmount(recorded.cashback, currencyConfig)}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between pt-1.5 border-t border-border/30">
+            <span className="text-xs font-medium text-foreground">New balance</span>
+            <span className="text-xs font-bold text-foreground">{formatAmount(recorded.newBalance, currencyConfig)}</span>
+          </div>
+        </div>
+
+        {/* Customer status card */}
+        <div className="rounded-xl bg-secondary/30 px-3.5 py-3 space-y-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-sm font-semibold text-foreground shrink-0">
+              {customer.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">{customer.name}</p>
+              <div className="flex items-center gap-1.5">
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] uppercase tracking-wider ${currentTierPalette.bg} ${currentTierPalette.text} ${currentTierPalette.border}`}
+                >
+                  {s?.currentTier.name ?? getTierDisplayName(customer.loyalty_stage, rewardsConfig)}
+                </Badge>
+                <span className="text-[10px] text-muted-foreground">{s?.currentTier.cashbackRate ?? cashbackRate}% cashback</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Next tier progress */}
+          {s?.nextTier && !s.isMaxTier && (
+            <div className="pt-1.5 border-t border-border/30">
+              {s.nextTier.progress ? (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <TrendingUp className="h-3 w-3" />
+                      Next: {s.nextTier.name} ({s.nextTier.cashbackRate}%)
+                    </span>
+                    <span className={`text-[11px] font-medium ${nextTierPalette?.text ?? 'text-muted-foreground'}`}>
+                      {formatAmount(s.nextTier.progress.remaining, currencyConfig)} to go
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${nextTierPalette?.dot ?? 'bg-primary'}`}
+                      style={{ width: `${Math.min(100, (s.nextTier.progress.current / s.nextTier.progress.threshold) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ) : s.nextTier.trigger ? (
+                <div className="flex items-center gap-1.5">
+                  <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[11px] text-muted-foreground">
+                    Next: {s.nextTier.name} &middot;{' '}
+                    {s.nextTier.trigger.type === 'first_purchase' && 'After first purchase'}
+                    {s.nextTier.trigger.type === 'first_full_payment' && 'After first full payment'}
+                    {s.nextTier.trigger.type === 'referral_count' && `Refer ${s.nextTier.trigger.threshold ?? 1} friend${(s.nextTier.trigger.threshold ?? 1) > 1 ? 's' : ''}`}
+                    {s.nextTier.trigger.type === 'days_member' && `After ${s.nextTier.trigger.threshold ?? 30} days as a member`}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {/* Max tier badge */}
+          {s?.isMaxTier && (
+            <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/30">
+              <Trophy className={`h-3 w-3 ${currentTierPalette.text}`} />
+              <span className={`text-[11px] font-medium ${currentTierPalette.text}`}>Highest tier reached</span>
+            </div>
+          )}
+        </div>
+
+        {/* Send receipt */}
+        {customer.email && (
+          <button
+            onClick={sendReceipt}
+            disabled={receiptStatus !== 'idle'}
+            className="flex items-center justify-center gap-1.5 w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 disabled:opacity-50"
+          >
+            {receiptStatus === 'sending' ? (
+              <><Loader2 className="h-3 w-3 animate-spin" /> Sending...</>
+            ) : receiptStatus === 'sent' ? (
+              <><Check className="h-3 w-3 text-emerald-400" /> <span className="text-emerald-400">Receipt sent to {customer.email}</span></>
+            ) : (
+              <><Mail className="h-3 w-3" /> Send receipt to {customer.email}</>
             )}
-          </div>
-        </div>
+          </button>
+        )}
 
-        <div className="flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl bg-secondary/40">
-          <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-sm font-semibold text-foreground shrink-0">
-            {customer.name.charAt(0).toUpperCase()}
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-medium text-foreground">{customer.name}</p>
-            <p className="text-xs text-muted-foreground">
-              New balance: {formatAmount(recorded.newBalance, currencyConfig)}
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-2 pt-2">
+        {/* Actions */}
+        <div className="space-y-2 pt-1">
           <Button className="w-full" onClick={() => setShowScanner(true)}>
             Scan new customer
           </Button>

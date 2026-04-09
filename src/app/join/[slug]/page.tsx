@@ -87,10 +87,22 @@ export default async function JoinPage({ params, searchParams }: Props) {
     if (referrer) referrerName = referrer.name
   }
 
+  // Fetch studio logo from pass template as fallback
+  let studioLogo: string | null = null
+  if (!settings.logoUrl && !page.hero_image_url) {
+    const { data: template } = await supabase
+      .from('pass_templates')
+      .select('icon_url, logo_url')
+      .eq('studio_id', page.studio_id)
+      .limit(1)
+      .single()
+    studioLogo = template?.icon_url ?? template?.logo_url ?? null
+  }
+
   const bgColor = settings.backgroundColor || undefined
   const txtColor = settings.textColor || '#1a1a1a'
   const brandColor = settings.brandColor || '#6366f1'
-  const logoSrc = settings.logoUrl || page.hero_image_url
+  const logoSrc = settings.logoUrl || page.hero_image_url || studioLogo
 
   // Dynamic headline fallback
   const headline = page.headline ?? `Get ${baseTier.cashback_rate}% Back on Every Visit`
