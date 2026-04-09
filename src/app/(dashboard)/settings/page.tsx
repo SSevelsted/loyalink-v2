@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useStudio } from '@/hooks/use-studio'
-import { useRewardsConfig, useUpdateRewardsConfig, useMigrateTiers } from '@/hooks/use-rewards'
+import { useRewardsConfig, useUpdateRewardsConfig, useMigrateTiers, useMigrateReferrals, useReferralMigrationPreview } from '@/hooks/use-rewards'
 import { useTierMemberCounts } from '@/hooks/use-tier-member-counts'
 import type { RewardsConfig } from '@/types/database'
 import { DEFAULT_REWARDS_CONFIG } from '@/types/database'
 import { computeTierDiff, type TierDiff } from '@/lib/tier-diff'
+import { computeReferralDiff, type ReferralDiff } from '@/lib/referral-diff'
 import { TierMigrationDialog, type TierMigration } from '@/components/rewards/tier-migration-dialog'
+import { ReferralMigrationDialog, type ReferralMigration } from '@/components/rewards/referral-migration-dialog'
 import { toast } from 'sonner'
 import { User, Building2, Users, Gift, Share2, FileText, CreditCard, Key } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -43,11 +45,17 @@ export default function SettingsPage() {
   const { data: rewardsConfig } = useRewardsConfig()
   const updateRewardsConfig = useUpdateRewardsConfig()
   const migrateTiers = useMigrateTiers()
+  const migrateReferrals = useMigrateReferrals()
   const [localRewardsConfig, setLocalRewardsConfig] = useState<RewardsConfig>(DEFAULT_REWARDS_CONFIG)
 
-  // Migration dialog state
+  // Tier migration dialog state
   const [migrationDialogOpen, setMigrationDialogOpen] = useState(false)
   const [pendingDiff, setPendingDiff] = useState<TierDiff | null>(null)
+
+  // Referral migration dialog state
+  const [referralDialogOpen, setReferralDialogOpen] = useState(false)
+  const [pendingReferralDiff, setPendingReferralDiff] = useState<ReferralDiff | null>(null)
+  const { data: referralPreview, refetch: refetchReferralPreview } = useReferralMigrationPreview()
 
   // Slugs that need member counts (for the migration preview)
   const affectedSlugs = pendingDiff
@@ -66,11 +74,20 @@ export default function SettingsPage() {
   const handleSaveRewards = useCallback(async () => {
     if (!rewardsConfig) return
 
+    // Check tier changes first
     const diff = computeTierDiff(rewardsConfig, localRewardsConfig)
-
     if (diff.requiresMigration) {
       setPendingDiff(diff)
       setMigrationDialogOpen(true)
+      return
+    }
+
+    // Then check referral changes
+    const refDiff = computeReferralDiff(rewardsConfig, localRewardsConfig)
+    if (refDiff.requiresMigration) {
+      setPendingReferralDiff(refDiff)
+      void refetchReferralPreview()
+      setReferralDialogOpen(true)
       return
     }
 
@@ -80,7 +97,7 @@ export default function SettingsPage() {
     } catch {
       toast.error('Failed to save rewards config')
     }
-  }, [rewardsConfig, localRewardsConfig, updateRewardsConfig])
+  }, [rewardsConfig, localRewardsConfig, updateRewardsConfig, refetchReferralPreview])
 
   const handleMigrationConfirm = useCallback(async (migration: TierMigration) => {
     try {
@@ -94,6 +111,21 @@ export default function SettingsPage() {
       setMigrationDialogOpen(false)
       setPendingDiff(null)
 
+      // After tier migration, also check for referral changes
+      if (rewardsConfig) {
+        const refDiff = computeReferralDiff(rewardsConfig, localRewardsConfig)
+        if (refDiff.requiresMigration) {
+          setPendingReferralDiff(refDiff)
+          void refetchReferralPreview()
+          setReferralDialogOpen(true)
+
+          if (migration.applyToExisting && result.migratedMembers > 0) {
+            toast.success(`${result.migratedMembers} members migrated. Review referral changes.`)
+          }
+          return
+        }
+      }
+
       if (migration.applyToExisting && result.migratedMembers > 0) {
         toast.success(`Saved! ${result.migratedMembers} members migrated.`)
       } else {
@@ -102,7 +134,28 @@ export default function SettingsPage() {
     } catch {
       toast.error('Failed to save rewards config')
     }
-  }, [localRewardsConfig, migrateTiers])
+  }, [localRewardsConfig, migrateTiers, rewardsConfig, refetchReferralPreview])
+
+  const handleReferralMigrationConfirm = useCallback(async (migration: ReferralMigration) => {
+    try {
+      const result = await migrateReferrals.mutateAsync({
+        newConfig: localRewardsConfig,
+        applyFriendRate: migration.applyFriendRate,
+        applyCommissionDuration: migration.applyCommissionDuration,
+      })
+
+      setReferralDialogOpen(false)
+      setPendingReferralDiff(null)
+
+      const parts: string[] = []
+      if (result.updatedFriends > 0) parts.push(`${result.updatedFriends} members updated`)
+      if (result.updatedReferrals > 0) parts.push(`${result.updatedReferrals} referrals updated`)
+
+      toast.success(parts.length > 0 ? `Saved! ${parts.join(', ')}.` : 'Rewards config saved')
+    } catch {
+      toast.error('Failed to save rewards config')
+    }
+  }, [localRewardsConfig, migrateReferrals])
 
   const currency = ((currentStudio?.settings as Record<string, unknown>)?.currency as string) ?? 'dkk'
 
@@ -144,7 +197,7 @@ export default function SettingsPage() {
             config={localRewardsConfig}
             onChange={setLocalRewardsConfig}
             onSave={handleSaveRewards}
-            saving={updateRewardsConfig.isPending || migrateTiers.isPending}
+            saving={updateRewardsConfig.isPending || migrateTiers.isPending || migrateReferrals.isPending}
             currency={currency}
             isAdmin={isAdmin}
           />
@@ -154,7 +207,7 @@ export default function SettingsPage() {
             config={localRewardsConfig}
             onChange={setLocalRewardsConfig}
             onSave={handleSaveRewards}
-            saving={updateRewardsConfig.isPending || migrateTiers.isPending}
+            saving={updateRewardsConfig.isPending || migrateTiers.isPending || migrateReferrals.isPending}
             currency={currency}
             isAdmin={isAdmin}
           />
@@ -173,6 +226,18 @@ export default function SettingsPage() {
           promotionCounts={migrationPreview?.promotions ?? {}}
           onConfirm={handleMigrationConfirm}
           loading={migrateTiers.isPending}
+        />
+      )}
+
+      {pendingReferralDiff && (
+        <ReferralMigrationDialog
+          open={referralDialogOpen}
+          onOpenChange={setReferralDialogOpen}
+          diff={pendingReferralDiff}
+          referredFriends={referralPreview?.referredFriends ?? 0}
+          activeReferrals={referralPreview?.activeReferrals ?? 0}
+          onConfirm={handleReferralMigrationConfirm}
+          loading={migrateReferrals.isPending}
         />
       )}
     </div>
