@@ -19,7 +19,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { useMemo, useState } from 'react'
-import type { Transaction } from '@/types/database'
+import type { Transaction, Promotion, MemberPromotion } from '@/types/database'
 import { TIER_COLOR_PALETTE } from '@/types/database'
 import { useCustomerReferrals, useRewardsConfig } from '@/hooks/use-rewards'
 import {
@@ -41,6 +41,10 @@ import {
   Sparkles,
   TrendingUp,
   Wallet,
+  Gift,
+  X,
+  Zap,
+  Crown,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -100,6 +104,32 @@ export default function CustomerDetailPage() {
   const [editBalanceValue, setEditBalanceValue] = useState('')
   const [shareOpen, setShareOpen] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [promoOpen, setPromoOpen] = useState(false)
+  const [selectedPromoId, setSelectedPromoId] = useState('')
+
+  // Promotions
+  const { data: promotionTemplates = [] } = useQuery<Promotion[]>({
+    queryKey: ['promotions', currentStudio?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/promotions?studioId=${currentStudio!.id}`)
+      if (!res.ok) return []
+      return res.json()
+    },
+    enabled: !!currentStudio,
+  })
+
+  const { data: memberPromotions = [], refetch: refetchPromos } = useQuery<MemberPromotion[]>({
+    queryKey: ['member-promotions', params.id, currentStudio?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/members/${params.id}/promotions?studioId=${currentStudio!.id}`)
+      if (!res.ok) return []
+      return res.json()
+    },
+    enabled: !!currentStudio && !!params.id,
+  })
+
+  const activePromo = memberPromotions.find(p => p.status === 'active')
+  const activeTemplates = promotionTemplates.filter(p => p.is_active)
 
   // Derived stats
   const stats = useMemo(() => {
@@ -304,10 +334,130 @@ export default function CustomerDetailPage() {
                 Record Transaction
               </Link>
             </Button>
+            {isAdmin && !activePromo && activeTemplates.length > 0 && (
+              <Button size="sm" variant="outline" onClick={() => setPromoOpen(true)}>
+                <Gift className="h-3.5 w-3.5 mr-1.5" />
+                Apply Promotion
+              </Button>
+            )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Active Promotion Banner */}
+      {activePromo && (
+        <Card className="glass-card border-amber-500/20 bg-amber-500/5">
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3 min-w-0">
+              {activePromo.type === 'cashback_boost' ? (
+                <Zap className="h-5 w-5 text-amber-400 shrink-0" />
+              ) : (
+                <Crown className="h-5 w-5 text-violet-400 shrink-0" />
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  {activePromo.type === 'cashback_boost'
+                    ? `${activePromo.cashback_rate}% Cashback Boost`
+                    : `Tier Override: ${activePromo.tier_slug}`}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {activePromo.remaining_transactions != null
+                    ? `${activePromo.remaining_transactions} transaction${activePromo.remaining_transactions !== 1 ? 's' : ''} remaining`
+                    : activePromo.expires_at
+                      ? `Expires ${new Date(activePromo.expires_at).toLocaleDateString()}`
+                      : 'Unlimited (manual revoke)'}
+                </p>
+              </div>
+            </div>
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0"
+                onClick={async () => {
+                  const res = await fetch(
+                    `/api/members/${customer.id}/promotions/${activePromo.id}?studioId=${currentStudio!.id}`,
+                    { method: 'DELETE' }
+                  )
+                  if (res.ok) {
+                    toast.success('Promotion revoked')
+                    refetchPromos()
+                    queryClient.invalidateQueries({ queryKey: ['customer', params.id] })
+                  } else {
+                    toast.error('Failed to revoke')
+                  }
+                }}
+              >
+                <X className="h-4 w-4 mr-1" />
+                Revoke
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Apply Promotion Dialog */}
+      <Dialog open={promoOpen} onOpenChange={setPromoOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Apply Promotion</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Select a promotion to apply to {customer.name}.
+            </p>
+            {activeTemplates.map((promo) => (
+              <button
+                key={promo.id}
+                onClick={() => setSelectedPromoId(promo.id)}
+                className={`w-full text-left rounded-lg border p-3 transition-colors ${
+                  selectedPromoId === promo.id
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/30'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {promo.type === 'cashback_boost' ? (
+                    <Zap className="h-4 w-4 text-amber-400" />
+                  ) : (
+                    <Crown className="h-4 w-4 text-violet-400" />
+                  )}
+                  <span className="text-sm font-medium text-foreground">{promo.name}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {promo.type === 'cashback_boost' ? `${promo.cashback_rate}% cashback` : `Tier: ${promo.tier_slug}`}
+                  {' · '}
+                  {promo.duration_type === 'unlimited' ? 'Unlimited' : promo.duration_type === 'transactions' ? `${promo.duration_value} txn` : `${promo.duration_value} days`}
+                </p>
+              </button>
+            ))}
+            <Button
+              className="w-full"
+              disabled={!selectedPromoId}
+              onClick={async () => {
+                const res = await fetch(`/api/members/${customer.id}/promotions`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ studioId: currentStudio!.id, promotion_id: selectedPromoId }),
+                })
+                if (res.ok) {
+                  toast.success('Promotion applied')
+                  setPromoOpen(false)
+                  setSelectedPromoId('')
+                  refetchPromos()
+                  queryClient.invalidateQueries({ queryKey: ['customer', params.id] })
+                } else {
+                  const data = await res.json()
+                  toast.error(data.error || 'Failed to apply')
+                }
+              }}
+            >
+              Apply Promotion
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Stats */}
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">

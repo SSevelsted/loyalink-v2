@@ -152,6 +152,48 @@ export type StudioLandingPage = {
   updated_at: string
 }
 
+export type Promotion = {
+  id: string
+  studio_id: string
+  name: string
+  type: 'cashback_boost' | 'tier_override'
+  cashback_rate: number | null
+  tier_slug: string | null
+  duration_type: 'transactions' | 'days' | 'unlimited'
+  duration_value: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type MemberPromotion = {
+  id: string
+  studio_id: string
+  customer_id: string
+  promotion_id: string | null
+  type: 'cashback_boost' | 'tier_override'
+  cashback_rate: number | null
+  tier_slug: string | null
+  original_tier_slug: string
+  original_cashback_rate: number
+  remaining_transactions: number | null
+  expires_at: string | null
+  status: 'active' | 'expired' | 'revoked'
+  applied_by: string | null
+  created_at: string
+  expired_at: string | null
+}
+
+export type ApiKey = {
+  id: string
+  studio_id: string
+  key_hash: string
+  name: string
+  created_at: string
+  last_used_at: string | null
+  revoked_at: string | null
+}
+
 export type AnalyticsEvent = {
   id: string
   studio_id: string

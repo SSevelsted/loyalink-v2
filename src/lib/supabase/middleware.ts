@@ -120,7 +120,8 @@ export async function updateSession(request: NextRequest) {
     path.startsWith('/auth/callback') ||
     path.startsWith('/reset-password') ||
     path.startsWith('/api/') ||
-    path.startsWith('/pass/')
+    path.startsWith('/pass/') ||
+    path.startsWith('/embed/')
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone()

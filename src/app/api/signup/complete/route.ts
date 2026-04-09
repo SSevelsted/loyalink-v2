@@ -3,6 +3,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getStripe } from '@/lib/stripe'
 import { getResend, FROM } from '@/lib/resend'
 import { PLATFORM_URL } from '@/lib/constants'
+import { generateUniqueSlug } from '@/lib/slug'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,27 +11,6 @@ const supabase = createAdminClient(
 )
 
 const TRIAL_DAYS = 14
-
-async function generateUniqueSlug(name: string): Promise<string> {
-  const baseSlug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-
-  let slug = baseSlug
-  let attempt = 0
-  while (true) {
-    const { data: existing } = await supabase
-      .from('studios')
-      .select('id')
-      .eq('slug', slug)
-      .maybeSingle()
-    if (!existing) break
-    attempt++
-    slug = `${baseSlug}-${attempt}`
-  }
-  return slug
-}
 
 const PLAN_PRICE_IDS: Record<string, string | undefined> = {
   basic: process.env.STRIPE_BASIC_PRICE_ID,
@@ -78,7 +58,7 @@ export async function POST(request: NextRequest) {
         subscription_status: 'trial',
         trial_ends_at: trialEndsAt,
         is_agency: false,
-        settings: { plan: selectedPlan },
+        settings: { plan: selectedPlan, source: 'loyalink' },
       })
       .select()
       .single()
