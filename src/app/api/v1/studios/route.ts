@@ -3,7 +3,13 @@ import { adminSupabase } from '@/lib/studio-access'
 import { validateApiKey } from '@/lib/api-keys'
 import { apiSuccess, apiError } from '@/lib/api-response'
 import { generateUniqueSlug } from '@/lib/slug'
-import { DEFAULT_REWARDS_CONFIG, DEFAULT_TIER_THEMES, DEFAULT_CARD_FIELDS, DEFAULT_STATIC_TEXTS } from '@/types/database'
+import { DEFAULT_CARD_FIELDS, DEFAULT_STATIC_TEXTS } from '@/types/database'
+import {
+  STREAMINK_REWARDS_CONFIG,
+  STREAMINK_WELCOME_BONUS,
+  STREAMINK_TIER_THEMES,
+  STREAMINK_PROMOTIONS,
+} from '@/lib/templates/streamink-template'
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,6 +26,16 @@ export async function POST(request: NextRequest) {
     }
 
     const slug = await generateUniqueSlug(name)
+    const studioCurrency = (currency || 'DKK').toUpperCase()
+
+    // Set welcome bonus based on currency
+    const rewardsConfig = {
+      ...STREAMINK_REWARDS_CONFIG,
+      referrals: {
+        ...STREAMINK_REWARDS_CONFIG.referrals,
+        friend_welcome_bonus: STREAMINK_WELCOME_BONUS[studioCurrency] ?? STREAMINK_WELCOME_BONUS.EUR,
+      },
+    }
 
     // Create studio
     const { data: studio, error: studioError } = await adminSupabase
@@ -38,9 +54,9 @@ export async function POST(request: NextRequest) {
           email: email || null,
           phone: phone || null,
           address: address || null,
-          currency: currency || 'DKK',
+          currency: studioCurrency,
           language: language || 'en',
-          rewards_config: DEFAULT_REWARDS_CONFIG,
+          rewards_config: rewardsConfig,
         },
       })
       .select()
@@ -50,14 +66,14 @@ export async function POST(request: NextRequest) {
       return apiError(studioError?.message ?? 'Failed to create studio', 500)
     }
 
-    // Create default pass template
+    // Create pass template with StreamInk tier themes
     const { error: templateError } = await adminSupabase
       .from('pass_templates')
       .insert({
         studio_id: studio.id,
         name: 'Default',
         is_active: true,
-        tier_themes: DEFAULT_TIER_THEMES,
+        tier_themes: STREAMINK_TIER_THEMES,
         card_fields: DEFAULT_CARD_FIELDS,
         static_texts: DEFAULT_STATIC_TEXTS,
         barcode_format: 'PKBarcodeFormatQR',
@@ -91,6 +107,20 @@ export async function POST(request: NextRequest) {
 
     if (landingError) {
       console.error('[v1/studios] landing page error:', landingError)
+    }
+
+    // Auto-create StreamInk promotion templates
+    const promoInserts = STREAMINK_PROMOTIONS.map((p) => ({
+      studio_id: studio.id,
+      ...p,
+    }))
+
+    const { error: promoError } = await adminSupabase
+      .from('promotions')
+      .insert(promoInserts)
+
+    if (promoError) {
+      console.error('[v1/studios] promotions error:', promoError)
     }
 
     return apiSuccess(studio, 201)
