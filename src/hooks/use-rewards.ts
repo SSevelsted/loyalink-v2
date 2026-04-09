@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useStudio } from './use-studio'
 import { createClient } from '@/lib/supabase/client'
-import type { RewardsConfig, Referral } from '@/types/database'
+import type { RewardsConfig, Referral, TierConfig } from '@/types/database'
 import { DEFAULT_REWARDS_CONFIG } from '@/types/database'
 
 export function useRewardsConfig() {
@@ -37,6 +37,33 @@ export function useUpdateRewardsConfig() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rewards_config', currentStudio?.id] })
+    },
+  })
+}
+
+export function useMigrateTiers() {
+  const { currentStudio } = useStudio()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: {
+      newConfig: RewardsConfig
+      mappings: Record<string, string>
+      applyRateChanges: boolean
+      applyToExisting: boolean
+    }) => {
+      const res = await fetch('/api/rewards/migration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studioId: currentStudio!.id, ...params }),
+      })
+      if (!res.ok) throw new Error('Migration failed')
+      return res.json() as Promise<{ success: boolean; migratedMembers: number; migratedPromotions: number }>
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rewards_config', currentStudio?.id] })
+      queryClient.invalidateQueries({ queryKey: ['customers'] })
+      queryClient.invalidateQueries({ queryKey: ['tier_member_counts'] })
     },
   })
 }

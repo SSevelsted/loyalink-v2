@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useStudio } from '@/hooks/use-studio'
-import { useRewardsConfig, useUpdateRewardsConfig } from '@/hooks/use-rewards'
+import { useRewardsConfig, useUpdateRewardsConfig, useMigrateTiers } from '@/hooks/use-rewards'
+import { useTierMemberCounts } from '@/hooks/use-tier-member-counts'
 import type { RewardsConfig } from '@/types/database'
 import { DEFAULT_REWARDS_CONFIG } from '@/types/database'
+import { computeTierDiff, type TierDiff } from '@/lib/tier-diff'
+import { TierMigrationDialog, type TierMigration } from '@/components/rewards/tier-migration-dialog'
 import { toast } from 'sonner'
 import { User, Building2, Users, Gift, Share2, FileText, CreditCard, Key } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -39,21 +42,67 @@ export default function SettingsPage() {
   // Rewards config (shared between Rewards + Referrals)
   const { data: rewardsConfig } = useRewardsConfig()
   const updateRewardsConfig = useUpdateRewardsConfig()
+  const migrateTiers = useMigrateTiers()
   const [localRewardsConfig, setLocalRewardsConfig] = useState<RewardsConfig>(DEFAULT_REWARDS_CONFIG)
+
+  // Migration dialog state
+  const [migrationDialogOpen, setMigrationDialogOpen] = useState(false)
+  const [pendingDiff, setPendingDiff] = useState<TierDiff | null>(null)
+
+  // Slugs that need member counts (for the migration preview)
+  const affectedSlugs = pendingDiff
+    ? [
+        ...pendingDiff.removedTiers.map((t) => t.slug),
+        ...pendingDiff.rateChangedTiers.map((t) => t.slug),
+      ]
+    : []
+  const { data: migrationPreview } = useTierMemberCounts(affectedSlugs)
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (rewardsConfig) setLocalRewardsConfig(rewardsConfig)
   }, [rewardsConfig])
 
-  const handleSaveRewards = async () => {
+  const handleSaveRewards = useCallback(async () => {
+    if (!rewardsConfig) return
+
+    const diff = computeTierDiff(rewardsConfig, localRewardsConfig)
+
+    if (diff.requiresMigration) {
+      setPendingDiff(diff)
+      setMigrationDialogOpen(true)
+      return
+    }
+
     try {
       await updateRewardsConfig.mutateAsync(localRewardsConfig)
       toast.success('Rewards config saved')
     } catch {
       toast.error('Failed to save rewards config')
     }
-  }
+  }, [rewardsConfig, localRewardsConfig, updateRewardsConfig])
+
+  const handleMigrationConfirm = useCallback(async (migration: TierMigration) => {
+    try {
+      const result = await migrateTiers.mutateAsync({
+        newConfig: localRewardsConfig,
+        mappings: migration.mappings,
+        applyRateChanges: migration.applyRateChanges,
+        applyToExisting: migration.applyToExisting,
+      })
+
+      setMigrationDialogOpen(false)
+      setPendingDiff(null)
+
+      if (migration.applyToExisting && result.migratedMembers > 0) {
+        toast.success(`Saved! ${result.migratedMembers} members migrated.`)
+      } else {
+        toast.success('Rewards config saved')
+      }
+    } catch {
+      toast.error('Failed to save rewards config')
+    }
+  }, [localRewardsConfig, migrateTiers])
 
   const currency = ((currentStudio?.settings as Record<string, unknown>)?.currency as string) ?? 'dkk'
 
@@ -95,7 +144,7 @@ export default function SettingsPage() {
             config={localRewardsConfig}
             onChange={setLocalRewardsConfig}
             onSave={handleSaveRewards}
-            saving={updateRewardsConfig.isPending}
+            saving={updateRewardsConfig.isPending || migrateTiers.isPending}
             currency={currency}
             isAdmin={isAdmin}
           />
@@ -105,7 +154,7 @@ export default function SettingsPage() {
             config={localRewardsConfig}
             onChange={setLocalRewardsConfig}
             onSave={handleSaveRewards}
-            saving={updateRewardsConfig.isPending}
+            saving={updateRewardsConfig.isPending || migrateTiers.isPending}
             currency={currency}
             isAdmin={isAdmin}
           />
@@ -113,6 +162,19 @@ export default function SettingsPage() {
         {activeSection === 'billing' && <BillingSection />}
         {activeSection === 'api' && isAdmin && <ApiSection />}
       </div>
+
+      {pendingDiff && (
+        <TierMigrationDialog
+          open={migrationDialogOpen}
+          onOpenChange={setMigrationDialogOpen}
+          diff={pendingDiff}
+          newConfig={localRewardsConfig}
+          memberCounts={migrationPreview?.members ?? {}}
+          promotionCounts={migrationPreview?.promotions ?? {}}
+          onConfirm={handleMigrationConfirm}
+          loading={migrateTiers.isPending}
+        />
+      )}
     </div>
   )
 }
