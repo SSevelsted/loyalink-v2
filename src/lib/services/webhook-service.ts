@@ -1,22 +1,8 @@
 import { createHmac } from 'crypto'
 import { adminSupabase } from '@/lib/studio-access'
+import type { WebhookEvent } from '@/lib/webhook-events'
 
-export type WebhookEvent =
-  | 'member.created'
-  | 'transaction.created'
-  | 'balance.updated'
-  | 'tier.upgraded'
-  | 'referral.activated'
-  | 'promotion.expired'
-
-export const WEBHOOK_EVENTS: { value: WebhookEvent; label: string }[] = [
-  { value: 'member.created', label: 'Member Created' },
-  { value: 'transaction.created', label: 'Transaction Created' },
-  { value: 'balance.updated', label: 'Balance Updated' },
-  { value: 'tier.upgraded', label: 'Tier Upgraded' },
-  { value: 'referral.activated', label: 'Referral Activated' },
-  { value: 'promotion.expired', label: 'Promotion Expired' },
-]
+export type { WebhookEvent }
 
 type WebhookPayload = {
   event: WebhookEvent

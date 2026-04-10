@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { Webhook, Copy, Check, Trash2, Plus, AlertTriangle, Pause, Play, ChevronDown, ChevronRight } from 'lucide-react'
-import { WEBHOOK_EVENTS, type WebhookEvent } from '@/lib/services/webhook-service'
+import { WEBHOOK_EVENTS, type WebhookEvent } from '@/lib/webhook-events'
 
 type WebhookRow = {
   id: string
