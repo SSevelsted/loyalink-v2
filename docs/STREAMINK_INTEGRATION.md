@@ -239,6 +239,59 @@ Allowed fields: `name`, `email`, `phone`, `tags`, `metadata`.
 
 ---
 
+#### Get Member Referrals
+```
+GET /api/v1/members/:id/referrals
+Auth: Studio key
+```
+
+**Response:**
+```json
+{
+  "data": {
+    "referral_code": "ABC12345",
+    "referral_count": 3,
+    "referred_by": null,
+    "referred_friends": [
+      {
+        "id": "referral-uuid",
+        "friend": {
+          "id": "customer-uuid",
+          "name": "Jane Smith",
+          "email": "jane@example.com",
+          "has_purchased": true
+        },
+        "status": "activated",
+        "activated_at": "2026-04-01T...",
+        "commission_expires_at": "2026-06-01T...",
+        "total_commission_earned": 125.00,
+        "created_at": "2026-03-15T..."
+      },
+      {
+        "id": "referral-uuid-2",
+        "friend": {
+          "id": "customer-uuid-2",
+          "name": "Bob Jones",
+          "email": "bob@example.com",
+          "has_purchased": false
+        },
+        "status": "pending",
+        "activated_at": null,
+        "commission_expires_at": null,
+        "total_commission_earned": 0,
+        "created_at": "2026-04-05T..."
+      }
+    ]
+  }
+}
+```
+
+For each referred friend: `has_purchased` indicates whether they've made their first purchase, and `status` shows `"pending"` (signed up but not activated) or `"activated"` (met the activation trigger, e.g. first purchase).
+
+If this member was themselves referred, `referred_by` contains the referrer's info.
+
+---
+
 #### Search Members
 ```
 GET /api/v1/members/search?q=john
