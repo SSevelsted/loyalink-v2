@@ -599,6 +599,9 @@ StreamInk stores studio_id + generates API key
         ├──► API: GET /api/v1/stats
         │         Show loyalty metrics in StreamInk dashboard
         │
+        ├──► Webhooks: Register endpoint in Settings > Webhooks
+        │         Receive real-time balance, tier, and member updates
+        │
         ▼
 Client leaves StreamInk?
         │
@@ -607,6 +610,151 @@ PATCH /api/v1/studios/:id { "settings": { "source": "loyalink" } }
         │
         ▼
 Client logs into loyalink.ai → adds billing → continues independently
+```
+
+---
+
+## Webhooks
+
+Instead of polling the API for changes, you can register a webhook to receive real-time push notifications when events happen in a studio's loyalty program.
+
+### Setup via API
+
+Register a webhook programmatically right after creating a studio:
+
+```bash
+curl -X POST https://my.loyalink.ai/api/v1/studios/{studioId}/webhooks \
+  -H "Authorization: Bearer $STUDIO_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://api.streamink.co/webhooks/loyalink",
+    "events": ["balance.updated", "tier.upgraded", "member.created"]
+  }'
+
+# Response (201):
+# {
+#   "data": {
+#     "id": "uuid",
+#     "url": "https://api.streamink.co/webhooks/loyalink",
+#     "events": ["balance.updated", "tier.upgraded", "member.created"],
+#     "active": true,
+#     "secret": "whsec_..."   <-- store this, shown only once
+#   }
+# }
+```
+
+#### Manage Webhooks
+
+```
+GET    /api/v1/studios/:id/webhooks              # List all webhooks
+POST   /api/v1/studios/:id/webhooks              # Create webhook (returns secret once)
+PATCH  /api/v1/studios/:id/webhooks/:webhookId   # Update URL, events, or active status
+DELETE /api/v1/studios/:id/webhooks/:webhookId   # Delete webhook
+```
+
+Auth: Studio key or master key.
+
+Webhooks can also be managed manually in **Settings > Webhooks** in the dashboard.
+
+Each webhook gets:
+
+- **Endpoint URL** — must be HTTPS
+- **Signing secret** — shown once on creation (format: `whsec_...`)
+- **Event filter** — subscribe to specific events, or leave empty for all
+
+### Events
+
+| Event | Fired when |
+|-------|-----------|
+| `member.created` | A new customer joins the loyalty program |
+| `transaction.created` | A transaction is processed |
+| `balance.updated` | A customer's balance changes (cashback credited) |
+| `tier.upgraded` | A customer moves up a tier |
+| `referral.activated` | A referral converts (referred friend meets activation trigger) |
+| `promotion.expired` | A promotion expires (time or usage limit) |
+
+### Payload Format
+
+```json
+{
+  "event": "balance.updated",
+  "studio_id": "uuid",
+  "customer_id": "uuid",
+  "data": {
+    "new_balance": 245.50,
+    "cashback_earned": 15.00,
+    "cashback_rate": 7.5,
+    "promotion_applied": false
+  },
+  "timestamp": "2026-04-10T14:30:00.000Z"
+}
+```
+
+### Verifying Signatures
+
+Every request includes an `X-Loyalink-Signature` header containing an HMAC-SHA256 hex digest of the raw request body, signed with your webhook secret.
+
+```javascript
+import { createHmac } from 'crypto'
+
+function verifySignature(body, signature, secret) {
+  const expected = createHmac('sha256', secret)
+    .update(body)
+    .digest('hex')
+  return expected === signature
+}
+
+// In your handler:
+app.post('/webhooks/loyalink', (req, res) => {
+  const sig = req.headers['x-loyalink-signature']
+  if (!verifySignature(req.rawBody, sig, process.env.LOYALINK_WEBHOOK_SECRET)) {
+    return res.status(401).send('Invalid signature')
+  }
+
+  const { event, customer_id, data } = req.body
+
+  switch (event) {
+    case 'balance.updated':
+      // Update customer's loyalty balance in your system
+      break
+    case 'tier.upgraded':
+      // Reflect new tier in your UI
+      break
+    case 'member.created':
+      // Sync new member to your CRM
+      break
+  }
+
+  res.status(200).send('OK')
+})
+```
+
+### Headers
+
+| Header | Value |
+|--------|-------|
+| `Content-Type` | `application/json` |
+| `X-Loyalink-Signature` | HMAC-SHA256 hex digest |
+| `X-Loyalink-Event` | Event type (e.g. `balance.updated`) |
+
+### Retry Policy
+
+- Timeout: 10 seconds per delivery
+- 1 automatic retry after 3 seconds on failure
+- Delivery history is visible in Settings > Webhooks (last 50 deliveries per endpoint, kept for 30 days)
+
+### Example: Keeping Customer Balances in Sync
+
+Instead of polling `GET /api/v1/members/:id` after every transaction, subscribe to `balance.updated`:
+
+```
+Before (polling):
+  StreamInk → POST /api/v1/transactions  →  wait  →  GET /api/v1/members/:id  →  update UI
+
+After (webhook):
+  StreamInk → POST /api/v1/transactions
+  Loyalink  → POST https://api.streamink.co/webhooks/loyalink  { event: "balance.updated", ... }
+  StreamInk → update UI immediately
 ```
 
 ---

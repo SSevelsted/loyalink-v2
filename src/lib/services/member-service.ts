@@ -4,6 +4,7 @@ import type { RewardsConfig } from '@/types/database'
 import { customAlphabet } from 'nanoid'
 import { createCustomerAccessToken } from '@/lib/customer-access'
 import { passServiceFetch } from '@/lib/pass-service'
+import { fireWebhook } from '@/lib/services/webhook-service'
 
 const PASS_SERVICE_URL = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
 
@@ -159,6 +160,16 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
         .eq('id', customer.id)
     }
   }
+
+  // Fire webhook
+  fireWebhook(studioId, 'member.created', customer.id, {
+    name,
+    email: email || null,
+    phone: phone || null,
+    tier: loyaltyStage,
+    cashback_rate: cashbackRate,
+    referred_by: referrerCustomerId,
+  })
 
   // Update signup count
   if (landingPageId) {

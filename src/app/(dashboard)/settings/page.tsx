@@ -11,7 +11,7 @@ import { computeReferralDiff, type ReferralDiff } from '@/lib/referral-diff'
 import { TierMigrationDialog, type TierMigration } from '@/components/rewards/tier-migration-dialog'
 import { ReferralMigrationDialog, type ReferralMigration } from '@/components/rewards/referral-migration-dialog'
 import { toast } from 'sonner'
-import { User, Building2, Users, Gift, Share2, FileText, CreditCard, Key } from 'lucide-react'
+import { User, Building2, Users, Gift, Share2, FileText, CreditCard, Key, Webhook } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import { AccountSection } from './_components/account-section'
@@ -22,6 +22,7 @@ import { ReferralsSection } from './_components/referrals-section'
 import { LandingPageSection } from './_components/landing-page-section'
 import { BillingSection } from './_components/billing-section'
 import { ApiSection } from './_components/api-section'
+import { WebhooksSection } from './_components/webhooks-section'
 
 const SECTIONS = [
   { id: 'account', label: 'Account', icon: User },
@@ -32,6 +33,7 @@ const SECTIONS = [
   { id: 'referrals', label: 'Referrals', icon: Share2 },
   { id: 'billing', label: 'Billing', icon: CreditCard },
   { id: 'api', label: 'API', icon: Key },
+  { id: 'webhooks', label: 'Webhooks', icon: Webhook },
 ] as const
 
 type SectionId = (typeof SECTIONS)[number]['id']
@@ -214,6 +216,7 @@ export default function SettingsPage() {
         )}
         {activeSection === 'billing' && <BillingSection />}
         {activeSection === 'api' && isAdmin && <ApiSection />}
+        {activeSection === 'webhooks' && isAdmin && <WebhooksSection />}
       </div>
 
       {pendingDiff && (

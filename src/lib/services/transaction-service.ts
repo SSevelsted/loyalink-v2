@@ -3,6 +3,7 @@ import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig, getReferralUnlockTier } f
 import type { RewardsConfig, UpgradeTriggerConfig } from '@/types/database'
 import { passServiceFetch } from '@/lib/pass-service'
 import { expirePromotion } from '@/lib/services/promotion-service'
+import { fireWebhook } from '@/lib/services/webhook-service'
 
 type ProcessTransactionInput = {
   customerId: string
@@ -141,6 +142,13 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
         .eq('id', referralRow.referrer_customer_id)
 
       results.push(`Referral activated. Referrer now at ${newRate}% cashback`)
+
+      fireWebhook(studioId, 'referral.activated', customerId, {
+        referrer_customer_id: referralRow.referrer_customer_id,
+        referrer_new_cashback_rate: newRate,
+        referrer_referral_count: newCount,
+      })
+
       triggerPassUpdate(referralRow.referrer_customer_id)
     }
   }
@@ -168,6 +176,13 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
         .eq('customer_id', customerId)
     }
 
+    fireWebhook(studioId, 'tier.upgraded', customerId, {
+      from_tier: customer.loyalty_stage,
+      to_tier: newTierSlug,
+      to_tier_name: newTier?.name ?? newTierSlug,
+      cashback_rate: newTier?.cashback_rate,
+    })
+
     triggerPassUpdate(customerId)
   }
 
@@ -184,6 +199,7 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
   if (promo && promo.expires_at && new Date(promo.expires_at) <= new Date()) {
     await expirePromotion(promo.id, customerId, promo.original_tier_slug, Number(promo.original_cashback_rate))
     results.push(`Promotion expired (time limit reached)`)
+    fireWebhook(studioId, 'promotion.expired', customerId, { reason: 'time_limit' })
     promo = null
   }
 
@@ -219,7 +235,20 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
     await adminSupabase.from('customers').update({ balance: newBalance }).eq('id', customerId)
 
     results.push(`Cashback: ${cashbackAmount.toFixed(2)} kr (${cashbackRate}%${promoApplied ? ' — promotion' : ''})`)
+
+    fireWebhook(studioId, 'balance.updated', customerId, {
+      new_balance: newBalance,
+      cashback_earned: cashbackAmount,
+      cashback_rate: cashbackRate,
+      promotion_applied: promoApplied,
+    })
   }
+
+  fireWebhook(studioId, 'transaction.created', customerId, {
+    amount,
+    cash_amount: cashAmount ?? amount,
+    total_spend: newSpendTotal,
+  })
 
   triggerPassUpdate(customerId)
 
@@ -229,6 +258,7 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
     if (remaining <= 0) {
       await expirePromotion(promo.id, customerId, promo.original_tier_slug, Number(promo.original_cashback_rate))
       results.push(`Promotion expired (usage limit reached)`)
+      fireWebhook(studioId, 'promotion.expired', customerId, { reason: 'usage_limit' })
     } else {
       await adminSupabase
         .from('member_promotions')
