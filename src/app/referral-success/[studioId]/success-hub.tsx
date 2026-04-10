@@ -143,7 +143,8 @@ export function SuccessHub({
     } else {
       // Apple — use stored URL directly or generate a new one
       if (passPlatform === 'apple' && passUrl) {
-        window.location.href = passUrl
+        const sep = passUrl.includes('?') ? '&' : '?'
+        window.location.href = `${passUrl}${sep}token=${encodeURIComponent(customerAccessToken)}`
       } else {
         try {
           const res = await fetch('/api/pass/generate', {
@@ -160,7 +161,8 @@ export function SuccessHub({
             if (dl) {
               const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
               const url = dl.startsWith('http') ? dl : `${PASS_SERVICE}${dl}`
-              window.location.href = url
+              const sep = url.includes('?') ? '&' : '?'
+              window.location.href = `${url}${sep}token=${encodeURIComponent(customerAccessToken)}`
             }
           }
         } catch {

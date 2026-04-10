@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { adminSupabase } from '@/lib/studio-access'
+import { auditLog } from '@/lib/audit-log'
 
 export async function DELETE(
   request: NextRequest,
@@ -33,6 +34,15 @@ export async function DELETE(
       .eq('studio_id', studioId)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    void auditLog({
+      action: 'api_key.revoked',
+      studioId,
+      actorId: user.id,
+      actorType: 'user',
+      targetType: 'api_key',
+      targetId: id,
+    })
 
     return NextResponse.json({ success: true })
   } catch {

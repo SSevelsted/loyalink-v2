@@ -270,7 +270,8 @@ function AddToWalletCard({ customerId, customerAccessToken, brandColor, autoAdd,
       } else {
         const dl = data.downloadUrl ?? `/api/passes/${data.serialNumber}/download`
         const url = dl.startsWith('http') ? dl : `${PASS_SERVICE}${dl}`
-        window.location.href = url
+        const sep = url.includes('?') ? '&' : '?'
+        window.location.href = `${url}${sep}token=${encodeURIComponent(token)}`
       }
       setAdded(true)
     } catch {

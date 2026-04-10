@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getResend, FROM } from '@/lib/resend'
@@ -10,9 +11,14 @@ const supabase = createClient(
 )
 
 function verifyInternalSecret(headerValue: string | null): boolean {
-  const expected = process.env.PASS_SERVICE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY
+  const expected = process.env.PASS_SERVICE_SECRET
   if (!expected || !headerValue) return false
-  return headerValue === expected
+
+  const a = Buffer.from(headerValue)
+  const b = Buffer.from(expected)
+  if (a.length !== b.length) return false
+
+  return crypto.timingSafeEqual(a, b)
 }
 
 export async function POST(request: NextRequest) {

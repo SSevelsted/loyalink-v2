@@ -57,6 +57,25 @@ export async function POST(
   }
 
   const buffer = Buffer.from(await file.arrayBuffer())
+
+  // Server-side magic byte validation
+  const isValidImage = (buf: Buffer): boolean => {
+    if (buf.length < 12) return false
+    // JPEG: FF D8 FF
+    if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return true
+    // PNG: 89 50 4E 47
+    if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return true
+    // GIF: 47 49 46
+    if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return true
+    // WebP: RIFF....WEBP
+    if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+        buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50) return true
+    return false
+  }
+
+  if (!isValidImage(buffer)) {
+    return NextResponse.json({ error: 'Invalid image file' }, { status: 400 })
+  }
   const path = `studio-assets/${customer.studio_id}/customer-avatars/${customer.id}.webp`
 
   const { error: uploadError } = await supabase.storage

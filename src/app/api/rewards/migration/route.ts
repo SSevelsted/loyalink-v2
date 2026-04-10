@@ -59,7 +59,8 @@ export async function POST(request: NextRequest) {
             .eq('loyalty_stage', oldSlug)
 
           if (updateError) {
-            return NextResponse.json({ error: `Failed to migrate tier ${oldSlug}: ${updateError.message}` }, { status: 500 })
+            console.error('[rewards/migration] tier update error:', updateError)
+            return NextResponse.json({ error: 'Failed to migrate tier. Please try again.' }, { status: 500 })
           }
 
           migratedMembers += affected.length
@@ -144,7 +145,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (fetchError) {
-      return NextResponse.json({ error: fetchError.message }, { status: 500 })
+      console.error('[rewards/migration] fetch settings error:', fetchError)
+      return NextResponse.json({ error: 'Failed to load studio settings' }, { status: 500 })
     }
 
     const currentSettings = (studio.settings as Record<string, unknown>) ?? {}
@@ -154,7 +156,8 @@ export async function POST(request: NextRequest) {
       .eq('id', studioId)
 
     if (saveError) {
-      return NextResponse.json({ error: saveError.message }, { status: 500 })
+      console.error('[rewards/migration] save config error:', saveError)
+      return NextResponse.json({ error: 'Failed to save rewards configuration' }, { status: 500 })
     }
 
     // 5. Trigger batch wallet pass updates

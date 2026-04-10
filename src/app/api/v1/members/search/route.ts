@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { adminSupabase } from '@/lib/studio-access'
 import { validateApiKey } from '@/lib/api-keys'
 import { apiSuccess, apiError } from '@/lib/api-response'
+import { escapeIlike } from '@/lib/escape-html'
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
       .from('customers')
       .select('id, name, email, phone, balance, loyalty_stage, has_purchased')
       .eq('studio_id', auth.studioId)
-      .or(`name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`)
+      .or(`name.ilike.%${escapeIlike(q)}%,email.ilike.%${escapeIlike(q)}%,phone.ilike.%${escapeIlike(q)}%`)
       .limit(20)
 
     if (error) return apiError(error.message, 500)

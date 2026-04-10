@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getResend, FROM } from '@/lib/resend'
+import { escapeHtml } from '@/lib/escape-html'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -57,8 +58,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Customer has no email address' }, { status: 400 })
     }
 
-    const studioName = studio?.name ?? 'your studio'
-    const sym = currency ?? 'kr'
+    const studioName = escapeHtml(studio?.name ?? 'your studio')
+    const sym = escapeHtml(currency ?? 'kr')
     const fmt = (n: number) => `${Math.round(n)} ${sym}`
 
     // Build breakdown rows
@@ -71,13 +72,13 @@ export async function POST(request: NextRequest) {
       rows.push(`<tr><td style="padding:6px 0;color:#555">Charged on POS</td><td style="padding:6px 0;text-align:right;font-weight:600">${fmt(chargeOnPOS)}</td></tr>`)
     }
     if (cashbackEarned > 0) {
-      rows.push(`<tr><td style="padding:6px 0;color:#555">Cashback earned (${cashbackRate}%)</td><td style="padding:6px 0;text-align:right;color:#10B981;font-weight:500">+${fmt(cashbackEarned)}</td></tr>`)
+      rows.push(`<tr><td style="padding:6px 0;color:#555">Cashback earned (${escapeHtml(String(cashbackRate))}%)</td><td style="padding:6px 0;text-align:right;color:#10B981;font-weight:500">+${fmt(cashbackEarned)}</td></tr>`)
     }
     rows.push(`<tr style="border-top:1px solid #eee"><td style="padding:8px 0 0;font-weight:600">Your balance</td><td style="padding:8px 0 0;text-align:right;font-weight:700">${fmt(newBalance)}</td></tr>`)
 
     const tierHtml = tierUpgraded && newTierName
       ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 16px;margin:0 0 20px;text-align:center">
-           <p style="margin:0;font-weight:600;color:#16a34a">You've been upgraded to ${newTierName}!</p>
+           <p style="margin:0;font-weight:600;color:#16a34a">You've been upgraded to ${escapeHtml(newTierName)}!</p>
          </div>`
       : ''
 
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
         </table>
 
         <p style="color:#555;margin:20px 0 0;font-size:14px">
-          Your current tier: <strong>${tierUpgraded ? newTierName : tierName}</strong>
+          Your current tier: <strong>${escapeHtml(tierUpgraded ? newTierName : tierName)}</strong>
         </p>
 
         <p style="color:#888;font-size:13px;margin:24px 0 0">

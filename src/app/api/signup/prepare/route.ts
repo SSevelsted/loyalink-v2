@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getStripe } from '@/lib/stripe'
+import { signupLimiter, getIP } from '@/lib/rate-limit'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,6 +32,11 @@ async function emailExists(email: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const { success } = signupLimiter.check(5, getIP(request))
+  if (!success) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   const { email, studioName, promoCode } = await request.json()
   const normalizedEmail = email?.trim()?.toLowerCase()
   const normalizedStudioName = studioName?.trim()

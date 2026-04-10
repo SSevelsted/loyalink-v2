@@ -18,7 +18,9 @@ app.use((req, _res, next) => {
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGINS?.split(',') || ['https://loyalink.ai', 'https://www.loyalink.ai'],
+}));
 app.use(express.json());
 
 // Health check

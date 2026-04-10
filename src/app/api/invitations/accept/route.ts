@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { auditLog } from '@/lib/audit-log'
 
 export async function POST(request: NextRequest) {
   const { token, email, password } = await request.json()
@@ -10,12 +11,13 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient()
 
-  // Look up invitation
+  // Atomically claim the invitation to prevent race conditions
   const { data: invitation, error: invError } = await supabase
     .from('invitations')
-    .select('*')
+    .update({ accepted_at: new Date().toISOString() })
     .eq('token', token)
     .is('accepted_at', null)
+    .select('*')
     .single()
 
   if (invError || !invitation) {
@@ -23,6 +25,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (new Date(invitation.expires_at) < new Date()) {
+    // Revert — invitation was expired but we claimed it
+    await supabase
+      .from('invitations')
+      .update({ accepted_at: null })
+      .eq('id', invitation.id)
     return NextResponse.json({ error: 'Invitation has expired' }, { status: 410 })
   }
 
@@ -65,11 +72,15 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Mark invitation as accepted
-  await supabase
-    .from('invitations')
-    .update({ accepted_at: new Date().toISOString() })
-    .eq('id', invitation.id)
+  void auditLog({
+    action: 'invitation.accepted',
+    studioId: invitation.studio_id,
+    actorId: userId,
+    actorType: 'user',
+    targetType: 'invitation',
+    targetId: invitation.id,
+    metadata: { role: invitation.role, email: invitation.email },
+  })
 
   return NextResponse.json({ success: true })
 }

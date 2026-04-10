@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../config.js';
 import { applePassService } from '../services/applePassService.js';
 import { requireInternalAuth } from '../middleware/internalAuth.js';
+import { verifyCustomerAccessToken } from '../utils/customerAccess.js';
 
 export const passRoutes = Router();
 
@@ -135,6 +136,14 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
     const { serialNumber } = req.params;
     console.log(`[download] Request for serial: ${serialNumber}`);
 
+    // Verify customer access token
+    const token = req.query.token as string | undefined;
+    const payload = verifyCustomerAccessToken(token);
+    if (!payload) {
+      console.log(`[download] Unauthorized: invalid or missing token for ${serialNumber}`);
+      return res.status(401).json({ error: 'Unauthorized: valid token query parameter required' });
+    }
+
     // Fetch pass and customer data
     const { data: walletPass, error: passError } = await supabase
       .from('wallet_passes')
@@ -146,6 +155,13 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
       console.log(`[download] Pass not found: ${serialNumber}`, passError);
       return res.status(404).json({ error: 'Pass not found' });
     }
+
+    // Verify token belongs to the pass owner
+    if (walletPass.customer_id !== payload.customerId) {
+      console.log(`[download] Forbidden: token customer ${payload.customerId} does not own pass ${serialNumber}`);
+      return res.status(403).json({ error: 'Forbidden: token does not match pass owner' });
+    }
+
     console.log(`[download] Pass found, generating pkpass...`);
 
     const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string };

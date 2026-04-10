@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { adminSupabase } from '@/lib/studio-access'
+import { auditLog } from '@/lib/audit-log'
 
-async function getAuthedStudioId(request: NextRequest): Promise<{ studioId: string; error?: never } | { studioId?: never; error: NextResponse }> {
+async function getAuthedStudioId(request: NextRequest): Promise<{ studioId: string; userId: string; error?: never } | { studioId?: never; userId?: never; error: NextResponse }> {
   const userClient = await createClient()
   const { data: { user } } = await userClient.auth.getUser()
   if (!user) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
@@ -21,7 +22,7 @@ async function getAuthedStudioId(request: NextRequest): Promise<{ studioId: stri
     return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
   }
 
-  return { studioId }
+  return { studioId, userId: user.id }
 }
 
 export async function PATCH(
@@ -80,6 +81,15 @@ export async function DELETE(
       .eq('studio_id', auth.studioId)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    void auditLog({
+      action: 'webhook.deleted',
+      studioId: auth.studioId,
+      actorId: auth.userId,
+      actorType: 'user',
+      targetType: 'webhook',
+      targetId: id,
+    })
 
     return NextResponse.json({ success: true })
   } catch {

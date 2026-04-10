@@ -7,15 +7,10 @@ type EmbedAccessPayload = {
 }
 
 function getSigningSecret(): string {
-  const secret =
-    process.env.EMBED_ACCESS_SECRET ||
-    process.env.CUSTOMER_ACCESS_SECRET ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-
+  const secret = process.env.EMBED_ACCESS_SECRET
   if (!secret) {
-    throw new Error('A signing secret is required for embed access tokens')
+    throw new Error('EMBED_ACCESS_SECRET environment variable is required')
   }
-
   return secret
 }
 

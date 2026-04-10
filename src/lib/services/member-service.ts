@@ -77,15 +77,19 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
   if (referralCode && config.referrals.enabled) {
     const { data: referrer } = await adminSupabase
       .from('customers')
-      .select('id')
+      .select('id, email')
       .eq('referral_code', referralCode.toUpperCase())
       .eq('studio_id', studioId)
       .single()
 
     if (referrer) {
-      referrerCustomerId = referrer.id
-      cashbackRate = config.referrals.friend_cashback_rate
-      loyaltyStage = config.referrals.friend_tier_slug
+      // Prevent self-referral by comparing emails
+      const isSelfReferral = email && referrer.email && email.toLowerCase() === referrer.email.toLowerCase()
+      if (!isSelfReferral) {
+        referrerCustomerId = referrer.id
+        cashbackRate = config.referrals.friend_cashback_rate
+        loyaltyStage = config.referrals.friend_tier_slug
+      }
     }
   }
 

@@ -745,22 +745,27 @@ Each webhook gets:
 
 ### Verifying Signatures
 
-Every request includes an `X-Loyalink-Signature` header containing an HMAC-SHA256 hex digest of the raw request body, signed with your webhook secret.
+Every request includes an `X-Loyalink-Signature` header and an `X-Loyalink-Timestamp` header. The signature is an HMAC-SHA256 hex digest of `${timestamp}.${body}`, signed with your webhook secret. This prevents replay attacks — reject requests with timestamps older than 5 minutes.
 
 ```javascript
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 
-function verifySignature(body, signature, secret) {
+function verifySignature(body, signature, secret, timestamp) {
+  // Reject old timestamps (5-minute tolerance)
+  const age = Math.floor(Date.now() / 1000) - Number(timestamp)
+  if (age > 300) return false
+
   const expected = createHmac('sha256', secret)
-    .update(body)
+    .update(`${timestamp}.${body}`)
     .digest('hex')
-  return expected === signature
+  return timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
 }
 
 // In your handler:
 app.post('/webhooks/loyalink', (req, res) => {
   const sig = req.headers['x-loyalink-signature']
-  if (!verifySignature(req.rawBody, sig, process.env.LOYALINK_WEBHOOK_SECRET)) {
+  const timestamp = req.headers['x-loyalink-timestamp']
+  if (!verifySignature(req.rawBody, sig, process.env.LOYALINK_WEBHOOK_SECRET, timestamp)) {
     return res.status(401).send('Invalid signature')
   }
 
@@ -787,7 +792,8 @@ app.post('/webhooks/loyalink', (req, res) => {
 | Header | Value |
 |--------|-------|
 | `Content-Type` | `application/json` |
-| `X-Loyalink-Signature` | HMAC-SHA256 hex digest |
+| `X-Loyalink-Signature` | HMAC-SHA256 hex digest of `${timestamp}.${body}` |
+| `X-Loyalink-Timestamp` | Unix timestamp (seconds) of delivery |
 | `X-Loyalink-Event` | Event type (e.g. `balance.updated`) |
 
 ### Retry Policy

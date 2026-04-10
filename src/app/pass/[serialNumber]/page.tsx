@@ -1,12 +1,33 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { PassWallet } from './_components/pass-wallet'
+import { createClient } from '@/lib/supabase/server'
+import { createCustomerAccessToken } from '@/lib/customer-access'
 
 const PASS_SERVICE_URL = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
 
-export default async function PassPage({ params }: { params: Promise<{ serialNumber: string }> }) {
+export default async function PassPage({ params, searchParams }: { params: Promise<{ serialNumber: string }>; searchParams: Promise<{ token?: string }> }) {
   const { serialNumber } = await params
-  const appleDownloadUrl = `${PASS_SERVICE_URL}/api/passes/${serialNumber}/download`
+  const { token: providedToken } = await searchParams
+
+  // Use provided token or generate a short-lived one by looking up the pass owner
+  let token = providedToken
+  if (!token) {
+    const supabase = await createClient()
+    const { data: pass } = await supabase
+      .from('wallet_passes')
+      .select('customer_id')
+      .eq('serial_number', serialNumber)
+      .single()
+
+    if (!pass) {
+      return <div style={{ padding: '2rem', textAlign: 'center' }}>Pass not found.</div>
+    }
+
+    token = createCustomerAccessToken(pass.customer_id, 5 * 60)
+  }
+
+  const appleDownloadUrl = `${PASS_SERVICE_URL}/api/passes/${serialNumber}/download?token=${encodeURIComponent(token)}`
 
   const headersList = await headers()
   const userAgent = headersList.get('user-agent') || ''

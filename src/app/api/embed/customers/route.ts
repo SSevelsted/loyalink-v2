@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminSupabase } from '@/lib/studio-access'
 import { verifyEmbedToken } from '@/lib/embed-access'
+import { escapeIlike } from '@/lib/escape-html'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
@@ -27,7 +28,8 @@ export async function GET(request: NextRequest) {
     .eq('studio_id', studioId)
 
   if (search) {
-    query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
+    const escaped = escapeIlike(search)
+    query = query.or(`name.ilike.%${escaped}%,email.ilike.%${escaped}%,phone.ilike.%${escaped}%`)
   }
   if (tier) {
     query = query.eq('loyalty_stage', tier)

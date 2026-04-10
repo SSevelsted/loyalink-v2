@@ -3,6 +3,7 @@ import { adminSupabase } from '@/lib/studio-access'
 import { validateApiKey } from '@/lib/api-keys'
 import { apiError, apiPaginated, apiSuccess } from '@/lib/api-response'
 import { createMember, DuplicateMemberError } from '@/lib/services/member-service'
+import { escapeIlike } from '@/lib/escape-html'
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,11 +21,12 @@ export async function GET(request: NextRequest) {
 
     let query = adminSupabase
       .from('customers')
-      .select('*', { count: 'exact' })
+      .select('id, name, email, phone, balance, tier_slug, loyalty_stage, referral_code, metadata, custom_fields, created_at, has_purchased, total_real_spend', { count: 'exact' })
       .eq('studio_id', auth.studioId)
 
     if (search) {
-      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
+      const escaped = escapeIlike(search)
+      query = query.or(`name.ilike.%${escaped}%,email.ilike.%${escaped}%,phone.ilike.%${escaped}%`)
     }
     if (tier) {
       query = query.eq('loyalty_stage', tier)

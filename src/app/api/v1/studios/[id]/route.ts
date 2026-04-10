@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     const { data: studio, error } = await adminSupabase
       .from('studios')
-      .select('*')
+      .select('id, name, slug, settings, rewards_config, subscription_status, created_at')
       .eq('id', id)
       .single()
 
@@ -45,11 +45,46 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     if (!current) return apiError('Studio not found', 404)
 
+    const ALLOWED_SETTINGS_KEYS = new Set([
+      'rewards_config',
+      'currency',
+      'language',
+      'story_copy',
+      'onboarding_completed',
+      'logoUrl',
+      'backgroundColor',
+      'textColor',
+      'brandColor',
+      'buttonText',
+      'showEmail',
+      'showPhone',
+      'customFields',
+      'termsUrl',
+      'benefits',
+      'showTierProgression',
+      'successHeading',
+      'successMessage',
+      'email',
+      'phone',
+      'address_street',
+      'address_city',
+      'address_postal_code',
+      'address_country',
+      'source',
+    ])
+
     const updates: Record<string, unknown> = {}
     if (name) updates.name = name.trim()
     if (settings) {
+      // Whitelist allowed settings keys to prevent mass assignment
+      const filtered: Record<string, unknown> = {}
+      for (const key of Object.keys(settings)) {
+        if (ALLOWED_SETTINGS_KEYS.has(key)) {
+          filtered[key] = settings[key]
+        }
+      }
       // Merge settings (don't replace)
-      updates.settings = { ...(current.settings as Record<string, unknown>), ...settings }
+      updates.settings = { ...(current.settings as Record<string, unknown>), ...filtered }
     }
 
     const { data: studio, error } = await adminSupabase

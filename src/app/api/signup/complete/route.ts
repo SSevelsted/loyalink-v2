@@ -4,6 +4,7 @@ import { getStripe } from '@/lib/stripe'
 import { getResend, FROM } from '@/lib/resend'
 import { PLATFORM_URL } from '@/lib/constants'
 import { generateUniqueSlug } from '@/lib/slug'
+import { signupLimiter, getIP } from '@/lib/rate-limit'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,6 +19,11 @@ const PLAN_PRICE_IDS: Record<string, string | undefined> = {
 }
 
 export async function POST(request: NextRequest) {
+  const { success } = signupLimiter.check(5, getIP(request))
+  if (!success) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   try {
     const { name, email, password, studioName, plan, customerId, paymentMethodId, promoCode } =
       await request.json()
@@ -38,10 +44,7 @@ export async function POST(request: NextRequest) {
 
     if (authError || !authData.user) {
       console.error('[signup/complete] auth error:', authError)
-      const message = authError?.message?.includes('already been registered')
-        ? 'An account with this email already exists.'
-        : (authError?.message ?? 'Failed to create account')
-      return NextResponse.json({ error: message }, { status: 400 })
+      return NextResponse.json({ error: 'Could not create account. Please try again or contact support.' }, { status: 400 })
     }
 
     const user = authData.user

@@ -25,10 +25,14 @@ export async function validateApiKey(request: NextRequest): Promise<ApiKeyResult
   const token = getBearerToken(request.headers.get('authorization'))
   if (!token) return null
 
-  // Check master key first
+  // Check master key first (timing-safe)
   const masterKey = process.env.LOYALINK_MASTER_API_KEY
-  if (masterKey && token === masterKey) {
-    return { studioId: null, keyId: 'master' }
+  if (masterKey) {
+    const a = Buffer.from(token)
+    const b = Buffer.from(masterKey)
+    if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
+      return { studioId: null, keyId: 'master' }
+    }
   }
 
   // Must be a prefixed key

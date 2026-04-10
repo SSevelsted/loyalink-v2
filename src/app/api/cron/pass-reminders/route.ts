@@ -10,6 +10,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getResend, FROM } from '@/lib/resend'
 import { createCustomerAccessToken } from '@/lib/customer-access'
 import { MARKETING_URL } from '@/lib/constants'
+import { verifyCronSecret } from '@/lib/cron'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,8 +18,7 @@ const supabase = createClient(
 )
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!verifyCronSecret(request.headers.get('authorization'))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

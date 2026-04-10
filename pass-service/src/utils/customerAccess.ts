@@ -21,18 +21,6 @@ function sign(value: string): string {
     .digest('base64url')
 }
 
-export function createCustomerAccessToken(customerId: string, ttlSeconds = 60 * 60): string {
-  const payload: CustomerAccessPayload = {
-    customerId,
-    scope: 'customer_access',
-    exp: Math.floor(Date.now() / 1000) + ttlSeconds,
-  }
-
-  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url')
-  const signature = sign(encodedPayload)
-  return `${encodedPayload}.${signature}`
-}
-
 export function verifyCustomerAccessToken(token: string | null | undefined): CustomerAccessPayload | null {
   if (!token) return null
 
@@ -58,9 +46,4 @@ export function verifyCustomerAccessToken(token: string | null | undefined): Cus
   } catch {
     return null
   }
-}
-
-export function getBearerToken(headerValue: string | null): string | null {
-  if (!headerValue?.startsWith('Bearer ')) return null
-  return headerValue.slice('Bearer '.length).trim() || null
 }

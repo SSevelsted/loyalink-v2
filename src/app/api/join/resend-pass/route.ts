@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { createCustomerAccessToken } from '@/lib/customer-access'
 import { getResend, FROM } from '@/lib/resend'
 import { MARKETING_URL } from '@/lib/constants'
+import { escapeHtml } from '@/lib/escape-html'
+import { resendPassLimiter, getIP } from '@/lib/rate-limit'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,6 +12,11 @@ const supabase = createClient(
 )
 
 export async function POST(request: NextRequest) {
+  const { success } = resendPassLimiter.check(3, getIP(request))
+  if (!success) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   try {
     const { studioId, email } = await request.json()
 
@@ -37,7 +44,7 @@ export async function POST(request: NextRequest) {
       .eq('id', studioId)
       .single()
 
-    const studioName = studio?.name ?? 'your loyalty program'
+    const studioName = escapeHtml(studio?.name ?? 'your loyalty program')
 
     // Generate a 24h access token
     const token = createCustomerAccessToken(customer.id, 24 * 60 * 60)
@@ -56,12 +63,12 @@ export async function POST(request: NextRequest) {
       html: `
         <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;color:#111">
           <h2 style="font-size:20px;font-weight:600;margin-bottom:8px">Your loyalty card is ready</h2>
-          <p style="color:#555;margin:0 0 16px">Hi ${customer.name},</p>
+          <p style="color:#555;margin:0 0 16px">Hi ${escapeHtml(customer.name ?? '')},</p>
           <p style="color:#555;margin:0 0 16px">
             Tap the button below on your phone to add your <strong>${studioName}</strong> loyalty card to your wallet.
           </p>
           <p style="margin:0 0 24px">
-            <a href="${passLink}"
+            <a href="${escapeHtml(passLink)}"
                style="display:inline-block;background:#000;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:500">
               Add to Wallet →
             </a>
