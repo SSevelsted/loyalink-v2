@@ -60,6 +60,17 @@ export async function POST(request: NextRequest) {
     if (!name?.trim()) {
       return apiError('name is required', 400)
     }
+    if (name.trim().length > 255) {
+      return apiError('name must be 255 characters or less', 400)
+    }
+
+    // Validate email format
+    if (email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(email) || email.length > 320) {
+        return apiError('Invalid email format', 400)
+      }
+    }
 
     const result = await createMember({
       studioId: auth.studioId,

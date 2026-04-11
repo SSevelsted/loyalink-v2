@@ -46,6 +46,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email and password required for new account' }, { status: 400 })
     }
 
+    // Ensure the email matches the invitation to prevent token hijacking
+    if (email.toLowerCase() !== invitation.email.toLowerCase()) {
+      // Revert the claimed invitation
+      await supabase
+        .from('invitations')
+        .update({ accepted_at: null })
+        .eq('id', invitation.id)
+      return NextResponse.json({ error: 'Email does not match invitation' }, { status: 400 })
+    }
+
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,

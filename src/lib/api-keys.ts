@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import { NextRequest } from 'next/server'
 import { adminSupabase } from '@/lib/studio-access'
 import { getBearerToken } from '@/lib/customer-access'
+import { apiKeyLimiter } from '@/lib/rate-limit'
 
 const KEY_PREFIX = 'lk_live_'
 
@@ -47,6 +48,10 @@ export async function validateApiKey(request: NextRequest): Promise<ApiKeyResult
     .single()
 
   if (!data) return null
+
+  // Per-key rate limiting (100 requests/min)
+  const { success } = apiKeyLimiter.check(100, data.id)
+  if (!success) return null
 
   // Update last_used_at (fire-and-forget)
   void adminSupabase

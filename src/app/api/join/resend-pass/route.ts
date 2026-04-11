@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { anonSupabase as supabase } from '@/lib/studio-access'
 import { createCustomerAccessToken } from '@/lib/customer-access'
 import { getResend, FROM } from '@/lib/resend'
 import { MARKETING_URL } from '@/lib/constants'
 import { escapeHtml } from '@/lib/escape-html'
 import { resendPassLimiter, getIP } from '@/lib/rate-limit'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function POST(request: NextRequest) {
   const { success } = resendPassLimiter.check(3, getIP(request))

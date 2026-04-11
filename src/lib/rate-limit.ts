@@ -33,6 +33,14 @@ export const signupLimiter = rateLimit({ interval: 60_000, uniqueTokenPerInterva
 export const resendPassLimiter = rateLimit({ interval: 60_000, uniqueTokenPerInterval: 500 })
 export const referralLimiter = rateLimit({ interval: 60_000, uniqueTokenPerInterval: 500 })
 
+// Per-API-key limiter for authenticated API routes (100 req/min per key)
+export const apiKeyLimiter = rateLimit({ interval: 60_000, uniqueTokenPerInterval: 1000 })
+
 export function getIP(request: Request): string {
-  return (request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()) || 'unknown'
+  // Prefer Vercel's trusted header, fall back to x-forwarded-for
+  return (
+    request.headers.get('x-real-ip') ||
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    'unknown'
+  )
 }

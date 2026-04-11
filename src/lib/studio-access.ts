@@ -1,9 +1,15 @@
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 
-export const adminSupabase = createAdminClient(
+export const adminSupabase = createSupabaseClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+/** Anon-key client for public read-only routes — respects RLS policies */
+export const anonSupabase = createSupabaseClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
 export async function getSessionUser() {

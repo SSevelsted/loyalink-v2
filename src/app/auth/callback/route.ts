@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+// Only allow redirects to local paths (no open redirect)
+function getSafeRedirect(next: string | null): string {
+  if (!next) return '/overview'
+  // Must start with / and not // (protocol-relative URL)
+  if (!next.startsWith('/') || next.startsWith('//')) return '/overview'
+  return next
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const code = searchParams.get('code')
-  const next = searchParams.get('next') || '/overview'
+  const next = getSafeRedirect(searchParams.get('next'))
 
   if (code) {
     const supabase = await createClient()

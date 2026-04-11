@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 
 function getInternalSecret(): string | null {
-  return process.env.PASS_SERVICE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || null;
+  return process.env.PASS_SERVICE_SECRET || null;
 }
 
 export function requireInternalAuth(req: Request, res: Response, next: NextFunction) {
