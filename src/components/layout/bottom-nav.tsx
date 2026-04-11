@@ -11,6 +11,7 @@ import {
   ScanLine,
 } from 'lucide-react'
 import { ScanDialog } from '@/components/scanner/scan-dialog'
+import { hapticTap } from '@/lib/platform'
 
 const leftTabs = [
   { title: 'Dashboard', href: '/overview', icon: LayoutDashboard },
@@ -27,6 +28,7 @@ function NavTab({ tab, pathname }: { tab: typeof leftTabs[number]; pathname: str
   return (
     <Link
       href={tab.href}
+      onClick={() => hapticTap()}
       className={`relative flex flex-1 flex-col items-center justify-center gap-1 py-2 rounded-xl transition-all active:scale-95 ${
         isActive ? 'text-primary' : 'text-muted-foreground'
       }`}
@@ -55,7 +57,7 @@ export function BottomNav() {
           {/* Center scan button — flex-1 wrapper keeps it truly centered */}
           <div className="flex flex-1 items-center justify-center">
             <button
-              onClick={() => setScanOpen(true)}
+              onClick={() => { hapticTap(); setScanOpen(true) }}
               className="relative -mt-7 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground glow-primary active:scale-95 transition-transform"
             >
               <ScanLine className="h-6 w-6" />

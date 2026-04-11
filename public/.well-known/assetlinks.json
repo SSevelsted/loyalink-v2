@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "ai.loyalink.app",
+      "sha256_cert_fingerprints": [
+        "8E:C4:A9:17:E3:4E:92:83:F6:20:25:D3:55:14:4E:93:90:E4:DE:D8:68:1A:0F:48:A3:7D:A6:AD:99:A6:B5:40"
+      ]
+    }
+  }
+]

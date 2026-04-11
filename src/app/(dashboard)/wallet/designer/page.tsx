@@ -16,11 +16,28 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import type { TierTheme, CardField } from '@/types/database'
 import { DEFAULT_TIER_THEMES, DEFAULT_CARD_FIELDS, DEFAULT_REWARDS_CONFIG } from '@/types/database'
+import { isNative } from '@/lib/platform'
+import { Monitor } from 'lucide-react'
 
 const FIRST_TIER_SLUG = DEFAULT_REWARDS_CONFIG.tiers[0].slug
 
 export default function DesignerPage() {
   const { currentStudio } = useStudio()
+
+  // Wallet designer requires a wide screen — not usable on mobile native
+  if (isNative()) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
+        <div className="h-14 w-14 rounded-2xl bg-secondary border border-border flex items-center justify-center mb-4">
+          <Monitor className="h-6 w-6 text-muted-foreground" />
+        </div>
+        <h2 className="text-lg font-semibold text-foreground mb-2">Use desktop for the card designer</h2>
+        <p className="text-sm text-muted-foreground max-w-xs">
+          The wallet card designer needs a wider screen. Open Loyalink on your computer to edit your card design.
+        </p>
+      </div>
+    )
+  }
   const { data: templates, isLoading } = usePassTemplates()
   const { data: rewardsConfig } = useRewardsConfig()
   const updateTemplate = useUpdatePassTemplate()

@@ -18,6 +18,22 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: 'Loyalink',
   description: 'Cashback loyalty, wallet passes, and referrals — built for tattoo studios.',
+  manifest: '/manifest.json',
+  themeColor: '#09090b',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Loyalink',
+  },
+  icons: {
+    icon: '/icons/icon-192x192.png',
+    apple: '/icons/icon-192x192.png',
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    viewportFit: 'cover',
+  },
 }
 
 export default function RootLayout({

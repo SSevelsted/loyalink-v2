@@ -7,6 +7,7 @@ import { QrScanner } from '@/components/scanner/qr-scanner'
 import { Button } from '@/components/ui/button'
 import { X, Keyboard } from 'lucide-react'
 import Link from 'next/link'
+import { hapticSuccess } from '@/lib/platform'
 
 export default function ScanPage() {
   const [manualMode, setManualMode] = useState(false)
@@ -43,6 +44,7 @@ export default function ScanPage() {
 
   const handleScan = useCallback((result: string) => {
     setScanResult(result)
+    hapticSuccess()
     lookupCustomer(result)
   }, [])
 

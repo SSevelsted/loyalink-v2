@@ -52,10 +52,17 @@ export function useAuth() {
   }
 
   const signInWithGoogle = async () => {
+    // On native, open OAuth in the system browser (Safari/Chrome) instead of
+    // in-WebView redirect, then handle the callback via deep link
+    const { isNative } = await import('@/lib/platform')
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/overview`,
+        redirectTo: isNative()
+          ? 'ai.loyalink.app://auth/callback?next=/overview'
+          : `${window.location.origin}/auth/callback?next=/overview`,
+        ...(isNative() && { skipBrowserRedirect: false }),
       },
     })
     return { error }

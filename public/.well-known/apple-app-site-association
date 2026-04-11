@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["YDBX8M7WAF.ai.loyalink.app"],
+        "paths": [
+          "/auth/callback*",
+          "/overview",
+          "/customers/*",
+          "/scan",
+          "/transactions"
+        ]
+      }
+    ]
+  }
+}

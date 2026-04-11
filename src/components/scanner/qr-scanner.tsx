@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import jsQR from 'jsqr'
+import { isNative } from '@/lib/platform'
 
 interface QrScannerProps {
   onScan: (result: string) => void
@@ -16,8 +17,62 @@ export function QrScanner({ onScan, active, fullscreen }: QrScannerProps) {
   const rafRef = useRef<number>(0)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  const [useNative, setUseNative] = useState(false)
 
-  function stop() {
+  // Native MLKit scanner (Capacitor)
+  const startNative = useCallback(async () => {
+    try {
+      const { BarcodeScanner, BarcodeFormat } = await import('@capacitor-mlkit/barcode-scanning')
+
+      const { camera } = await BarcodeScanner.checkPermissions()
+      if (camera !== 'granted') {
+        const { camera: result } = await BarcodeScanner.requestPermissions()
+        if (result !== 'granted') {
+          setError('Camera permission denied')
+          return
+        }
+      }
+
+      // Make WebView transparent so native camera shows through
+      document.body.style.background = 'transparent'
+      document.documentElement.style.background = 'transparent'
+
+      setReady(true)
+
+      const listener = await BarcodeScanner.addListener('barcodesScanned', (event) => {
+        const first = event.barcodes?.[0]
+        if (first?.rawValue) {
+          onScan(first.rawValue)
+        }
+      })
+
+      await BarcodeScanner.startScan({ formats: [BarcodeFormat.QrCode] })
+
+      return () => {
+        listener.remove()
+        BarcodeScanner.stopScan()
+        document.body.style.background = ''
+        document.documentElement.style.background = ''
+      }
+    } catch {
+      setError('Failed to start native scanner')
+    }
+  }, [onScan])
+
+  const stopNative = useCallback(async () => {
+    try {
+      const { BarcodeScanner } = await import('@capacitor-mlkit/barcode-scanning')
+      await BarcodeScanner.stopScan()
+      document.body.style.background = ''
+      document.documentElement.style.background = ''
+    } catch {
+      // ignore
+    }
+    setReady(false)
+  }, [])
+
+  // Web jsQR scanner (fallback)
+  function stopWeb() {
     cancelAnimationFrame(rafRef.current)
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop())
@@ -45,25 +100,13 @@ export function QrScanner({ onScan, active, fullscreen }: QrScannerProps) {
     const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' })
     if (code?.data) {
       onScan(code.data)
-      // Pause for 1.5s after a detection so the lookup/navigation can complete
-      // before the scanner starts firing again (prevents duplicate lookups)
       setTimeout(() => { rafRef.current = requestAnimationFrame(scan) }, 1500)
       return
     }
     rafRef.current = requestAnimationFrame(scan)
   }
 
-  useEffect(() => {
-    if (!active) {
-      stop()
-      return
-    }
-    start()
-    return () => { stop() }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active])
-
-  async function start() {
+  async function startWeb() {
     setError(null)
     setReady(false)
     try {
@@ -79,12 +122,41 @@ export function QrScanner({ onScan, active, fullscreen }: QrScannerProps) {
         scan()
       }
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        // play() was interrupted (e.g. by React Strict Mode remount) – ignore
-        return
-      }
+      if (err instanceof DOMException && err.name === 'AbortError') return
       setError('Camera access denied. Allow camera in browser settings.')
     }
+  }
+
+  useEffect(() => {
+    setUseNative(isNative())
+  }, [])
+
+  useEffect(() => {
+    if (!active) {
+      useNative ? stopNative() : stopWeb()
+      return
+    }
+    useNative ? startNative() : startWeb()
+    return () => { useNative ? stopNative() : stopWeb() }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, useNative])
+
+  // On native, the camera renders behind the transparent WebView — no video element needed
+  if (useNative) {
+    return (
+      <div className={fullscreen ? "absolute inset-0" : "relative w-full aspect-square overflow-hidden rounded-2xl"}>
+        {error && (
+          <div className="absolute inset-0 flex items-center justify-center p-6 bg-black">
+            <p className="text-sm text-red-400 text-center">{error}</p>
+          </div>
+        )}
+        {!ready && !error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black">
+            <div className="h-7 w-7 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -97,7 +169,6 @@ export function QrScanner({ onScan, active, fullscreen }: QrScannerProps) {
       />
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Corner bracket overlay — only in non-fullscreen (fullscreen parent draws its own) */}
       {!fullscreen && ready && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="relative h-[55%] w-[55%]">
