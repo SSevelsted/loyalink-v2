@@ -5,6 +5,7 @@ import { customAlphabet } from 'nanoid'
 import { createCustomerAccessToken } from '@/lib/customer-access'
 import { passServiceFetch } from '@/lib/pass-service'
 import { fireWebhook } from '@/lib/services/webhook-service'
+import { sendCustomerWelcome } from '@/lib/email/send'
 
 const PASS_SERVICE_URL = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
 
@@ -174,6 +175,11 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
     cashback_rate: cashbackRate,
     referred_by: referrerCustomerId,
   })
+
+  // Send welcome email (fire-and-forget)
+  if (email) {
+    sendCustomerWelcome(customer.id, studioId)
+  }
 
   // Update signup count
   if (landingPageId) {

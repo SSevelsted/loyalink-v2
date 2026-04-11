@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import type { AudienceFilter } from '@/types/database'
 import { passServiceFetch } from '@/lib/pass-service'
+import { sendWinBack } from '@/lib/email/send'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -225,6 +226,13 @@ export async function POST(request: NextRequest) {
           automationId: automation.id,
         }),
       })
+
+      // Send win-back emails for inactive customer automations (fire-and-forget)
+      if (automation.trigger_type === 'days_inactive') {
+        for (const cid of newCustomerIds) {
+          sendWinBack(cid, automation.studio_id).catch(() => {})
+        }
+      }
 
       // Log dedup entries
       const logs = newCustomerIds.map(customerId => ({

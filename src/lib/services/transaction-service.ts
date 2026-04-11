@@ -4,6 +4,7 @@ import type { RewardsConfig, UpgradeTriggerConfig } from '@/types/database'
 import { passServiceFetch } from '@/lib/pass-service'
 import { expirePromotion } from '@/lib/services/promotion-service'
 import { fireWebhook } from '@/lib/services/webhook-service'
+import { sendTierUpgrade, sendReferralReward } from '@/lib/email/send'
 
 type ProcessTransactionInput = {
   customerId: string
@@ -149,6 +150,20 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
         referrer_referral_count: newCount,
       })
 
+      // Send referral reward email to the referrer (fire-and-forget)
+      const { data: referredCustomer } = await adminSupabase
+        .from('customers')
+        .select('name')
+        .eq('id', customerId)
+        .single()
+
+      sendReferralReward(
+        referralRow.referrer_customer_id,
+        studioId,
+        referredCustomer?.name ?? 'A friend',
+        config.referrals.referrer_cashback_bonus_per_ref,
+      )
+
       triggerPassUpdate(referralRow.referrer_customer_id)
     }
   }
@@ -182,6 +197,9 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
       to_tier_name: newTier?.name ?? newTierSlug,
       cashback_rate: newTier?.cashback_rate,
     })
+
+    // Send tier upgrade email (fire-and-forget)
+    sendTierUpgrade(customerId, studioId, customer.loyalty_stage, newTierSlug)
 
     triggerPassUpdate(customerId)
   }

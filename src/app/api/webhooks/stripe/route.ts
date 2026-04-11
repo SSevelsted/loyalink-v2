@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getStripe } from '@/lib/stripe'
 import type Stripe from 'stripe'
+import { sendSubscriptionConfirmed } from '@/lib/email/send'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -91,14 +92,22 @@ export async function POST(request: NextRequest) {
       if (subId) {
         const { data: studio } = await supabase
           .from('studios')
-          .select('id, is_agency')
+          .select('id, is_agency, subscription_status')
           .eq('stripe_subscription_id', subId)
           .single()
         if (studio && !studio.is_agency) {
+          const wasTrialing = studio.subscription_status === 'trial'
           await supabase
             .from('studios')
             .update({ subscription_status: 'active' })
             .eq('id', studio.id)
+
+          // Send subscription confirmed email on first payment (trial → active)
+          if (wasTrialing) {
+            sendSubscriptionConfirmed(studio.id).catch(err =>
+              console.error('[stripe/webhook] subscription confirmed email error:', err)
+            )
+          }
         }
       }
       break

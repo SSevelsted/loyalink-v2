@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getStripe } from '@/lib/stripe'
-import { getResend, FROM } from '@/lib/resend'
 import { PLATFORM_URL } from '@/lib/constants'
+import { sendStudioWelcome } from '@/lib/email/send'
 import { generateUniqueSlug } from '@/lib/slug'
 import { signupLimiter, getIP } from '@/lib/rate-limit'
 
@@ -144,39 +144,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. Send welcome email (fire-and-forget)
-    if (process.env.RESEND_API_KEY) {
-      const appUrl = PLATFORM_URL
-      const planLabel = selectedPlan === 'pro' ? 'Pro' : 'Basic'
-      const trialEnd = new Date(trialEndsAt).toLocaleDateString('en-GB', {
-        day: 'numeric', month: 'long', year: 'numeric',
-      })
-
-      getResend().emails.send({
-        from: FROM,
-        to: email.trim(),
-        subject: 'Welcome to Loyalink — your 14-day trial has started',
-        html: `
-          <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;color:#111">
-            <h2 style="font-size:20px;font-weight:600;margin-bottom:8px">Welcome to Loyalink!</h2>
-            <p style="color:#555;margin:0 0 16px">Hi ${name.trim()},</p>
-            <p style="color:#555;margin:0 0 16px">
-              Your studio <strong>${studioName.trim()}</strong> is ready on the <strong>${planLabel}</strong> plan.
-              Your free 14-day trial runs until <strong>${trialEnd}</strong>.
-            </p>
-            <p style="margin:0 0 24px">
-              <a href="${appUrl}/setup"
-                 style="display:inline-block;background:#000;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:500">
-                Complete setup →
-              </a>
-            </p>
-            <p style="color:#888;font-size:13px">
-              Questions? Reply to this email or visit
-              <a href="mailto:hello@loyalink.ai" style="color:#555">hello@loyalink.ai</a>
-            </p>
-          </div>
-        `,
-      }).catch((err) => console.error('[signup/complete] welcome email error:', err))
-    }
+    sendStudioWelcome(email, name, studioName, selectedPlan, trialEndsAt)
 
     return NextResponse.json({ success: true })
   } catch (error) {
