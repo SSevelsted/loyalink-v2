@@ -16,12 +16,12 @@ const securityHeaders = [
   {
     key: "Content-Security-Policy",
     value: [
-      "default-src 'self' capacitor: ionic:",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://va.vercel-scripts.com",
+      "default-src 'self' capacitor: ionic: https://my.loyalink.ai",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' capacitor: ionic: https://my.loyalink.ai https://js.stripe.com https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://ryjyhddvwsmpagggepgk.supabase.co",
       "font-src 'self' data:",
-      "connect-src 'self' https://ryjyhddvwsmpagggepgk.supabase.co wss://ryjyhddvwsmpagggepgk.supabase.co https://api.stripe.com https://va.vercel-scripts.com capacitor: ionic:",
+      "connect-src * wss:",
       "frame-src 'self' https://js.stripe.com capacitor: ionic:",
       "object-src 'none'",
       "base-uri 'self'",
