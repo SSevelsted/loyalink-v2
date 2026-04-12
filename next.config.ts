@@ -14,7 +14,7 @@ const securityHeaders = [
     value: "max-age=31536000; includeSubDomains",
   },
   {
-    key: "Content-Security-Policy",
+    key: "Content-Security-Policy-Report-Only",
     value: [
       "default-src 'self' capacitor: ionic: https://my.loyalink.ai",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' capacitor: ionic: https://my.loyalink.ai https://js.stripe.com https://va.vercel-scripts.com",
