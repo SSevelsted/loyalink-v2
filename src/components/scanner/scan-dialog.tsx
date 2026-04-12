@@ -207,6 +207,7 @@ export function ScanDialog({
                     <input
                       ref={inputRef}
                       type="text"
+                      inputMode="tel"
                       value={manualInput}
                       onChange={(e) => setManualInput(e.target.value)}
                       onKeyDown={(e) => {
@@ -214,7 +215,7 @@ export function ScanDialog({
                         if (e.key === 'Escape') { setManualMode(false); setManualInput('') }
                       }}
                       placeholder="Member ID or phone..."
-                      className="flex-1 h-12 rounded-xl bg-white/10 border border-white/10 px-4 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/25"
+                      className="flex-1 h-12 rounded-xl bg-white/10 border border-white/10 px-4 text-base text-white placeholder:text-white/40 focus:outline-none focus:border-white/25"
                     />
                     <Button
                       onClick={handleManualLookup}
@@ -235,14 +236,14 @@ export function ScanDialog({
                 <div className="flex justify-center gap-3">
                   <button
                     onClick={() => setManualMode(true)}
-                    className="flex items-center gap-2.5 rounded-full bg-white/90 px-5 py-3 text-sm font-medium text-black active:scale-95 transition-transform shadow-lg"
+                    className="flex items-center gap-2.5 rounded-full bg-white/90 px-5 py-3.5 text-sm font-medium text-black active:scale-95 transition-transform shadow-lg"
                   >
                     <Keyboard className="h-4 w-4" />
                     Enter manually
                   </button>
                   <button
                     onClick={() => setMode('phone')}
-                    className="flex items-center gap-2.5 rounded-full bg-white/10 backdrop-blur-sm px-5 py-3 text-sm font-medium text-white active:scale-95 transition-transform"
+                    className="flex items-center gap-2.5 rounded-full bg-white/10 backdrop-blur-sm px-5 py-3.5 text-sm font-medium text-white active:scale-95 transition-transform"
                   >
                     <Smartphone className="h-4 w-4" />
                     Use phone
@@ -258,7 +259,7 @@ export function ScanDialog({
       <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <button
           onClick={handleClose}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white active:scale-95 transition-transform"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white active:scale-95 transition-transform"
         >
           <X className="h-5 w-5" />
         </button>
@@ -267,17 +268,17 @@ export function ScanDialog({
           <div className="flex items-center gap-1 rounded-full bg-black/40 backdrop-blur-sm p-1">
             <button
               onClick={() => setMode('camera')}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                mode === 'camera' ? 'bg-white text-black' : 'text-white/60 hover:text-white'
+              className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium transition-colors ${
+                mode === 'camera' ? 'bg-white text-black' : 'text-white/60 active:text-white'
               }`}
             >
-              <Camera className="h-3 w-3" />
+              <Camera className="h-3.5 w-3.5" />
               Camera
             </button>
             <button
               onClick={() => setMode('phone')}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                mode === 'phone' ? 'bg-white text-black' : 'text-white/60 hover:text-white'
+              className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium transition-colors ${
+                mode === 'phone' ? 'bg-white text-black' : 'text-white/60 active:text-white'
               }`}
             >
               <Smartphone className="h-3 w-3" />

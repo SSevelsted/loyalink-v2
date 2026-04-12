@@ -32,7 +32,7 @@ export function SubscriptionWall({ status }: SubscriptionWallProps) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+    <div className="flex min-h-dvh items-center justify-center bg-background p-4 pt-safe pb-safe">
       <div className="glass-card w-full max-w-md rounded-2xl border border-border/50 p-8 text-center space-y-6">
         <div className="mx-auto h-14 w-14 rounded-2xl bg-destructive/10 border border-destructive/20 flex items-center justify-center">
           <AlertTriangle className="h-6 w-6 text-destructive" />

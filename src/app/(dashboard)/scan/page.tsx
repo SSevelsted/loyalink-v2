@@ -60,7 +60,7 @@ export default function ScanPage() {
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <Link
           href="/"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white active:scale-95 transition-transform"
         >
           <X className="h-5 w-5" />
         </Link>
@@ -126,7 +126,7 @@ export default function ScanPage() {
           <div className="flex justify-center">
             <button
               onClick={() => setManualMode(true)}
-              className="flex items-center gap-2.5 rounded-full bg-white/90 px-5 py-3 text-sm font-medium text-black shadow-lg"
+              className="flex items-center gap-2.5 rounded-full bg-white/90 px-5 py-3.5 text-sm font-medium text-black shadow-lg active:scale-95 transition-transform"
             >
               <Keyboard className="h-4 w-4" />
               Enter manually

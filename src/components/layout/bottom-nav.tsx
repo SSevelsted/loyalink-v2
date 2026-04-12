@@ -29,7 +29,7 @@ function NavTab({ tab, pathname }: { tab: typeof leftTabs[number]; pathname: str
     <Link
       href={tab.href}
       onClick={() => hapticTap()}
-      className={`relative flex flex-1 flex-col items-center justify-center gap-1 py-2 rounded-xl transition-all active:scale-95 ${
+      className={`relative flex flex-1 flex-col items-center justify-center gap-1 py-2 rounded-xl transition-all active:scale-95 active:opacity-70 ${
         isActive ? 'text-primary' : 'text-muted-foreground'
       }`}
     >
@@ -48,7 +48,7 @@ export function BottomNav() {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bottom-nav-glass pb-safe md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bottom-nav-glass pb-safe md:hidden select-none">
         <div className="flex h-16 items-center px-2">
           {leftTabs.map((tab) => (
             <NavTab key={tab.href} tab={tab} pathname={pathname} />

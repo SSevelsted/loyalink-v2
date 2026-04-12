@@ -56,7 +56,7 @@ export function TrialBanner({ trialEndsAt }: TrialBannerProps) {
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-medium',
+        'flex items-center justify-between gap-3 px-4 py-2.5 pt-safe text-sm font-medium select-none',
         isUrgent
           ? 'bg-amber-500/15 border-b border-amber-500/30 text-amber-600 dark:text-amber-400'
           : 'bg-primary/5 border-b border-primary/15 text-primary'
@@ -68,7 +68,7 @@ export function TrialBanner({ trialEndsAt }: TrialBannerProps) {
         <button
           onClick={handleManageBilling}
           disabled={loading}
-          className="underline underline-offset-2 hover:no-underline transition-all disabled:opacity-50"
+          className="underline underline-offset-2 active:opacity-70 transition-all disabled:opacity-50"
         >
           {loading ? 'Opening…' : 'Manage billing →'}
         </button>
@@ -76,7 +76,7 @@ export function TrialBanner({ trialEndsAt }: TrialBannerProps) {
       <button
         onClick={handleDismiss}
         aria-label="Dismiss"
-        className="shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+        className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full opacity-60 active:opacity-100 transition-opacity"
       >
         <X className="h-4 w-4" />
       </button>

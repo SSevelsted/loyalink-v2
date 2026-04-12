@@ -132,7 +132,7 @@ export default function DashboardLayout({
             </Link>
           </div>
         )}
-        <div className="p-4 pb-24 pt-safe md:p-8 md:pb-8 max-w-7xl">
+        <div className="p-4 pt-safe md:p-8 md:pb-8 max-w-7xl" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
           {children}
         </div>
       </main>
