@@ -124,37 +124,21 @@ export function QrScanner({ onScan, active, fullscreen }: QrScannerProps) {
     }
   }
 
+  // Use web camera (getUserMedia) on all platforms — MLKit native scanner
+  // doesn't work reliably in Capacitor remote URL mode
   useEffect(() => {
-    setUseNative(isNative())
+    setUseNative(false)
   }, [])
 
   useEffect(() => {
     if (!active) {
-      useNative ? stopNative() : stopWeb()
+      stopWeb()
       return
     }
-    useNative ? startNative() : startWeb()
-    return () => { useNative ? stopNative() : stopWeb() }
+    startWeb()
+    return () => { stopWeb() }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, useNative])
-
-  // On native, the camera renders behind the transparent WebView — no video element needed
-  if (useNative) {
-    return (
-      <div className={fullscreen ? "absolute inset-0" : "relative w-full aspect-square overflow-hidden rounded-2xl"}>
-        {error && (
-          <div className="absolute inset-0 flex items-center justify-center p-6 bg-black">
-            <p className="text-sm text-red-400 text-center">{error}</p>
-          </div>
-        )}
-        {!ready && !error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black">
-            <div className="h-7 w-7 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
-      </div>
-    )
-  }
+  }, [active])
 
   return (
     <div className={fullscreen ? "absolute inset-0 bg-black" : "relative w-full aspect-square overflow-hidden rounded-2xl bg-black"}>

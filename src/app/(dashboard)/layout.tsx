@@ -101,7 +101,7 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <main className="flex-1 overflow-auto h-svh overscroll-none">
+      <main className="flex-1 overflow-auto h-svh overscroll-none bg-background">
         {showTrialBanner && (
           <TrialBanner trialEndsAt={currentStudio.trial_ends_at!} />
         )}

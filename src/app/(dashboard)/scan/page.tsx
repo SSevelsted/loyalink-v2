@@ -50,7 +50,7 @@ export default function ScanPage() {
   }, [])
 
   return (
-    <div className={`fixed inset-0 z-[100] ${native ? 'bg-transparent' : 'bg-black'}`}>
+    <div className="fixed inset-0 z-[100] bg-black">
       {/* Fullscreen camera */}
       <div className="absolute inset-0">
         <QrScanner onScan={handleScan} active={!manualMode} fullscreen />

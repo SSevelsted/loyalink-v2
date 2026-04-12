@@ -11,6 +11,8 @@ const config: CapacitorConfig = {
   ios: {
     scheme: 'Loyalink',
     contentInset: 'automatic',
+    backgroundColor: '#09090b',
+    preferredContentMode: 'mobile',
   },
   android: {
     backgroundColor: '#09090b',
