@@ -9,6 +9,7 @@ import { useStudio } from '@/hooks/use-studio'
 import { useAuth } from '@/hooks/use-auth'
 import { usePassTemplates } from '@/hooks/use-wallet'
 import { Building2, Menu } from 'lucide-react'
+import { isNative } from '@/lib/platform'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { isSubscriptionActive } from '@/lib/stripe'
@@ -100,36 +101,38 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <main className="flex-1 overflow-auto h-svh">
+      <main className="flex-1 overflow-auto h-svh overscroll-none">
         {showTrialBanner && (
           <TrialBanner trialEndsAt={currentStudio.trial_ends_at!} />
         )}
-        <div className="flex items-center gap-3 glass-card border-0 border-b border-white/[0.08] px-4 py-3 md:hidden">
-          <SidebarTrigger>
-            <Menu className="h-5 w-5" />
-          </SidebarTrigger>
-          <Link href="/" className="flex items-center gap-2 min-w-0">
-            {studioLogo ? (
-              <Image
-                src={studioLogo}
-                alt={currentStudio?.name ?? 'Studio'}
-                width={24}
-                height={24}
-                className="h-6 w-6 rounded-full object-cover shrink-0"
-              />
-            ) : (
-              <div className="h-6 w-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                <span className="text-primary font-bold text-[10px]" style={{ fontFamily: 'var(--font-display)' }}>
-                  {currentStudio?.name?.charAt(0) ?? 'S'}
-                </span>
-              </div>
-            )}
-            <span className="font-semibold text-foreground tracking-tight truncate">
-              {currentStudio?.name ?? 'Loyalink'}
-            </span>
-          </Link>
-        </div>
-        <div className="p-4 pb-24 md:p-8 md:pb-8 max-w-7xl">
+        {!isNative() && (
+          <div className="flex items-center gap-3 glass-card border-0 border-b border-white/[0.08] px-4 py-3 md:hidden">
+            <SidebarTrigger>
+              <Menu className="h-5 w-5" />
+            </SidebarTrigger>
+            <Link href="/" className="flex items-center gap-2 min-w-0">
+              {studioLogo ? (
+                <Image
+                  src={studioLogo}
+                  alt={currentStudio?.name ?? 'Studio'}
+                  width={24}
+                  height={24}
+                  className="h-6 w-6 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <div className="h-6 w-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                  <span className="text-primary font-bold text-[10px]" style={{ fontFamily: 'var(--font-display)' }}>
+                    {currentStudio?.name?.charAt(0) ?? 'S'}
+                  </span>
+                </div>
+              )}
+              <span className="font-semibold text-foreground tracking-tight truncate">
+                {currentStudio?.name ?? 'Loyalink'}
+              </span>
+            </Link>
+          </div>
+        )}
+        <div className="p-4 pb-24 pt-safe md:p-8 md:pb-8 max-w-7xl">
           {children}
         </div>
       </main>

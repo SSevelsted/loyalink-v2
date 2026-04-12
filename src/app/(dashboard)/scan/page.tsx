@@ -7,9 +7,10 @@ import { QrScanner } from '@/components/scanner/qr-scanner'
 import { Button } from '@/components/ui/button'
 import { X, Keyboard } from 'lucide-react'
 import Link from 'next/link'
-import { hapticSuccess } from '@/lib/platform'
+import { hapticSuccess, isNative } from '@/lib/platform'
 
 export default function ScanPage() {
+  const native = isNative()
   const [manualMode, setManualMode] = useState(false)
   const [manualInput, setManualInput] = useState('')
   const [scanResult, setScanResult] = useState<string | null>(null)
@@ -49,7 +50,7 @@ export default function ScanPage() {
   }, [])
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black">
+    <div className={`fixed inset-0 z-[100] ${native ? 'bg-transparent' : 'bg-black'}`}>
       {/* Fullscreen camera */}
       <div className="absolute inset-0">
         <QrScanner onScan={handleScan} active={!manualMode} fullscreen />

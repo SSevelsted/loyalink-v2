@@ -362,7 +362,16 @@
   animation: shake 0.4s ease-in-out;
 }
 
+/* Prevent overscroll bounce in native app */
+html, body {
+  overscroll-behavior: none;
+}
+
 /* Safe area insets */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
