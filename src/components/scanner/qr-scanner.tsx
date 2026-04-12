@@ -33,9 +33,8 @@ export function QrScanner({ onScan, active, fullscreen }: QrScannerProps) {
         }
       }
 
-      // Make WebView transparent so native camera shows through
-      document.body.style.background = 'transparent'
-      document.documentElement.style.background = 'transparent'
+      // Make entire WebView transparent so native camera shows through
+      document.documentElement.classList.add('scanner-active')
 
       setReady(true)
 
@@ -51,8 +50,7 @@ export function QrScanner({ onScan, active, fullscreen }: QrScannerProps) {
       return () => {
         listener.remove()
         BarcodeScanner.stopScan()
-        document.body.style.background = ''
-        document.documentElement.style.background = ''
+        document.documentElement.classList.remove('scanner-active')
       }
     } catch {
       setError('Failed to start native scanner')
@@ -63,8 +61,7 @@ export function QrScanner({ onScan, active, fullscreen }: QrScannerProps) {
     try {
       const { BarcodeScanner } = await import('@capacitor-mlkit/barcode-scanning')
       await BarcodeScanner.stopScan()
-      document.body.style.background = ''
-      document.documentElement.style.background = ''
+      document.documentElement.classList.remove('scanner-active')
     } catch {
       // ignore
     }

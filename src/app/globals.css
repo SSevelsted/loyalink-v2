@@ -150,6 +150,17 @@
 .stagger-children > *:nth-child(7) { animation-delay: 360ms; }
 .stagger-children > *:nth-child(8) { animation-delay: 420ms; }
 
+/* Native scanner transparency — makes entire WebView see-through so
+   the native camera (rendered behind the WebView by MLKit) is visible */
+html.scanner-active,
+html.scanner-active body {
+  background: transparent !important;
+}
+html.scanner-active .noise-bg::before,
+html.scanner-active .noise-bg::after {
+  display: none !important;
+}
+
 /* Subtle noise texture overlay */
 .noise-bg::before {
   content: "";
