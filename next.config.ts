@@ -7,7 +7,7 @@ const securityHeaders = [
   { key: "X-XSS-Protection", value: "0" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=()",
+    value: "camera=(self), microphone=(), geolocation=()",
   },
   {
     key: "Strict-Transport-Security",
@@ -16,13 +16,13 @@ const securityHeaders = [
   {
     key: "Content-Security-Policy",
     value: [
-      "default-src 'self'",
+      "default-src 'self' capacitor: ionic:",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://ryjyhddvwsmpagggepgk.supabase.co",
-      "font-src 'self'",
-      "connect-src 'self' https://ryjyhddvwsmpagggepgk.supabase.co https://api.stripe.com https://va.vercel-scripts.com",
-      "frame-src https://js.stripe.com",
+      "font-src 'self' data:",
+      "connect-src 'self' https://ryjyhddvwsmpagggepgk.supabase.co wss://ryjyhddvwsmpagggepgk.supabase.co https://api.stripe.com https://va.vercel-scripts.com capacitor: ionic:",
+      "frame-src 'self' https://js.stripe.com capacitor: ionic:",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
