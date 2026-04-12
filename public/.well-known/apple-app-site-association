@@ -5,11 +5,18 @@
       {
         "appIDs": ["YDBX8M7WAF.ai.loyalink.app"],
         "paths": [
-          "/auth/callback*",
-          "/overview",
-          "/customers/*",
-          "/scan",
-          "/transactions"
+          "NOT /overview",
+          "NOT /customers/*",
+          "NOT /scan",
+          "NOT /transactions",
+          "NOT /login",
+          "NOT /settings",
+          "NOT /analytics",
+          "NOT /notifications",
+          "NOT /wallet",
+          "NOT /auth/callback*",
+          "/invite/*",
+          "/join/*"
         ]
       }
     ]
