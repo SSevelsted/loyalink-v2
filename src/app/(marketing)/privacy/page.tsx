@@ -19,7 +19,7 @@ export default function PrivacyPage() {
           >
             Privacy Policy
           </h1>
-          <p className="text-sm text-muted-foreground">Last updated: March 2026</p>
+          <p className="text-sm text-muted-foreground">Last updated: April 2026</p>
 
           <div className="space-y-8 text-sm text-muted-foreground leading-relaxed">
             <section className="space-y-3">
@@ -71,7 +71,24 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-foreground">5. Cookies</h2>
+              <h2 className="text-lg font-semibold text-foreground">5. Mobile application</h2>
+              <p>
+                The Loyalink mobile app for iOS and Android is a native wrapper around our web
+                platform. In addition to the data described above, the mobile app may request access to:
+              </p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Camera — used exclusively to scan customer QR codes for transaction processing</li>
+                <li>Push notifications — used to deliver real-time alerts about new customers, transactions, and program activity</li>
+              </ul>
+              <p>
+                Camera images are processed locally on your device and are never uploaded to our servers.
+                Push notification tokens are stored securely and used only to deliver notifications you have opted into.
+                You can revoke these permissions at any time in your device settings.
+              </p>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-lg font-semibold text-foreground">6. Cookies</h2>
               <p>
                 We use essential cookies for authentication and session management. We use Vercel
                 Analytics for anonymous usage statistics. We do not use advertising or tracking
@@ -80,7 +97,7 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-foreground">6. Your rights (GDPR)</h2>
+              <h2 className="text-lg font-semibold text-foreground">7. Your rights (GDPR)</h2>
               <p>If you are in the EU/EEA, you have the right to:</p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Access the personal data we hold about you</li>
@@ -92,7 +109,7 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-foreground">7. Data retention</h2>
+              <h2 className="text-lg font-semibold text-foreground">8. Data retention</h2>
               <p>
                 We retain your data for as long as your account is active. If you delete your account,
                 we remove your personal data within 30 days. Some data may be retained longer where
@@ -101,7 +118,7 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-foreground">8. Contact</h2>
+              <h2 className="text-lg font-semibold text-foreground">9. Contact</h2>
               <p>
                 For any privacy-related questions, email us at{' '}
                 <a href="mailto:privacy@loyalink.com" className="text-primary hover:underline">

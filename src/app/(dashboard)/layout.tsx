@@ -132,7 +132,7 @@ export default function DashboardLayout({
             </Link>
           </div>
         )}
-        <div className="p-4 md:p-8 md:pb-8 max-w-7xl" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)', paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="p-4 dashboard-content md:p-8 md:pb-8 max-w-7xl">
           {children}
         </div>
       </main>

@@ -408,6 +408,12 @@ button, a, nav, [role="button"], .select-none {
   margin-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Dashboard content area — safe area + extra breathing room */
+.dashboard-content {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 1rem);
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+}
+
 /* Display typography */
 .text-display-lg {
   font-size: 1.75rem;

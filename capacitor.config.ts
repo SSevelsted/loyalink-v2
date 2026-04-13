@@ -13,6 +13,7 @@ const config: CapacitorConfig = {
     contentInset: 'automatic',
     backgroundColor: '#09090b',
     preferredContentMode: 'mobile',
+    webContentsDebuggingEnabled: true,
   },
   android: {
     backgroundColor: '#09090b',
