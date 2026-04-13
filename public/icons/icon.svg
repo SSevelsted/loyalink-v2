@@ -1,5 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#09090b"/>
-  <circle cx="181" cy="256" r="88" stroke="#fafafa" stroke-width="40" fill="none"/>
-  <circle cx="331" cy="256" r="88" stroke="#fafafa" stroke-width="40" fill="none"/>
+  <defs>
+    <linearGradient id="glow1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <filter id="blur1">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="20"/>
+    </filter>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="#09090b"/>
+  <!-- Glow effect -->
+  <circle cx="196" cy="256" r="88" stroke="url(#glow1)" stroke-width="24" fill="none" opacity="0.15" filter="url(#blur1)"/>
+  <circle cx="316" cy="256" r="88" stroke="url(#glow1)" stroke-width="24" fill="none" opacity="0.15" filter="url(#blur1)"/>
+  <!-- Main circles -->
+  <circle cx="196" cy="256" r="88" stroke="url(#glow1)" stroke-width="36" fill="none"/>
+  <circle cx="316" cy="256" r="88" stroke="url(#glow1)" stroke-width="36" fill="none"/>
 </svg>
