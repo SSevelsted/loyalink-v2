@@ -46,6 +46,9 @@ next-env.d.ts
 # supabase temp
 supabase/.temp/
 
-# capacitor native projects (generated)
-/ios/
+# iOS Xcode project: tracked so Xcode Cloud can build it.
+# Per-directory ignores in ios/.gitignore exclude Pods, build, xcuserdata, DerivedData,
+# and Capacitor-generated config files (capacitor.config.json, config.xml).
+
+# Android: generated, regenerate with `npx cap add android` if needed.
 /android/
