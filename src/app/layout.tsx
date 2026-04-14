@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter, Space_Grotesk } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
@@ -19,7 +19,6 @@ export const metadata: Metadata = {
   title: 'Loyalink',
   description: 'Cashback loyalty, wallet passes, and referrals — built for tattoo studios.',
   manifest: '/manifest.json',
-  themeColor: '#09090b',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -32,11 +31,13 @@ export const metadata: Metadata = {
     ],
     apple: '/apple-touch-icon.png',
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    viewportFit: 'cover',
-  },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#09090b',
 }
 
 export default function RootLayout({
