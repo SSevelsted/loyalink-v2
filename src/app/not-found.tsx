@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center space-y-6">
+    <div className="min-h-dvh flex flex-col items-center justify-center px-4 text-center space-y-6">
       <div className="h-14 w-14 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center">
         <LogoMark className="h-full w-full text-primary p-2" />
       </div>

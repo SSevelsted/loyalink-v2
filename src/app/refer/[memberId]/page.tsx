@@ -76,7 +76,7 @@ export default async function ReferralLandingPage({ params }: Props) {
   const referrerAvatar = ((customer.metadata as Record<string, unknown>)?.avatar_url as string) ?? null
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: bgColor }}>
+    <div className="min-h-dvh" style={{ backgroundColor: bgColor }}>
       <div className="mx-auto max-w-lg px-4 py-16 space-y-8">
         {referrerAvatar ? (
           <div className="flex items-center justify-center">

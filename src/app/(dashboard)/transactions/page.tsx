@@ -254,7 +254,7 @@ export default function TransactionsPage() {
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           {/* Type filter */}
           <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as TypeFilter)}>
-            <SelectTrigger className="w-[180px] h-9 text-xs bg-card/50 border-border/50">
+            <SelectTrigger className="w-[180px] h-10 text-sm bg-card/50 border-border/50">
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
@@ -266,7 +266,7 @@ export default function TransactionsPage() {
 
           {/* Date preset */}
           <Select value={datePreset} onValueChange={(v) => setDatePreset(v as DatePreset)}>
-            <SelectTrigger className="w-[140px] h-9 text-xs bg-card/50 border-border/50">
+            <SelectTrigger className="w-[140px] h-10 text-sm bg-card/50 border-border/50">
               <div className="flex items-center gap-1.5">
                 <Calendar className="h-3 w-3" />
                 <SelectValue />
@@ -281,7 +281,7 @@ export default function TransactionsPage() {
 
           {/* Sort */}
           <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-            <SelectTrigger className="w-[160px] h-9 text-xs bg-card/50 border-border/50">
+            <SelectTrigger className="w-[160px] h-10 text-sm bg-card/50 border-border/50">
               <div className="flex items-center gap-1.5">
                 <ArrowUpDown className="h-3 w-3" />
                 <SelectValue />
@@ -377,7 +377,7 @@ export default function TransactionsPage() {
                     <button
                       key={tx.id}
                       onClick={() => setSelectedGroup(group)}
-                      className="flex items-center justify-between rounded-2xl border border-transparent px-4 py-3.5 transition-all duration-200 hover:bg-card hover:border-border/50 group min-h-[56px] w-full text-left"
+                      className="flex items-center justify-between rounded-2xl border border-transparent px-4 py-3.5 transition-all duration-200 hover:bg-card hover:border-border/50 active:bg-card active:scale-[0.99] group min-h-[56px] w-full text-left"
                     >
                       <div className="flex items-center gap-4">
                         <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${meta.icon_bg}`}>
@@ -432,7 +432,7 @@ export default function TransactionsPage() {
 
       {/* Transaction Detail Sheet */}
       <Sheet open={!!selectedGroup} onOpenChange={(open) => !open && setSelectedGroup(null)}>
-        <SheetContent>
+        <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Transaction Details</SheetTitle>
             <SheetDescription>

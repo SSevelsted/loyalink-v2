@@ -5,7 +5,7 @@ import { Smartphone } from 'lucide-react'
 
 export function PassQR({ downloadUrl }: { downloadUrl: string }) {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+    <div className="min-h-dvh bg-background flex items-center justify-center p-6">
       <div className="flex flex-col items-center gap-8 max-w-sm w-full text-center">
         <div className="space-y-3">
           <div className="flex justify-center">

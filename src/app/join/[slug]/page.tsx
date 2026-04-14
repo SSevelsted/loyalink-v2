@@ -124,8 +124,14 @@ export default async function JoinPage({ params, searchParams }: Props) {
     rewardsConfig.referrals.enabled
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: bgColor }}>
-      <div className="mx-auto max-w-lg px-4 py-12 space-y-8">
+    <div className="min-h-dvh" style={{ backgroundColor: bgColor }}>
+      <div
+        className="mx-auto max-w-lg px-4 space-y-8"
+        style={{
+          paddingTop: 'max(3rem, env(safe-area-inset-top, 0px))',
+          paddingBottom: 'max(3rem, env(safe-area-inset-bottom, 0px))',
+        }}
+      >
         {logoSrc && (
           <img
             src={logoSrc}

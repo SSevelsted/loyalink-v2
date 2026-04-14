@@ -179,7 +179,7 @@ export function SuccessHub({
   const secondaryPlatform = clientPlatform === 'apple' ? 'google' : 'apple'
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor }}>
+    <div className="min-h-dvh" style={{ backgroundColor }}>
       <div className="mx-auto max-w-lg px-4 py-12 space-y-6">
         {/* 1. Celebration */}
         <div className="text-center space-y-4 animate-in zoom-in-95 duration-500">

@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
   },
   ios: {
     scheme: 'Loyalink',
-    contentInset: 'automatic',
+    contentInset: 'never',
     backgroundColor: '#09090b',
     preferredContentMode: 'mobile',
     webContentsDebuggingEnabled: true,

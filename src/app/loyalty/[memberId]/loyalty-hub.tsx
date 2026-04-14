@@ -483,7 +483,7 @@ export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer,
   const triggerText = getActivationTriggerText(trigger, t, formattedThreshold)
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <div className="mx-auto max-w-md px-4 py-8 space-y-5">
         {/* ===== 1. HEADER ===== */}
         <div className="text-center space-y-3">

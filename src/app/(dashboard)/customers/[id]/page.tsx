@@ -51,6 +51,7 @@ import Link from 'next/link'
 import { getTierDisplayName, getTierIndex, TRANSACTION_LABELS, TRANSACTION_META, groupRelatedTransactions } from '@/lib/format'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { QRCodeSVG } from 'qrcode.react'
+import { DirectionalTransition } from '@/components/transitions/directional-transition'
 
 type DatePreset = '7d' | '30d' | '90d' | 'all'
 
@@ -256,12 +257,14 @@ export default function CustomerDetailPage() {
   const daysSinceJoin = Math.floor((Date.now() - memberSince.getTime()) / (1000 * 60 * 60 * 24))
 
   return (
-    <div className="space-y-6 stagger-children">
+    <DirectionalTransition>
+      <div className="space-y-6 stagger-children">
       {/* Back + Header */}
       <div>
         <Link
           href="/customers"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+          transitionTypes={['nav-back']}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors active:opacity-70 mb-4"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Customers
@@ -329,7 +332,7 @@ export default function CustomerDetailPage() {
               </Dialog>
             )}
             <Button size="sm" asChild>
-              <Link href={`/customers/${customer.id}/transaction`}>
+              <Link href={`/customers/${customer.id}/transaction`} transitionTypes={['nav-forward']}>
                 <Plus className="h-3.5 w-3.5 mr-1.5" />
                 Record Transaction
               </Link>
@@ -906,6 +909,7 @@ export default function CustomerDetailPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </DirectionalTransition>
   )
 }

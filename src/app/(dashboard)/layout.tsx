@@ -14,7 +14,6 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { isSubscriptionActive } from '@/lib/stripe'
 import { SubscriptionWall } from './_components/subscription-wall'
-import { TrialBanner } from './_components/trial-banner'
 import { LogoMark } from '@/components/logo'
 
 export default function DashboardLayout({
@@ -57,17 +56,9 @@ export default function DashboardLayout({
     pathname !== '/setup' &&
     !isSubscriptionActive(currentStudio.subscription_status)
 
-  // Trial banner — show when ≤ 7 days left
-  const showTrialBanner =
-    !authLoading &&
-    !studioLoading &&
-    !!currentStudio &&
-    currentStudio.subscription_status === 'trial' &&
-    !!currentStudio.trial_ends_at
-
   if (authLoading || studioLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-dvh items-center justify-center bg-background">
         <div className="space-y-4 text-center">
           <div className="mx-auto h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
             <LogoMark className="h-full w-full text-primary p-2" />
@@ -80,7 +71,7 @@ export default function DashboardLayout({
 
   if (!currentStudio) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-dvh items-center justify-center bg-background">
         <div className="text-center space-y-4 max-w-sm animate-fade-up">
           <div className="mx-auto h-14 w-14 rounded-2xl bg-secondary border border-border flex items-center justify-center">
             <Building2 className="h-6 w-6 text-muted-foreground" />
@@ -101,10 +92,7 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <main className="flex-1 overflow-auto h-svh overscroll-none bg-background">
-        {showTrialBanner && (
-          <TrialBanner trialEndsAt={currentStudio.trial_ends_at!} />
-        )}
+      <main className="flex-1 overflow-auto h-dvh overscroll-none bg-background">
         {!isNative() && (
           <div className="flex items-center gap-3 glass-card border-0 border-b border-white/[0.08] px-4 py-3 md:hidden">
             <SidebarTrigger>

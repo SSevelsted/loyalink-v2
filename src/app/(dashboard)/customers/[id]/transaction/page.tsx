@@ -17,6 +17,8 @@ import { ScanDialog } from '@/components/scanner/scan-dialog'
 import { getTierDisplayName, getTierIndex, getEffectiveTierSlug } from '@/lib/format'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { TIER_COLOR_PALETTE } from '@/types/database'
+import { hapticTap, hapticSuccess } from '@/lib/platform'
+import { DirectionalTransition } from '@/components/transitions/directional-transition'
 
 export default function RecordTransactionPage() {
   const params = useParams<{ id: string }>()
@@ -106,6 +108,7 @@ export default function RecordTransactionPage() {
       return result
     },
     onSuccess: (result) => {
+      hapticSuccess()
       queryClient.invalidateQueries({ queryKey: ['transactions', id] })
       queryClient.invalidateQueries({ queryKey: ['all_transactions'] })
       queryClient.invalidateQueries({ queryKey: ['customer', id] })
@@ -184,12 +187,15 @@ export default function RecordTransactionPage() {
 
     return (
       <div className="max-w-sm mx-auto pt-6 space-y-4">
-        {/* Header */}
+        {/* Header — peak moment */}
         <div className="text-center space-y-3">
-          <div className="h-14 w-14 rounded-full bg-emerald-500/10 border-2 border-emerald-500/20 flex items-center justify-center mx-auto">
-            <CheckCircle2 className="h-7 w-7 text-emerald-400" />
+          <div className="relative mx-auto h-16 w-16">
+            <div className="absolute inset-0 rounded-full bg-emerald-500/25 blur-xl animate-celebrate-glow" aria-hidden="true" />
+            <div className="relative h-16 w-16 rounded-full bg-emerald-500/15 border-2 border-emerald-500/40 flex items-center justify-center animate-celebrate">
+              <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+            </div>
           </div>
-          <div>
+          <div className="animate-fade-up" style={{ animationDelay: '120ms' }}>
             <p className="text-sm text-muted-foreground mb-0.5">Transaction recorded</p>
             <p className="text-3xl font-bold tracking-tight text-foreground">
               {formatAmount(recorded.amount, currencyConfig)}
@@ -340,15 +346,18 @@ export default function RecordTransactionPage() {
 
   // ── Form ──────────────────────────────────────────────────────────────────
   return (
-    <div className="max-w-sm mx-auto flex flex-col" style={{ minHeight: 'calc(100dvh - 180px)' }}>
+    <DirectionalTransition>
+      <div className="max-w-sm mx-auto flex flex-col gap-3">
 
       {/* Header */}
       <div className="flex items-center mb-3 shrink-0">
         <Link
           href={`/customers/${id}`}
-          className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          transitionTypes={['nav-back']}
+          aria-label="Back to customer"
+          className="h-11 w-11 -ml-2 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary active:bg-secondary active:scale-95 transition-all"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-5 w-5" />
         </Link>
         <span className="flex-1 text-center text-sm font-semibold text-foreground">Record Transaction</span>
         <div className="h-8 w-8" />
@@ -458,9 +467,9 @@ export default function RecordTransactionPage() {
 
         {/* CTA */}
         <Button
-          className="w-full h-12 text-base font-semibold"
+          className="w-full h-12 text-base font-semibold active:scale-[0.98]"
           disabled={!canRecord}
-          onClick={() => recordTransaction.mutate()}
+          onClick={() => { hapticTap(); recordTransaction.mutate() }}
         >
           {recordTransaction.isPending
             ? 'Recording...'
@@ -469,6 +478,7 @@ export default function RecordTransactionPage() {
             : 'Enter an amount'}
         </Button>
       </div>
-    </div>
+      </div>
+    </DirectionalTransition>
   )
 }

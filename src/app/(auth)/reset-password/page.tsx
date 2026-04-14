@@ -12,7 +12,7 @@ import Link from 'next/link'
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center px-4 bg-background">
+      <div className="flex min-h-dvh items-center justify-center px-4 bg-background">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     }>
@@ -77,7 +77,7 @@ function ResetPasswordContent() {
 
   if (authLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4 bg-background">
+      <div className="flex min-h-dvh items-center justify-center px-4 bg-background">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
@@ -85,7 +85,7 @@ function ResetPasswordContent() {
 
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4 bg-background">
+      <div className="flex min-h-dvh items-center justify-center px-4 bg-background">
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-primary/8 blur-[150px]" />
         </div>
@@ -162,7 +162,7 @@ function ResetPasswordContent() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 bg-background">
+    <div className="flex min-h-dvh items-center justify-center px-4 bg-background">
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-primary/8 blur-[150px]" />
       </div>

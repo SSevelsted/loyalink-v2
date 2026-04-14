@@ -9,12 +9,12 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 import {
   Select,
   SelectContent,
@@ -28,6 +28,9 @@ import { getTierDisplayName, getTierIndex } from '@/lib/format'
 import { TIER_COLOR_PALETTE } from '@/types/database'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import type { Customer } from '@/types/database'
+import { DirectionalTransition } from '@/components/transitions/directional-transition'
+import { hapticSuccess } from '@/lib/platform'
+import { toast } from 'sonner'
 
 type SortKey = 'newest' | 'oldest' | 'name' | 'balance_high' | 'balance_low' | 'spend_high'
 
@@ -83,15 +86,21 @@ export default function CustomersPage() {
 
   const handleCreate = async () => {
     const tier = tiers.find((t) => t.slug === form.loyalty_stage) ?? baseTier
-    await createCustomer.mutateAsync({
-      name: form.name,
-      email: form.email || undefined,
-      phone: form.phone || undefined,
-      loyalty_stage: tier?.slug,
-      cashback_rate: tier?.cashback_rate,
-    })
-    setForm({ name: '', email: '', phone: '', loyalty_stage: '', cashback_rate: 0 })
-    setOpen(false)
+    try {
+      await createCustomer.mutateAsync({
+        name: form.name,
+        email: form.email || undefined,
+        phone: form.phone || undefined,
+        loyalty_stage: tier?.slug,
+        cashback_rate: tier?.cashback_rate,
+      })
+      hapticSuccess()
+      setForm({ name: '', email: '', phone: '', loyalty_stage: '', cashback_rate: 0 })
+      setOpen(false)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not create customer'
+      toast.error(msg)
+    }
   }
 
   // Set of known tier slugs — customers with slugs not in this set are treated as base tier
@@ -120,7 +129,8 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="space-y-6 stagger-children">
+    <DirectionalTransition>
+      <div className="space-y-6 stagger-children">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-display-lg text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
@@ -130,45 +140,61 @@ export default function CustomersPage() {
             {customers?.length ?? 0} total customers
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <Button className="gap-2 active:scale-95 transition-transform">
               <Plus className="h-4 w-4" />
               Add Customer
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Customer</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-2">
+          </SheetTrigger>
+          <SheetContent side="bottom" className="max-h-[90dvh] overflow-y-auto sm:max-w-lg sm:mx-auto">
+            <SheetHeader className="pt-4">
+              <SheetTitle className="text-lg">Add Customer</SheetTitle>
+            </SheetHeader>
+            <div className="space-y-4 px-4 pb-4">
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Name</Label>
+                <Label htmlFor="cust-name" className="text-xs text-muted-foreground uppercase tracking-wider">Name</Label>
                 <Input
+                  id="cust-name"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="Customer name"
                   className="bg-secondary/50"
+                  autoComplete="name"
+                  autoCapitalize="words"
+                  enterKeyHint="next"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Email</Label>
+                <Label htmlFor="cust-email" className="text-xs text-muted-foreground uppercase tracking-wider">Email</Label>
                 <Input
+                  id="cust-email"
                   type="email"
+                  inputMode="email"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="email@example.com"
                   className="bg-secondary/50"
+                  autoComplete="email"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  enterKeyHint="next"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Phone</Label>
+                <Label htmlFor="cust-phone" className="text-xs text-muted-foreground uppercase tracking-wider">Phone</Label>
                 <Input
+                  id="cust-phone"
+                  type="tel"
+                  inputMode="tel"
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="+45 12 34 56 78"
                   className="bg-secondary/50"
+                  autoComplete="tel"
+                  enterKeyHint="done"
                 />
               </div>
               {tiers.length > 0 && (
@@ -178,7 +204,7 @@ export default function CustomersPage() {
                     value={form.loyalty_stage || (baseTier?.slug ?? '')}
                     onValueChange={(v) => setForm({ ...form, loyalty_stage: v })}
                   >
-                    <SelectTrigger className="bg-secondary/50">
+                    <SelectTrigger className="bg-secondary/50 h-11">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -191,12 +217,16 @@ export default function CustomersPage() {
                   </Select>
                 </div>
               )}
-              <Button onClick={handleCreate} className="w-full" disabled={!form.name || createCustomer.isPending}>
+              <Button
+                onClick={handleCreate}
+                className="w-full h-12 text-base font-semibold active:scale-[0.98]"
+                disabled={!form.name || createCustomer.isPending}
+              >
                 {createCustomer.isPending ? 'Creating...' : 'Create Customer'}
               </Button>
             </div>
-          </DialogContent>
-        </Dialog>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* Search + Filter bar */}
@@ -214,7 +244,7 @@ export default function CustomersPage() {
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           {/* Tier filter */}
           <Select value={tierFilter} onValueChange={setTierFilter}>
-            <SelectTrigger className="w-[160px] h-9 text-xs bg-card/50 border-border/50">
+            <SelectTrigger className="w-[160px] h-10 text-sm bg-card/50 border-border/50">
               <SelectValue placeholder="All Tiers" />
             </SelectTrigger>
             <SelectContent>
@@ -227,7 +257,7 @@ export default function CustomersPage() {
 
           {/* Status filter */}
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px] h-9 text-xs bg-card/50 border-border/50">
+            <SelectTrigger className="w-[160px] h-10 text-sm bg-card/50 border-border/50">
               <SelectValue placeholder="All Customers" />
             </SelectTrigger>
             <SelectContent>
@@ -240,7 +270,7 @@ export default function CustomersPage() {
 
           {/* Sort */}
           <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-            <SelectTrigger className="w-[170px] h-9 text-xs bg-card/50 border-border/50">
+            <SelectTrigger className="w-[170px] h-10 text-sm bg-card/50 border-border/50">
               <div className="flex items-center gap-1.5">
                 <ArrowUpDown className="h-3 w-3" />
                 <SelectValue />
@@ -323,7 +353,8 @@ export default function CustomersPage() {
               <Link
                 key={customer.id}
                 href={`/customers/${customer.id}`}
-                className="flex items-center justify-between rounded-2xl border border-transparent px-4 py-3.5 transition-all duration-200 hover:bg-card hover:border-border/50 group min-h-[56px]"
+                transitionTypes={['nav-forward']}
+                className="flex items-center justify-between rounded-2xl border border-transparent px-4 py-3.5 transition-all duration-200 hover:bg-card hover:border-border/50 active:bg-card active:scale-[0.99] group min-h-[56px]"
               >
                 <div className="flex items-center gap-4">
                   <div className="h-12 w-12 rounded-full bg-secondary flex items-center justify-center text-sm font-medium text-foreground shrink-0">
@@ -357,6 +388,7 @@ export default function CustomersPage() {
           })}
         </div>
       )}
-    </div>
+      </div>
+    </DirectionalTransition>
   )
 }

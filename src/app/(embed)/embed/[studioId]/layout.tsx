@@ -109,7 +109,7 @@ export default function EmbedLayout({
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-dvh items-center justify-center bg-background">
         <div className="text-center space-y-2">
           <p className="text-sm text-muted-foreground">{error}</p>
         </div>
@@ -119,7 +119,7 @@ export default function EmbedLayout({
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-dvh items-center justify-center bg-background">
         <div className="h-1.5 w-32 mx-auto rounded-full animate-shimmer" />
       </div>
     )
@@ -128,7 +128,7 @@ export default function EmbedLayout({
   return (
     <QueryClientProvider client={queryClient}>
       <StudioContext.Provider value={studioContextValue}>
-        <main className="min-h-screen bg-background">
+        <main className="min-h-dvh bg-background">
           <div className="p-4 md:p-8 max-w-7xl mx-auto">
             {children}
           </div>

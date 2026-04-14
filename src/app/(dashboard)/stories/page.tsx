@@ -290,7 +290,7 @@ export default function StoriesPage() {
 
   if (!currentStudio || lpLoading) {
     return (
-      <div className="flex flex-col h-[calc(100vh-4rem)]">
+      <div className="flex flex-col gap-4">
         <div className="flex items-center gap-2.5 border-b border-white/[0.06] px-6 py-4">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
             <Sparkles className="h-4 w-4 text-primary" />
@@ -310,7 +310,7 @@ export default function StoriesPage() {
   const previewStory = previewKey ? stories.find((s) => s.key === previewKey) : null
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
+    <div className="flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-4 flex-shrink-0">
         <div className="flex items-center gap-2.5">
@@ -412,7 +412,7 @@ export default function StoriesPage() {
       )}
 
       {/* Story grid — 3 stories */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
           {stories.map(({ storyType, html, key }) => (
             <StoryCard
