@@ -120,7 +120,7 @@ export default function DashboardLayout({
             </Link>
           </div>
         )}
-        <div className="p-4 dashboard-content md:p-8 md:pb-8 max-w-7xl">
+        <div className="px-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] pb-[calc(7rem+env(safe-area-inset-bottom,0px))] md:px-8 md:py-8 max-w-7xl">
           {children}
         </div>
       </main>

@@ -526,19 +526,6 @@ button, a, nav, [role="button"], .select-none {
   margin-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Dashboard content area — safe area + extra breathing room.
-   Bottom padding must clear: 64px nav + 28px scan button protrusion + safe area + breathing. */
-.dashboard-content {
-  padding-top: calc(env(safe-area-inset-top, 0px) + 1rem);
-  padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px));
-}
-
-@media (min-width: 768px) {
-  .dashboard-content {
-    padding-bottom: 2rem;
-  }
-}
-
 /* Display typography */
 .text-display-lg {
   font-size: 1.75rem;
