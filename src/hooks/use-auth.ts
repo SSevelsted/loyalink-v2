@@ -68,11 +68,28 @@ export function useAuth() {
     return { error }
   }
 
+  const signInWithApple = async () => {
+    // Same deep-link pattern as Google. Apple enforces the privacy rules
+    // required by App Store guideline 4.8 (email relay, no ad tracking).
+    const { isNative } = await import('@/lib/platform')
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo: isNative()
+          ? 'ai.loyalink.app://auth/callback?next=/overview'
+          : `${window.location.origin}/auth/callback?next=/overview`,
+        ...(isNative() && { skipBrowserRedirect: false }),
+      },
+    })
+    return { error }
+  }
+
   const signOut = async () => {
     await supabase.auth.signOut()
   }
 
-  return { user, loading, signInWithEmail, signInWithGoogle, signUp, signOut, resetPasswordForEmail, updatePassword, updateEmail }
+  return { user, loading, signInWithEmail, signInWithGoogle, signInWithApple, signUp, signOut, resetPasswordForEmail, updatePassword, updateEmail }
 }
 
 export function useUserRole(studioId: string | null) {

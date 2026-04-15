@@ -1,16 +1,26 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/use-auth'
-import { Mail, Lock } from 'lucide-react'
+import { Mail, Lock, Trash2 } from 'lucide-react'
 
 export function AccountSection() {
-  const { user, updatePassword, updateEmail } = useAuth()
+  const { user, updatePassword, updateEmail, signOut } = useAuth()
+  const router = useRouter()
 
   // Email change
   const [showEmailForm, setShowEmailForm] = useState(false)
@@ -21,6 +31,30 @@ export function AccountSection() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordSaving, setPasswordSaving] = useState(false)
+
+  // Delete account
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== 'DELETE') return
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/account/delete', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data.error ?? 'Could not delete account')
+        setDeleting(false)
+        return
+      }
+      await signOut()
+      router.replace('/login?deleted=1')
+    } catch {
+      toast.error('Something went wrong. Please try again.')
+      setDeleting(false)
+    }
+  }
 
   const handleEmailChange = async () => {
     if (!newEmail) return
@@ -144,6 +178,72 @@ export function AccountSection() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Delete account */}
+      <Card variant="glass" className="rounded-2xl border-destructive/20">
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold flex items-center gap-2 text-destructive">
+            <Trash2 className="h-4 w-4" />
+            Delete account
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Permanently delete your Loyalink account. Studios you solely own, along with all
+            customers, transactions, wallet passes, and settings, will be deleted immediately.
+            This action cannot be undone.
+          </p>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => { setDeleteOpen(true); setDeleteConfirm('') }}
+          >
+            Delete my account
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Dialog open={deleteOpen} onOpenChange={(open) => { if (!deleting) setDeleteOpen(open) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Delete your account?</DialogTitle>
+            <DialogDescription className="leading-relaxed">
+              This will permanently delete your account and every studio you solely own, along with
+              all customer data, transactions, wallet passes, and settings. Other studios where
+              you are a co-owner or member will remain.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 pt-2">
+            <Label htmlFor="delete-confirm" className="text-xs text-muted-foreground uppercase tracking-wider">
+              Type <span className="font-mono text-foreground">DELETE</span> to confirm
+            </Label>
+            <Input
+              id="delete-confirm"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder="DELETE"
+              autoCapitalize="characters"
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteOpen(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={deleteConfirm !== 'DELETE' || deleting}
+            >
+              {deleting ? 'Deleting…' : 'Delete account'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

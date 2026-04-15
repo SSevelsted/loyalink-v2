@@ -14,8 +14,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, ArrowLeft, Check, Zap, Wallet, Users, TrendingUp, Bell, Tag } from 'lucide-react'
+import { Loader2, ArrowLeft, Check, Zap, Wallet, Users, TrendingUp, Bell, Tag, Globe } from 'lucide-react'
 import { LogoMark } from '@/components/logo'
+import { isNative } from '@/lib/platform'
 
 type Plan = 'basic' | 'pro'
 
@@ -680,7 +681,56 @@ function SignupForm() {
   )
 }
 
+function NativeSignupBlocked() {
+  return (
+    <div className="flex min-h-dvh bg-background items-center justify-center px-4 pt-safe pb-safe">
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-primary/8 blur-[150px]" />
+      </div>
+      <div className="relative w-full max-w-sm animate-fade-up text-center space-y-6">
+        <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 glow-primary">
+          <LogoMark className="h-full w-full text-primary p-3" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-display-xl text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
+            Create your studio on the web
+          </h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            New Loyalink accounts are set up at loyalink.ai. Once your studio is live you can sign in
+            here on your phone to run it day-to-day.
+          </p>
+        </div>
+        <div className="rounded-2xl glass-card p-5 flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+            <Globe className="h-4 w-4 text-primary" />
+          </div>
+          <p className="text-sm text-foreground font-medium text-left select-text">
+            loyalink.ai
+          </p>
+        </div>
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to sign in
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 export default function SignupPage() {
+  const [showNativeGate, setShowNativeGate] = useState(false)
+
+  useEffect(() => {
+    if (isNative()) setShowNativeGate(true)
+  }, [])
+
+  if (showNativeGate) {
+    return <NativeSignupBlocked />
+  }
+
   return (
     <div className="flex min-h-dvh bg-background">
       {/* Background glow */}

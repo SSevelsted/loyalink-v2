@@ -17,7 +17,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState<'login' | 'forgot'>('login')
   const [resetSent, setResetSent] = useState(false)
-  const { signInWithEmail, signInWithGoogle, resetPasswordForEmail } = useAuth()
+  const { signInWithEmail, signInWithGoogle, signInWithApple, resetPasswordForEmail } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -75,7 +75,20 @@ function LoginForm() {
         <div className="rounded-2xl glass-card p-6 mb-6">
           {mode === 'login' ? (
             <>
-            <div className="space-y-4">
+            <div className="space-y-3">
+              <Button
+                type="button"
+                size="lg"
+                className="w-full font-medium h-12 bg-black text-white hover:bg-black/90 active:bg-black/80 border border-black dark:bg-white dark:text-black dark:hover:bg-white/90 dark:active:bg-white/80 dark:border-white"
+                onClick={() => signInWithApple()}
+                disabled={loading}
+              >
+                <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+                  <path d="M17.05 12.536c-.035-3.474 2.836-5.143 2.965-5.222-1.615-2.361-4.13-2.684-5.029-2.72-2.137-.218-4.174 1.261-5.26 1.261-1.087 0-2.758-1.23-4.533-1.196-2.33.034-4.48 1.353-5.678 3.434-2.42 4.196-.619 10.402 1.742 13.807 1.155 1.666 2.527 3.539 4.33 3.47 1.743-.069 2.4-1.125 4.507-1.125 2.107 0 2.696 1.125 4.534 1.09 1.87-.034 3.056-1.697 4.199-3.372 1.322-1.933 1.867-3.802 1.9-3.899-.042-.018-3.644-1.398-3.677-5.528zM14.16 2.438c.96-1.165 1.608-2.78 1.431-4.387-1.382.058-3.057.921-4.049 2.085-.89.97-1.672 2.625-1.462 4.2 1.544.12 3.119-.784 4.08-1.898z" />
+                </svg>
+                Continue with Apple
+              </Button>
+
               <Button
                 type="button"
                 variant="outline"

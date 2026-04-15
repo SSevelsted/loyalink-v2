@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStudio } from '@/hooks/use-studio'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { CreditCard, ExternalLink } from 'lucide-react'
+import { CreditCard, ExternalLink, Globe } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isNative } from '@/lib/platform'
 import type { SubscriptionStatus } from '@/lib/stripe'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -33,6 +34,11 @@ function getDaysRemaining(trialEndsAt: string): number {
 export function BillingSection() {
   const { currentStudio } = useStudio()
   const [loading, setLoading] = useState(false)
+  const [onNative, setOnNative] = useState(false)
+
+  useEffect(() => {
+    setOnNative(isNative())
+  }, [])
 
   const status = currentStudio?.subscription_status as SubscriptionStatus | null
   const trialEndsAt = currentStudio?.trial_ends_at
@@ -114,15 +120,28 @@ export function BillingSection() {
           </div>
         )}
 
-        <Button
-          onClick={handleManageBilling}
-          disabled={loading}
-          className="gap-2"
-        >
-          <CreditCard className="h-4 w-4" />
-          {loading ? 'Redirecting…' : 'Manage subscription'}
-          <ExternalLink className="h-3.5 w-3.5 opacity-60" />
-        </Button>
+        {onNative ? (
+          <div className="rounded-lg border border-border/60 bg-secondary/30 px-4 py-3 text-sm space-y-1">
+            <p className="font-medium text-foreground flex items-center gap-2">
+              <Globe className="h-4 w-4 text-primary" />
+              Manage your subscription on the web
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              Visit <span className="font-mono text-foreground select-text">loyalink.ai</span> on any
+              browser to update your plan, payment method, or cancel.
+            </p>
+          </div>
+        ) : (
+          <Button
+            onClick={handleManageBilling}
+            disabled={loading}
+            className="gap-2"
+          >
+            <CreditCard className="h-4 w-4" />
+            {loading ? 'Redirecting…' : 'Manage subscription'}
+            <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+          </Button>
+        )}
       </div>
     </div>
   )
