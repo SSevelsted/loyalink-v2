@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1048594118297",
+    "project_id": "loyalink-d70d9",
+    "storage_bucket": "loyalink-d70d9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1048594118297:android:9f379ca14556e9ef25aa08",
+        "android_client_info": {
+          "package_name": "ai.loyalink.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnslZac5HI668Jbx91nZ0ffmRgaV0IFDE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

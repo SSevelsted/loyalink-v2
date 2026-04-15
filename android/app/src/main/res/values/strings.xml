@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Loyalink</string>
+    <string name="title_activity_main">Loyalink</string>
+    <string name="package_name">ai.loyalink.app</string>
+    <string name="custom_url_scheme">ai.loyalink.app</string>
+</resources>
