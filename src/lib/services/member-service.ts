@@ -235,9 +235,12 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
               const saveData = await saveRes.json()
               passUrl = saveData.saveUrl ?? saveEndpoint
             } else {
+              const body = await saveRes.text().catch(() => '')
+              console.error('[pass] Google saveUrl fetch failed', saveRes.status, body)
               passUrl = saveEndpoint
             }
-          } catch {
+          } catch (err) {
+            console.error('[pass] Google saveUrl fetch threw', err)
             passUrl = saveEndpoint
           }
         }
@@ -245,9 +248,12 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
         const dl = passData.downloadUrl ?? `/api/passes/${passData.serialNumber}/download`
         passUrl = dl.startsWith('http') ? dl : `${PASS_SERVICE_URL}${dl}`
       }
+    } else {
+      const body = await passRes.text().catch(() => '')
+      console.error('[pass] generate failed', passRes.status, body, { customerId: customer.id, platform })
     }
-  } catch {
-    // Pass generation failed — non-critical
+  } catch (err) {
+    console.error('[pass] generate threw', err, { customerId: customer.id, platform })
   }
 
   // Store pass data in customer metadata
