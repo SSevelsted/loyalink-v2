@@ -37,6 +37,22 @@ function LoginForm() {
     router.push(redirect)
   }
 
+  const handleAppleSignIn = async () => {
+    setError(null)
+    setLoading(true)
+    const { error } = await signInWithApple()
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+      return
+    }
+    // On iOS native the sign-in completes in-process (no OAuth redirect),
+    // so we navigate manually. On web/Android, the OAuth redirect happens
+    // before this line runs and this push is a no-op.
+    const redirect = searchParams.get('redirect') || '/overview'
+    router.push(redirect)
+  }
+
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -80,7 +96,7 @@ function LoginForm() {
                 type="button"
                 size="lg"
                 className="w-full font-medium h-12 bg-black text-white hover:bg-black/90 active:bg-black/80 border border-black dark:bg-white dark:text-black dark:hover:bg-white/90 dark:active:bg-white/80 dark:border-white"
-                onClick={() => signInWithApple()}
+                onClick={handleAppleSignIn}
                 disabled={loading}
               >
                 <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">

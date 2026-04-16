@@ -77,12 +77,17 @@ export function useAuth() {
     if (isNative() && getPlatform() === 'ios') {
       try {
         const { SignInWithApple } = await import('@capacitor-community/apple-sign-in')
+
+        // Same nonce flows through both sides. Apple echoes it back in the
+        // JWT claims, Supabase compares them to prevent token replay.
+        const rawNonce = crypto.randomUUID()
+
         const { response } = await SignInWithApple.authorize({
           clientId: 'ai.loyalink.app',
           redirectURI: 'https://my.loyalink.ai',
           scopes: 'email name',
           state: crypto.randomUUID(),
-          nonce: crypto.randomUUID(),
+          nonce: rawNonce,
         })
 
         if (!response.identityToken) {
@@ -92,6 +97,7 @@ export function useAuth() {
         const { error } = await supabase.auth.signInWithIdToken({
           provider: 'apple',
           token: response.identityToken,
+          nonce: rawNonce,
         })
         return { error }
       } catch (err) {
