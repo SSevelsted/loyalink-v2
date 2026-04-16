@@ -16,8 +16,21 @@ import { useEffect } from 'react'
 import { isSubscriptionActive } from '@/lib/stripe'
 import { SubscriptionWall } from './_components/subscription-wall'
 import { LogoMark } from '@/components/logo'
+import { Providers } from '@/app/providers'
 
 export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <Providers>
+      <DashboardShell>{children}</DashboardShell>
+    </Providers>
+  )
+}
+
+function DashboardShell({
   children,
 }: {
   children: React.ReactNode
