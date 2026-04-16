@@ -69,10 +69,42 @@ export function useAuth() {
   }
 
   const signInWithApple = async () => {
-    // Same deep-link pattern as Google. Apple enforces the privacy rules
-    // required by App Store guideline 4.8 (email relay, no ad tracking).
-    const { isNative } = await import('@/lib/platform')
+    const { isNative, getPlatform } = await import('@/lib/platform')
 
+    // On iOS, use Apple's native Sign in with Apple sheet (Face ID etc.)
+    // and hand the identity token directly to Supabase — no OAuth redirect,
+    // no deep-link handoff, no Services ID round-trip.
+    if (isNative() && getPlatform() === 'ios') {
+      try {
+        const { SignInWithApple } = await import('@capacitor-community/apple-sign-in')
+        const { response } = await SignInWithApple.authorize({
+          clientId: 'ai.loyalink.app',
+          redirectURI: 'https://my.loyalink.ai',
+          scopes: 'email name',
+          state: crypto.randomUUID(),
+          nonce: crypto.randomUUID(),
+        })
+
+        if (!response.identityToken) {
+          return { error: new Error('Apple did not return an identity token') }
+        }
+
+        const { error } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: response.identityToken,
+        })
+        return { error }
+      } catch (err) {
+        // User cancelled the native sheet → treat as a no-op, not an error.
+        const message = err instanceof Error ? err.message : String(err)
+        if (/cancel/i.test(message) || /1001/.test(message)) {
+          return { error: null }
+        }
+        return { error: err instanceof Error ? err : new Error(message) }
+      }
+    }
+
+    // Web and Android fall back to Supabase's hosted OAuth flow.
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: {
