@@ -1,19 +1,34 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <defs>
-    <linearGradient id="glow1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#a855f7"/>
+    <linearGradient id="gradLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c084fc"/>
       <stop offset="100%" stop-color="#7c3aed"/>
     </linearGradient>
-    <filter id="blur1">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="20"/>
+    <linearGradient id="gradRight" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#6d28d9"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.25"/>
+      <stop offset="70%" stop-color="#a855f7" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="24"/>
     </filter>
+    <mask id="leftRing">
+      <rect width="1024" height="1024" fill="black"/>
+      <circle cx="392" cy="512" r="196" fill="white"/>
+      <circle cx="392" cy="512" r="124" fill="black"/>
+    </mask>
+    <mask id="rightRing">
+      <rect width="1024" height="1024" fill="black"/>
+      <circle cx="632" cy="512" r="196" fill="white"/>
+      <circle cx="632" cy="512" r="124" fill="black"/>
+    </mask>
   </defs>
-  <!-- Background -->
-  <rect width="512" height="512" rx="112" fill="#09090b"/>
-  <!-- Glow effect -->
-  <circle cx="196" cy="256" r="88" stroke="url(#glow1)" stroke-width="24" fill="none" opacity="0.15" filter="url(#blur1)"/>
-  <circle cx="316" cy="256" r="88" stroke="url(#glow1)" stroke-width="24" fill="none" opacity="0.15" filter="url(#blur1)"/>
-  <!-- Main circles -->
-  <circle cx="196" cy="256" r="88" stroke="url(#glow1)" stroke-width="36" fill="none"/>
-  <circle cx="316" cy="256" r="88" stroke="url(#glow1)" stroke-width="36" fill="none"/>
+
+  <rect width="1024" height="1024" fill="#09090b"/>
+  <circle cx="512" cy="512" r="320" fill="url(#glow)" filter="url(#softGlow)"/>
+  <rect width="1024" height="1024" fill="url(#gradLeft)" mask="url(#leftRing)"/>
+  <rect width="1024" height="1024" fill="url(#gradRight)" mask="url(#rightRing)"/>
 </svg>
