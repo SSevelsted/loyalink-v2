@@ -191,7 +191,10 @@ function PaymentStep({ step1, customerId, coupon, onBack }: PaymentStepProps) {
         return
       }
 
-      router.push('/setup')
+      // Full reload, not router.push, so useStudioLoader re-fetches from
+      // scratch and picks up the newly created studio. A client-side push
+      // keeps the cached "no studio" state from before the POST.
+      window.location.href = '/setup'
     } catch (error) {
       setError(getErrorMessage(error, 'Setup took too long. Please refresh and try again.'))
     } finally {
