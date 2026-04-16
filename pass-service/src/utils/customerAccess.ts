@@ -22,28 +22,45 @@ function sign(value: string): string {
 }
 
 export function verifyCustomerAccessToken(token: string | null | undefined): CustomerAccessPayload | null {
-  if (!token) return null
+  if (!token) {
+    console.log('[customerAccess] reject: token missing')
+    return null
+  }
 
   const [encodedPayload, signature] = token.split('.')
-  if (!encodedPayload || !signature) return null
+  if (!encodedPayload || !signature) {
+    console.log('[customerAccess] reject: malformed (missing payload or signature)')
+    return null
+  }
 
   const expected = sign(encodedPayload)
   const actual = Buffer.from(signature)
   const wanted = Buffer.from(expected)
 
   if (actual.length !== wanted.length || !crypto.timingSafeEqual(actual, wanted)) {
+    console.log(`[customerAccess] reject: signature mismatch (got len=${actual.length}, expected len=${wanted.length})`)
     return null
   }
 
   try {
     const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as CustomerAccessPayload
 
-    if (payload.scope !== 'customer_access') return null
-    if (!payload.customerId) return null
-    if (payload.exp <= Math.floor(Date.now() / 1000)) return null
+    if (payload.scope !== 'customer_access') {
+      console.log(`[customerAccess] reject: bad scope "${payload.scope}"`)
+      return null
+    }
+    if (!payload.customerId) {
+      console.log('[customerAccess] reject: missing customerId')
+      return null
+    }
+    if (payload.exp <= Math.floor(Date.now() / 1000)) {
+      console.log(`[customerAccess] reject: expired (exp=${payload.exp}, now=${Math.floor(Date.now() / 1000)})`)
+      return null
+    }
 
     return payload
-  } catch {
+  } catch (err) {
+    console.log(`[customerAccess] reject: payload parse error: ${(err as Error).message}`)
     return null
   }
 }
