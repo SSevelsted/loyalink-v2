@@ -4,6 +4,7 @@ import type { RewardsConfig } from '@/types/database'
 import { customAlphabet } from 'nanoid'
 import { createCustomerAccessToken } from '@/lib/customer-access'
 import { passServiceFetch } from '@/lib/pass-service'
+import { APP_URL } from '@/lib/constants'
 import { fireWebhook } from '@/lib/services/webhook-service'
 import { sendCustomerWelcome } from '@/lib/email/send'
 
@@ -245,8 +246,7 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
           }
         }
       } else {
-        const dl = passData.downloadUrl ?? `/api/passes/${passData.serialNumber}/download`
-        passUrl = dl.startsWith('http') ? dl : `${PASS_SERVICE_URL}${dl}`
+        passUrl = `${APP_URL}/pass/${passData.serialNumber}`
       }
     } else {
       const body = await passRes.text().catch(() => '')

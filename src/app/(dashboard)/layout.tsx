@@ -8,7 +8,8 @@ import { BottomNav } from '@/components/layout/bottom-nav'
 import { useStudio } from '@/hooks/use-studio'
 import { useAuth } from '@/hooks/use-auth'
 import { usePassTemplates } from '@/hooks/use-wallet'
-import { Building2, Menu } from 'lucide-react'
+import { Building2, Menu, Globe, ArrowRight, LogOut } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { isNative } from '@/lib/platform'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
@@ -21,7 +22,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, signOut } = useAuth()
   const { loading: studioLoading, currentStudio, membership } = useStudio()
   const { data: templates } = usePassTemplates()
   const pathname = usePathname()
@@ -70,16 +71,60 @@ export default function DashboardLayout({
   }
 
   if (!currentStudio) {
+    const onNative = isNative()
+    const handleSignOut = async () => {
+      await signOut()
+      router.replace('/login')
+    }
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-background">
-        <div className="text-center space-y-4 max-w-sm animate-fade-up">
-          <div className="mx-auto h-14 w-14 rounded-2xl bg-secondary border border-border flex items-center justify-center">
-            <Building2 className="h-6 w-6 text-muted-foreground" />
+      <div className="flex min-h-dvh items-center justify-center bg-background px-4 pt-safe pb-safe">
+        <div className="fixed inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-primary/8 blur-[150px]" />
+        </div>
+        <div className="relative text-center space-y-5 max-w-sm animate-fade-up w-full">
+          <div className="mx-auto h-14 w-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <Building2 className="h-6 w-6 text-primary" />
           </div>
-          <h2 className="text-xl font-semibold text-foreground">No studio found</h2>
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            You are not a member of any studio yet. Ask an admin to send you an invitation link.
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-foreground">Welcome to Loyalink</h2>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              {onNative
+                ? "You're signed in, but this account doesn't have a studio yet. Create one on the web and then sign back in here to run your studio."
+                : "You're signed in, but this account doesn't have a studio yet. Pick a plan to get started."}
+            </p>
+          </div>
+          {onNative ? (
+            <div className="rounded-2xl glass-card p-4 flex items-center gap-3 text-left">
+              <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <Globe className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground">Open on any browser</p>
+                <p className="text-sm font-medium text-foreground font-mono select-text">loyalink.ai</p>
+              </div>
+            </div>
+          ) : (
+            <Button
+              className="w-full"
+              variant="glow"
+              size="lg"
+              onClick={() => router.push('/onboarding/subscribe')}
+            >
+              Create your studio
+              <ArrowRight className="h-4 w-4 ml-1.5" />
+            </Button>
+          )}
+          <p className="text-xs text-muted-foreground">
+            If you were invited to an existing studio, ask the owner to resend your invite.
           </p>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors active:opacity-70"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Sign out
+          </button>
         </div>
       </div>
     )
