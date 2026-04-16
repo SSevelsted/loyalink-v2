@@ -5,6 +5,13 @@ import type { StudioMember } from '@/types/database'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 
+async function sha256Hex(input: string): Promise<string> {
+  const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -78,16 +85,22 @@ export function useAuth() {
       try {
         const { SignInWithApple } = await import('@capacitor-community/apple-sign-in')
 
-        // Same nonce flows through both sides. Apple echoes it back in the
-        // JWT claims, Supabase compares them to prevent token replay.
+        // Nonce handshake for the native flow:
+        //   1. Generate a raw nonce.
+        //   2. SHA-256 hash it and send the HASH to Apple — Apple echoes it
+        //      verbatim into the JWT's nonce claim.
+        //   3. Send the RAW nonce to Supabase; Supabase hashes it and
+        //      compares against the claim. Mismatch here would mean a
+        //      replayed token.
         const rawNonce = crypto.randomUUID()
+        const hashedNonce = await sha256Hex(rawNonce)
 
         const { response } = await SignInWithApple.authorize({
           clientId: 'ai.loyalink.app',
           redirectURI: 'https://my.loyalink.ai',
           scopes: 'email name',
           state: crypto.randomUUID(),
-          nonce: rawNonce,
+          nonce: hashedNonce,
         })
 
         if (!response.identityToken) {
