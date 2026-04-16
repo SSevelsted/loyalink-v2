@@ -5,6 +5,7 @@ import { passServiceFetch } from '@/lib/pass-service'
 import { expirePromotion } from '@/lib/services/promotion-service'
 import { fireWebhook } from '@/lib/services/webhook-service'
 import { sendTierUpgrade, sendReferralReward } from '@/lib/email/send'
+import { buildTransactionPushMessage } from '@/lib/pass-push-messages'
 
 type ProcessTransactionInput = {
   customerId: string
@@ -184,13 +185,6 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
       },
     })
 
-    if (newTier) {
-      await adminSupabase
-        .from('wallet_passes')
-        .update({ push_message: `You've been upgraded to ${newTier.name}! You now earn ${newTier.cashback_rate}% cashback.` })
-        .eq('customer_id', customerId)
-    }
-
     fireWebhook(studioId, 'tier.upgraded', customerId, {
       from_tier: customer.loyalty_stage,
       to_tier: newTierSlug,
@@ -200,8 +194,6 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
 
     // Send tier upgrade email (fire-and-forget)
     sendTierUpgrade(customerId, studioId, customer.loyalty_stage, newTierSlug)
-
-    triggerPassUpdate(customerId)
   }
 
   // 4. Check for active promotion
@@ -267,6 +259,35 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
     cash_amount: cashAmount ?? amount,
     total_spend: newSpendTotal,
   })
+
+  const tierUpgradeForMessage = tierChanged && baseUpdates.loyalty_stage
+    ? (() => {
+        const t = config.tiers.find(x => x.slug === baseUpdates.loyalty_stage)
+        return t ? { name: t.name, cashbackRate: t.cashback_rate } : null
+      })()
+    : null
+
+  const cashbackForMessage = cashbackAmount > 0
+    ? {
+        amount: cashbackAmount,
+        rate: cashbackRate,
+        newBalance: Number(customer.balance ?? 0) + cashbackAmount,
+        currency: (customer.currency as string) || 'DKK',
+      }
+    : null
+
+  const pushMessage = buildTransactionPushMessage({
+    language: (settings?.language as string | null | undefined) ?? null,
+    tierUpgrade: tierUpgradeForMessage,
+    cashback: cashbackForMessage,
+  })
+
+  if (pushMessage) {
+    await adminSupabase
+      .from('wallet_passes')
+      .update({ push_message: pushMessage })
+      .eq('customer_id', customerId)
+  }
 
   triggerPassUpdate(customerId)
 
