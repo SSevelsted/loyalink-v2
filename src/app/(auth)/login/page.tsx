@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/use-auth'
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2, ArrowLeft } from 'lucide-react'
 import { LogoMark } from '@/components/logo'
+import { isNative } from '@/lib/platform'
 
 function LoginForm() {
   const [email, setEmail] = useState('')
@@ -17,6 +18,11 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState<'login' | 'forgot'>('login')
   const [resetSent, setResetSent] = useState(false)
+  const [onNative, setOnNative] = useState(false)
+
+  useEffect(() => {
+    setOnNative(isNative())
+  }, [])
   const { signInWithEmail, signInWithGoogle, signInWithApple, resetPasswordForEmail } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -250,12 +256,17 @@ function LoginForm() {
           )}
         </div>
 
-        {mode === 'login' && (
+        {mode === 'login' && !onNative && (
           <p className="text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{' '}
             <Link href="/signup" className="text-foreground hover:underline underline-offset-4">
               Start free trial →
             </Link>
+          </p>
+        )}
+        {mode === 'login' && onNative && (
+          <p className="text-center text-sm text-muted-foreground">
+            New studios sign up at loyalink.ai
           </p>
         )}
       </div>

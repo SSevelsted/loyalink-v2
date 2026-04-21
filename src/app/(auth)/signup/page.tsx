@@ -721,13 +721,19 @@ function NativeSignupBlocked() {
 }
 
 export default function SignupPage() {
-  const [showNativeGate, setShowNativeGate] = useState(false)
+  const [platformResolved, setPlatformResolved] = useState(false)
+  const [onNative, setOnNative] = useState(false)
 
   useEffect(() => {
-    if (isNative()) setShowNativeGate(true)
+    setOnNative(isNative())
+    setPlatformResolved(true)
   }, [])
 
-  if (showNativeGate) {
+  if (!platformResolved) {
+    return <div className="min-h-dvh bg-background" />
+  }
+
+  if (onNative) {
     return <NativeSignupBlocked />
   }
 
