@@ -113,9 +113,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Scan + Stats */}
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 xl:grid-cols-5">
         <ScanButton />
-        <div className="md:col-span-4 grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <div className="xl:col-span-4 grid gap-3 grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => {
             const content = (
               <CardContent className="p-4">
