@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getStripe } from '@/lib/stripe'
+import { getStripe, resolvePromoCode } from '@/lib/stripe'
 import { signupLimiter, getIP } from '@/lib/rate-limit'
+import { isNativeRequest } from '@/lib/native-request'
 
 /**
  * Prepare step for already-authenticated users who need to create their studio.
@@ -12,6 +13,10 @@ import { signupLimiter, getIP } from '@/lib/rate-limit'
  * and returns the clientSecret + optional coupon.
  */
 export async function POST(request: NextRequest) {
+  if (isNativeRequest(request)) {
+    return NextResponse.json({ error: 'Not available in app' }, { status: 403 })
+  }
+
   const { success } = signupLimiter.check(5, getIP(request))
   if (!success) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
@@ -41,16 +46,15 @@ export async function POST(request: NextRequest) {
   try {
     const stripe = getStripe()
 
-    const [customer, coupon] = await Promise.all([
+    const [customer, promo] = await Promise.all([
       stripe.customers.create({
         email: user.email,
         name: normalizedStudioName,
         metadata: { source: 'dashboard_onboarding', user_id: user.id },
       }),
-      promoCode?.trim()
-        ? stripe.coupons.retrieve(promoCode.trim().toUpperCase()).catch(() => null)
-        : Promise.resolve(null),
+      resolvePromoCode(stripe, promoCode),
     ])
+    const coupon = promo?.coupon ?? null
 
     const setupIntent = await stripe.setupIntents.create({
       customer: customer.id,

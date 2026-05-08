@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { getStripe } from '@/lib/stripe'
+import { getStripe, resolvePromoCode } from '@/lib/stripe'
 import { PLATFORM_URL } from '@/lib/constants'
 import { sendStudioWelcome } from '@/lib/email/send'
 import { generateUniqueSlug } from '@/lib/slug'
 import { signupLimiter, getIP } from '@/lib/rate-limit'
+import { isNativeRequest } from '@/lib/native-request'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,6 +20,10 @@ const PLAN_PRICE_IDS: Record<string, string | undefined> = {
 }
 
 export async function POST(request: NextRequest) {
+  if (isNativeRequest(request)) {
+    return NextResponse.json({ error: 'Not available in app' }, { status: 403 })
+  }
+
   const { success } = signupLimiter.check(5, getIP(request))
   if (!success) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
@@ -92,16 +97,10 @@ export async function POST(request: NextRequest) {
         const stripe = getStripe()
 
         // Parallel: attach payment method + resolve promo code
-        const couponPromise = promoCode?.trim()
-          ? stripe.coupons.retrieve(promoCode.trim().toUpperCase()).catch(() => null)
-          : Promise.resolve(null)
-
-        const [, coupon] = await Promise.all([
+        const [, promo] = await Promise.all([
           stripe.paymentMethods.attach(paymentMethodId, { customer: customerId }),
-          couponPromise,
+          resolvePromoCode(stripe, promoCode),
         ])
-
-        const couponId = coupon?.valid ? coupon.id : undefined
 
         const basePriceId = PLAN_PRICE_IDS[selectedPlan]
         const memberPriceId = process.env.STRIPE_MEMBER_PRICE_ID
@@ -125,7 +124,11 @@ export async function POST(request: NextRequest) {
               trial_period_days: TRIAL_DAYS,
               trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
               metadata: { studio_id: studio.id, plan: selectedPlan },
-              ...(couponId ? { discounts: [{ coupon: couponId }] } : {}),
+              ...(promo?.promotionCodeId
+                ? { discounts: [{ promotion_code: promo.promotionCodeId }] }
+                : promo?.coupon
+                  ? { discounts: [{ coupon: promo.coupon.id }] }
+                  : {}),
             }),
           ])
 

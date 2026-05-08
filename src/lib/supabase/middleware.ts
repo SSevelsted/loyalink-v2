@@ -1,5 +1,16 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isNativeRequest } from '@/lib/native-request'
+
+// Business-account registration / paid subscription flows are blocked on the
+// native app shell (App Store guideline 3.1.1).
+const NATIVE_BLOCKED_PATHS = ['/signup', '/onboarding/subscribe']
+
+function isNativeBlockedPath(path: string): boolean {
+  return NATIVE_BLOCKED_PATHS.some(
+    (p) => path === p || path.startsWith(p + '/')
+  )
+}
 
 // Paths that only exist on the marketing domain (loyalink.ai)
 function isMarketingOnlyRoute(path: string): boolean {
@@ -55,6 +66,14 @@ export async function updateSession(request: NextRequest) {
   if (path === '/' && request.nextUrl.searchParams.get('error_code') === 'otp_expired') {
     const url = new URL('/reset-password', request.nextUrl.origin)
     url.searchParams.set('expired', 'true')
+    return NextResponse.redirect(url)
+  }
+
+  // --- Block business-account registration on native (App Store 3.1.1) ---
+  if (isNativeBlockedPath(path) && isNativeRequest(request)) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.search = ''
     return NextResponse.redirect(url)
   }
 

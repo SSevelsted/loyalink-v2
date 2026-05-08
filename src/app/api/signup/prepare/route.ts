@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { getStripe } from '@/lib/stripe'
+import { getStripe, resolvePromoCode } from '@/lib/stripe'
 import { signupLimiter, getIP } from '@/lib/rate-limit'
+import { isNativeRequest } from '@/lib/native-request'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,6 +33,10 @@ async function emailExists(email: string) {
 }
 
 export async function POST(request: NextRequest) {
+  if (isNativeRequest(request)) {
+    return NextResponse.json({ error: 'Not available in app' }, { status: 403 })
+  }
+
   const { success } = signupLimiter.check(5, getIP(request))
   if (!success) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
@@ -59,16 +64,15 @@ export async function POST(request: NextRequest) {
 
     const stripe = getStripe()
 
-    const [customer, coupon] = await Promise.all([
+    const [customer, promo] = await Promise.all([
       stripe.customers.create({
         email: normalizedEmail,
         name: normalizedStudioName,
         metadata: { source: 'self_signup' },
       }),
-      promoCode?.trim()
-        ? stripe.coupons.retrieve(promoCode.trim().toUpperCase()).catch(() => null)
-        : Promise.resolve(null),
+      resolvePromoCode(stripe, promoCode),
     ])
+    const coupon = promo?.coupon ?? null
 
     const setupIntent = await stripe.setupIntents.create({
       customer: customer.id,
@@ -91,6 +95,7 @@ export async function POST(request: NextRequest) {
             name: coupon.name ?? null,
           }
         : null,
+      promoValid: !!coupon,
     })
   } catch (err) {
     console.error('[signup/prepare]', err)

@@ -14,9 +14,13 @@ const config: CapacitorConfig = {
     backgroundColor: '#09090b',
     preferredContentMode: 'mobile',
     webContentsDebuggingEnabled: true,
+    // Server reads this UA suffix to block business-account registration
+    // on native (App Store guideline 3.1.1). See src/lib/native-request.ts.
+    appendUserAgent: 'LoyalinkApp/native',
   },
   android: {
     backgroundColor: '#09090b',
+    appendUserAgent: 'LoyalinkApp/native',
   },
   plugins: {
     SplashScreen: {

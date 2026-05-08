@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { adminSupabase } from '@/lib/studio-access'
-import { getStripe } from '@/lib/stripe'
+import { getStripe, resolvePromoCode } from '@/lib/stripe'
 import { sendStudioWelcome } from '@/lib/email/send'
 import { generateUniqueSlug } from '@/lib/slug'
 import { signupLimiter, getIP } from '@/lib/rate-limit'
+import { isNativeRequest } from '@/lib/native-request'
 
 const TRIAL_DAYS = 14
 
@@ -20,6 +21,10 @@ const PLAN_PRICE_IDS: Record<string, string | undefined> = {
  * because the caller is already authed.
  */
 export async function POST(request: NextRequest) {
+  if (isNativeRequest(request)) {
+    return NextResponse.json({ error: 'Not available in app' }, { status: 403 })
+  }
+
   const { success } = signupLimiter.check(5, getIP(request))
   if (!success) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
@@ -100,16 +105,10 @@ export async function POST(request: NextRequest) {
       try {
         const stripe = getStripe()
 
-        const couponPromise = promoCode?.trim()
-          ? stripe.coupons.retrieve(promoCode.trim().toUpperCase()).catch(() => null)
-          : Promise.resolve(null)
-
-        const [, coupon] = await Promise.all([
+        const [, promo] = await Promise.all([
           stripe.paymentMethods.attach(paymentMethodId, { customer: customerId }),
-          couponPromise,
+          resolvePromoCode(stripe, promoCode),
         ])
-
-        const couponId = coupon?.valid ? coupon.id : undefined
 
         const basePriceId = PLAN_PRICE_IDS[selectedPlan]
         const memberPriceId = process.env.STRIPE_MEMBER_PRICE_ID
@@ -132,7 +131,11 @@ export async function POST(request: NextRequest) {
               trial_period_days: TRIAL_DAYS,
               trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
               metadata: { studio_id: studio.id, plan: selectedPlan },
-              ...(couponId ? { discounts: [{ coupon: couponId }] } : {}),
+              ...(promo?.promotionCodeId
+                ? { discounts: [{ promotion_code: promo.promotionCodeId }] }
+                : promo?.coupon
+                  ? { discounts: [{ coupon: promo.coupon.id }] }
+                  : {}),
             }),
           ])
 
