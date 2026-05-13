@@ -264,11 +264,6 @@ function LoginForm() {
             </Link>
           </p>
         )}
-        {mode === 'login' && onNative && (
-          <p className="text-center text-sm text-muted-foreground">
-            New studios sign up at loyalink.ai
-          </p>
-        )}
       </div>
     </div>
   )

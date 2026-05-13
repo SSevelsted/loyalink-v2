@@ -70,11 +70,16 @@ export async function updateSession(request: NextRequest) {
   }
 
   // --- Block business-account registration on native (App Store 3.1.1) ---
-  if (isNativeBlockedPath(path) && isNativeRequest(request)) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    url.search = ''
-    return NextResponse.redirect(url)
+  // Native shell must not reach any signup/subscription routes OR any marketing
+  // pages (which contain pricing + signup CTAs). Anything marketing-flavored
+  // gets bounced into /login so Apple's reviewer can never land on it.
+  if (isNativeRequest(request)) {
+    if (isNativeBlockedPath(path) || isMarketingOnlyRoute(path)) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.search = ''
+      return NextResponse.redirect(url)
+    }
   }
 
   // --- Domain-based routing (only in production with two domains) ---

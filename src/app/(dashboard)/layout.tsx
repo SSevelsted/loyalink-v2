@@ -8,7 +8,7 @@ import { BottomNav } from '@/components/layout/bottom-nav'
 import { useStudio } from '@/hooks/use-studio'
 import { useAuth } from '@/hooks/use-auth'
 import { usePassTemplates } from '@/hooks/use-wallet'
-import { Building2, Menu, Globe, ArrowRight, LogOut } from 'lucide-react'
+import { Building2, Menu, ArrowRight, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { isNative } from '@/lib/platform'
 import { usePathname, useRouter } from 'next/navigation'
@@ -102,20 +102,17 @@ function DashboardShell({
             <h2 className="text-xl font-semibold text-foreground">Welcome to Loyalink</h2>
             <p className="text-muted-foreground text-sm leading-relaxed">
               {onNative
-                ? "You're signed in, but this account doesn't have a studio yet. Create one on the web and then sign back in here to run your studio."
+                ? "You're signed in, but this account doesn't have a studio yet."
                 : "You're signed in, but this account doesn't have a studio yet. Pick a plan to get started."}
             </p>
           </div>
           {onNative ? (
-            <div className="rounded-2xl glass-card p-4 flex items-center gap-3 text-left">
-              <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                <Globe className="h-4 w-4 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground">Open on any browser</p>
-                <p className="text-sm font-medium text-foreground font-mono select-text">loyalink.ai</p>
-              </div>
-            </div>
+            <a
+              href="mailto:hello@loyalink.ai"
+              className="inline-flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Contact support
+            </a>
           ) : (
             <Button
               className="w-full"

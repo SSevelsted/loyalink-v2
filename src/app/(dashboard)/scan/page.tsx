@@ -59,7 +59,7 @@ export default function ScanPage() {
       {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <Link
-          href="/"
+          href="/overview"
           className="flex h-11 w-11 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm text-white active:scale-95 transition-transform"
         >
           <X className="h-5 w-5" />

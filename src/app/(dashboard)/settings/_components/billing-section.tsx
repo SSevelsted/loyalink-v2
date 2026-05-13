@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useStudio } from '@/hooks/use-studio'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { CreditCard, ExternalLink, Globe } from 'lucide-react'
+import { CreditCard, ExternalLink, Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isNative } from '@/lib/platform'
 import type { SubscriptionStatus } from '@/lib/stripe'
@@ -121,15 +121,18 @@ export function BillingSection() {
         )}
 
         {onNative ? (
-          <div className="rounded-lg border border-border/60 bg-secondary/30 px-4 py-3 text-sm space-y-1">
-            <p className="font-medium text-foreground flex items-center gap-2">
-              <Globe className="h-4 w-4 text-primary" />
-              Manage your subscription on the web
-            </p>
+          <div className="rounded-lg border border-border/60 bg-secondary/30 px-4 py-3 text-sm space-y-2">
+            <p className="font-medium text-foreground">Need to make changes?</p>
             <p className="text-muted-foreground leading-relaxed">
-              Visit <span className="font-mono text-foreground select-text">loyalink.ai</span> on any
-              browser to update your plan, payment method, or cancel.
+              To update your plan, payment method, or cancel your subscription, please contact support.
             </p>
+            <a
+              href="mailto:hello@loyalink.ai"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground hover:underline underline-offset-4"
+            >
+              <Mail className="h-3.5 w-3.5" />
+              hello@loyalink.ai
+            </a>
           </div>
         ) : (
           <Button
