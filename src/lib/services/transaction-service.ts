@@ -14,6 +14,7 @@ type ProcessTransactionInput = {
   cashAmount?: number
   isDeposit?: boolean
   createdBy?: string | null
+  sourceTransactionId?: string | null
 }
 
 type TransactionSummary = {
@@ -41,7 +42,7 @@ type ProcessTransactionResult = {
 }
 
 export async function processTransaction(input: ProcessTransactionInput): Promise<ProcessTransactionResult> {
-  const { customerId, studioId, amount, cashAmount, isDeposit } = input
+  const { customerId, studioId, amount, cashAmount, isDeposit, sourceTransactionId } = input
 
   // Fetch customer
   const { data: customer, error: custErr } = await adminSupabase
@@ -254,9 +255,14 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
     })
   }
 
+  const transactedAt = new Date().toISOString()
   fireWebhook(studioId, 'transaction.created', customerId, {
+    transaction_id: sourceTransactionId ?? `loyalink-${customerId}-${Date.now()}`,
     amount,
+    amount_cents: Math.round(amount * 100),
     cash_amount: cashAmount ?? amount,
+    currency: (customer.currency as string | null | undefined) ?? (settings?.currency as string | null | undefined) ?? 'DKK',
+    transacted_at: transactedAt,
     total_spend: newSpendTotal,
   })
 

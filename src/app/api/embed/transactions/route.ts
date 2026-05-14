@@ -85,13 +85,17 @@ export async function POST(request: NextRequest) {
         .eq('id', customerId)
     }
 
-    const { error: creditErr } = await adminSupabase.from('transactions').insert({
-      customer_id: customerId,
-      studio_id: studioId,
-      type: 'credit',
-      amount: numericAmount,
-      description: isDeposit ? 'Deposit' : null,
-    })
+    const { data: creditTx, error: creditErr } = await adminSupabase
+      .from('transactions')
+      .insert({
+        customer_id: customerId,
+        studio_id: studioId,
+        type: 'credit',
+        amount: numericAmount,
+        description: isDeposit ? 'Deposit' : null,
+      })
+      .select('id')
+      .single()
     if (creditErr) return NextResponse.json({ error: creditErr.message }, { status: 500 })
 
     const result = await processTransaction({
@@ -101,6 +105,7 @@ export async function POST(request: NextRequest) {
       cashAmount: numericCashAmount,
       isDeposit,
       createdBy: 'embed',
+      sourceTransactionId: creditTx?.id ?? null,
     })
 
     return NextResponse.json({
