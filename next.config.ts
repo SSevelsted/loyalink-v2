@@ -31,6 +31,16 @@ const securityHeaders = [
   },
 ];
 
+const embedHeaders = [
+  ...securityHeaders.filter((header) => header.key !== "X-Frame-Options"),
+  {
+    key: "Content-Security-Policy",
+    value: [
+      "frame-ancestors 'self' https://app.streamink.co https://dashboard.streamink.co http://localhost:* http://127.0.0.1:*",
+    ].join("; "),
+  },
+];
+
 const nextConfig: NextConfig = {
   experimental: {
     viewTransition: true,
@@ -47,7 +57,11 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/(.*)",
+        source: "/embed/:path*",
+        headers: embedHeaders,
+      },
+      {
+        source: "/((?!embed/).*)",
         headers: securityHeaders,
       },
     ];
