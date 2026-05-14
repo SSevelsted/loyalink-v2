@@ -1,8 +1,8 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { PassWallet } from './_components/pass-wallet'
-import { createClient } from '@/lib/supabase/server'
 import { createCustomerAccessToken } from '@/lib/customer-access'
+import { adminSupabase } from '@/lib/studio-access'
 
 const PASS_SERVICE_URL = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
 
@@ -13,8 +13,7 @@ export default async function PassPage({ params, searchParams }: { params: Promi
   // Use provided token or generate a short-lived one by looking up the pass owner
   let token = providedToken
   if (!token) {
-    const supabase = await createClient()
-    const { data: pass } = await supabase
+    const { data: pass } = await adminSupabase
       .from('wallet_passes')
       .select('customer_id')
       .eq('serial_number', serialNumber)
