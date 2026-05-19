@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const code = searchParams.get('code')
   const next = getSafeRedirect(searchParams.get('next'))
+  const resetPasswordFallbackUrl = new URL('/reset-password', request.url)
+  resetPasswordFallbackUrl.searchParams.set('expired', 'true')
 
   if (code) {
     const supabase = await createClient()
@@ -21,6 +23,14 @@ export async function GET(request: NextRequest) {
     if (!error) {
       return NextResponse.redirect(new URL(next, request.url))
     }
+
+    if (next === '/reset-password') {
+      return NextResponse.redirect(resetPasswordFallbackUrl)
+    }
+  }
+
+  if (next === '/reset-password') {
+    return NextResponse.redirect(resetPasswordFallbackUrl)
   }
 
   // Auth code exchange failed — redirect to login with error

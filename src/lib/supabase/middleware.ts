@@ -142,6 +142,8 @@ export async function updateSession(request: NextRequest) {
     path.startsWith('/refer') ||
     path.startsWith('/referral-success') ||
     path.startsWith('/auth/callback') ||
+    path.startsWith('/auth/confirm') ||
+    path.startsWith('/auth/recovery') ||
     path.startsWith('/reset-password') ||
     path.startsWith('/api/') ||
     path.startsWith('/pass/') ||

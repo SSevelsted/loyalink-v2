@@ -6,8 +6,9 @@ import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, AlertCircle, Mail } from 'lucide-react'
+import { Loader2, AlertCircle, Mail, KeyRound, RefreshCw, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
+import { LogoMark } from '@/components/logo'
 
 export default function ResetPasswordPage() {
   return (
@@ -32,6 +33,7 @@ function ResetPasswordContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isExpired = searchParams.get('expired') === 'true'
+  const isRecoveryError = isExpired || searchParams.get('error') === 'auth_callback_failed'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -83,7 +85,7 @@ function ResetPasswordContent() {
     )
   }
 
-  if (!user) {
+  if (isRecoveryError || !user) {
     return (
       <div className="flex min-h-dvh items-center justify-center px-4 bg-background">
         <div className="fixed inset-0 pointer-events-none">
@@ -93,14 +95,14 @@ function ResetPasswordContent() {
         <div className="relative w-full max-w-sm animate-fade-up text-center">
           {resendSent ? (
             <>
-              <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 mb-4 glow-primary">
-                <Mail className="h-7 w-7 text-primary" />
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 mb-4 glow-primary">
+                <Mail className="h-7 w-7 text-primary" aria-hidden="true" />
               </div>
               <h1 className="text-display-xl text-foreground mb-2" style={{ fontFamily: 'var(--font-display)' }}>
                 Check your email
               </h1>
               <p className="text-sm text-muted-foreground mb-6">
-                We&apos;ve sent a new password reset link to <span className="text-foreground font-medium">{email}</span>.
+                We sent a fresh password reset link to <span className="text-foreground font-medium">{email}</span>.
               </p>
               <Button asChild variant="outline" size="lg" className="w-full font-medium">
                 <Link href="/login">Back to login</Link>
@@ -108,16 +110,20 @@ function ResetPasswordContent() {
             </>
           ) : (
             <>
-              <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl bg-destructive/10 border border-destructive/20 mb-4">
-                <AlertCircle className="h-7 w-7 text-destructive" />
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 mb-4 glow-primary">
+                {isExpired ? (
+                  <RefreshCw className="h-7 w-7 text-primary" aria-hidden="true" />
+                ) : (
+                  <AlertCircle className="h-7 w-7 text-primary" aria-hidden="true" />
+                )}
               </div>
               <h1 className="text-display-xl text-foreground mb-2" style={{ fontFamily: 'var(--font-display)' }}>
-                {isExpired ? 'Link expired' : 'Invalid link'}
+                {isExpired ? 'Reset link used' : 'Reset link invalid'}
               </h1>
               <p className="text-sm text-muted-foreground mb-6">
                 {isExpired
-                  ? 'This password reset link has expired. Enter your email to get a new one.'
-                  : 'This password reset link is invalid. Enter your email to get a new one.'}
+                  ? 'Password reset links can only be used once. Enter your email and we will send a fresh one.'
+                  : 'This password reset link is no longer valid. Enter your email and we will send a fresh one.'}
               </p>
               <div className="rounded-2xl glass-card p-6 text-left">
                 <form onSubmit={handleResend} className="space-y-4">
@@ -150,6 +156,12 @@ function ResetPasswordContent() {
                     ) : 'Send new reset link'}
                   </Button>
                 </form>
+                <div className="mt-4 flex items-start gap-2 rounded-lg border border-border/60 bg-secondary/40 px-3 py-2">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    For your security, each reset link expires after one use.
+                  </p>
+                </div>
               </div>
               <Button asChild variant="link" size="sm" className="mt-4 text-muted-foreground">
                 <Link href="/login">Back to login</Link>
@@ -170,7 +182,7 @@ function ResetPasswordContent() {
       <div className="relative w-full max-w-sm animate-fade-up">
         <div className="text-center mb-8">
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 mb-4 glow-primary">
-            <span className="text-primary text-2xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>L</span>
+            <LogoMark className="h-full w-full p-3 text-primary" />
           </div>
           <h1 className="text-display-xl text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
             New password
@@ -184,33 +196,39 @@ function ResetPasswordContent() {
               <Label htmlFor="password" className="text-xs text-muted-foreground uppercase tracking-wider">
                 New password
               </Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="bg-secondary/50 h-12"
-                placeholder="••••••••"
-                autoComplete="new-password"
-                minLength={8}
-                required
-              />
+              <div className="relative">
+                <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-12 bg-secondary/50 pl-9"
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm-password" className="text-xs text-muted-foreground uppercase tracking-wider">
                 Confirm password
               </Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="bg-secondary/50 h-12"
-                placeholder="••••••••"
-                autoComplete="new-password"
-                minLength={8}
-                required
-              />
+              <div className="relative">
+                <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="h-12 bg-secondary/50 pl-9"
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                />
+              </div>
             </div>
             {error && (
               <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2">
