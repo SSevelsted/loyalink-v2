@@ -1,0 +1,55 @@
+<!--
+  Change Email Address email for Supabase Auth.
+
+  Paste this into Supabase Dashboard → Authentication → Email Templates →
+  Change Email Address (HTML tab). Supabase will substitute {{ .TokenHash }},
+  {{ .Email }} (current address) and {{ .NewEmail }} at send time.
+
+  With "Secure email change" enabled, Supabase sends this to BOTH the old
+  and the new address; the same template is used for each.
+
+  The link points at /auth/verify — a plain page that does nothing on load
+  and only confirms the change when the user clicks. This stops mail-client
+  link prefetchers (Apple Mail Privacy Protection, Gmail, Outlook Safe
+  Links) from burning the single-use token before the user gets to it.
+
+  Keep this file in sync with the other emails under this folder.
+
+  Subject line (set separately in Supabase): Confirm your new Loyalink email
+-->
+<div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;color:#111">
+  <p style="color:#555;margin:0 0 16px">Hey there,</p>
+
+  <p style="color:#555;margin:0 0 16px">
+    Someone asked to change the email on the Loyalink account tied to
+    <strong>{{ .Email }}</strong> to <strong>{{ .NewEmail }}</strong>.
+    If that was you, confirm the change below.
+  </p>
+
+  <p style="margin:0 0 24px">
+    <a
+      href="https://my.loyalink.ai/auth/verify?token_hash={{ .TokenHash }}&amp;type=email_change&amp;next=/settings"
+      style="display:inline-block;background:#000;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:500"
+    >
+      Confirm email change
+    </a>
+  </p>
+
+  <p style="color:#555;margin:0 0 16px">
+    This link expires after one use. If it stops working, head to
+    <a href="https://my.loyalink.ai/login" style="color:#000">my.loyalink.ai/login</a>
+    and request the change again from your settings.
+  </p>
+
+  <p style="color:#555;margin:0 0 16px">
+    If you didn&rsquo;t request this, you can safely ignore this email &mdash;
+    your email address stays the same.
+  </p>
+
+  <p style="color:#555;margin:24px 0 0">&mdash; Loyalink</p>
+
+  <p style="color:#888;font-size:13px;margin:16px 0 0">
+    Trouble with the button? Paste this link into your browser:<br>
+    <span style="color:#555;word-break:break-all">https://my.loyalink.ai/auth/verify?token_hash={{ .TokenHash }}&amp;type=email_change&amp;next=/settings</span>
+  </p>
+</div>
