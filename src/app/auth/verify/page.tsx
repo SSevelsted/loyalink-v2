@@ -13,7 +13,7 @@ import { LogoMark } from '@/components/logo'
 // it only renders a button that POSTs the token to /auth/confirm, so the
 // token is spent solely on an explicit user action.
 
-type VerifyType = 'recovery' | 'signup' | 'email_change'
+type VerifyType = 'recovery' | 'signup' | 'email_change' | 'magiclink' | 'invite'
 
 type VerifyPageProps = {
   searchParams: Promise<{
@@ -58,10 +58,32 @@ const VERIFY_COPY: Record<
     freshLinkHref: '/login',
     freshLinkLabel: 'Back to login',
   },
+  magiclink: {
+    title: 'Sign in to Loyalink',
+    body: 'Continue to finish signing in to your Loyalink account.',
+    button: 'Sign in',
+    defaultNext: '/overview',
+    freshLinkHref: '/login',
+    freshLinkLabel: 'Back to login',
+  },
+  invite: {
+    title: 'Accept your invitation',
+    body: 'Continue to set up your Loyalink account and join your team.',
+    button: 'Accept invite',
+    defaultNext: '/reset-password',
+    freshLinkHref: '/login',
+    freshLinkLabel: 'Back to login',
+  },
 }
 
 function isVerifyType(type: string | undefined): type is VerifyType {
-  return type === 'recovery' || type === 'signup' || type === 'email_change'
+  return (
+    type === 'recovery' ||
+    type === 'signup' ||
+    type === 'email_change' ||
+    type === 'magiclink' ||
+    type === 'invite'
+  )
 }
 
 function getSafeRedirect(next: string | undefined, fallback: string): string {

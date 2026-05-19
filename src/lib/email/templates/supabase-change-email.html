@@ -1,55 +1,85 @@
 <!--
-  Change Email Address email for Supabase Auth.
+  Change Email Address email — Supabase Auth.
 
-  Paste this into Supabase Dashboard → Authentication → Email Templates →
-  Change Email Address (HTML tab). Supabase will substitute {{ .TokenHash }},
-  {{ .Email }} (current address) and {{ .NewEmail }} at send time.
+  Paste into Supabase Dashboard → Authentication → Email Templates →
+  Change Email Address. Supabase substitutes {{ .TokenHash }}, {{ .Email }}
+  (current address) and {{ .NewEmail }}.
+  Subject: Confirm your new Loyalink email
 
-  With "Secure email change" enabled, Supabase sends this to BOTH the old
-  and the new address; the same template is used for each.
-
-  The link points at /auth/verify — a plain page that does nothing on load
-  and only confirms the change when the user clicks. This stops mail-client
-  link prefetchers (Apple Mail Privacy Protection, Gmail, Outlook Safe
-  Links) from burning the single-use token before the user gets to it.
-
-  Keep this file in sync with the other emails under this folder.
-
-  Subject line (set separately in Supabase): Confirm your new Loyalink email
+  With "Secure email change" on, this is sent to both the old and new
+  address. The link points at /auth/verify so prefetchers cannot burn it.
 -->
-<div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;color:#111">
-  <p style="color:#555;margin:0 0 16px">Hey there,</p>
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="light only">
+  <meta name="supported-color-schemes" content="light only">
+  <title>Confirm your new Loyalink email</title>
+  <!--[if mso]><noscript><xml><o:OfficeDocumentSettings xmlns:o="urn:schemas-microsoft-com:office:office"><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
+  <style>
+    @media (max-width:600px){.sm-px{padding-left:24px!important;padding-right:24px!important}.sm-full{width:100%!important}}
+    a{text-decoration:none}
+    .btn:hover{background-color:#6d28d9!important}
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;-webkit-font-smoothing:antialiased;">
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f4f4f5;">Confirm the new email address on your Loyalink account.</div>
 
-  <p style="color:#555;margin:0 0 16px">
-    Someone asked to change the email on the Loyalink account tied to
-    <strong>{{ .Email }}</strong> to <strong>{{ .NewEmail }}</strong>.
-    If that was you, confirm the change below.
-  </p>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5;">
+    <tr><td align="center" style="padding:40px 16px;">
 
-  <p style="margin:0 0 24px">
-    <a
-      href="https://my.loyalink.ai/auth/verify?token_hash={{ .TokenHash }}&amp;type=email_change&amp;next=/settings"
-      style="display:inline-block;background:#000;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:500"
-    >
-      Confirm email change
-    </a>
-  </p>
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0" class="sm-full" style="width:480px;max-width:480px;">
 
-  <p style="color:#555;margin:0 0 16px">
-    This link expires after one use. If it stops working, head to
-    <a href="https://my.loyalink.ai/login" style="color:#000">my.loyalink.ai/login</a>
-    and request the change again from your settings.
-  </p>
+        <tr><td style="background-color:#ffffff;border:1px solid #e4e4e7;border-radius:16px;overflow:hidden;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 
-  <p style="color:#555;margin:0 0 16px">
-    If you didn&rsquo;t request this, you can safely ignore this email &mdash;
-    your email address stays the same.
-  </p>
+            <tr><td style="height:4px;background-color:#7c3aed;font-size:0;line-height:0;">&nbsp;</td></tr>
 
-  <p style="color:#555;margin:24px 0 0">&mdash; Loyalink</p>
+            <tr><td align="center" style="background-color:#0a0a0a;padding:24px 32px;">
+              <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;letter-spacing:0.2em;color:#ffffff;">LOYALINK</span>
+            </td></tr>
 
-  <p style="color:#888;font-size:13px;margin:16px 0 0">
-    Trouble with the button? Paste this link into your browser:<br>
-    <span style="color:#555;word-break:break-all">https://my.loyalink.ai/auth/verify?token_hash={{ .TokenHash }}&amp;type=email_change&amp;next=/settings</span>
-  </p>
-</div>
+            <tr><td class="sm-px" style="padding:40px 36px 8px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td width="44" height="44" align="center" valign="middle" style="background-color:#f3e8ff;border-radius:22px;font-size:21px;line-height:44px;">&#9993;&#65039;</td>
+              </tr></table>
+              <p style="margin:20px 0 8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#7c3aed;">Account update</p>
+              <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:23px;line-height:1.3;font-weight:700;color:#18181b;">Confirm your new email</h1>
+              <p style="margin:0 0 22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#52525b;">A request came in to move the Loyalink account from <span style="color:#18181b;font-weight:600;">{{ .Email }}</span> to <span style="color:#18181b;font-weight:600;">{{ .NewEmail }}</span>. Confirm below to make it official.</p>
+
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;"><tr>
+                <td bgcolor="#7c3aed" style="border-radius:10px;">
+                  <a class="btn" href="https://my.loyalink.ai/auth/verify?token_hash={{ .TokenHash }}&amp;type=email_change&amp;next=/settings" style="display:inline-block;padding:14px 30px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;background-color:#7c3aed;border-radius:10px;">Confirm the change</a>
+                </td>
+              </tr></table>
+
+              <p style="margin:0 0 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#a1a1aa;">Button not working? Paste this into your browser:<br><span style="color:#7c3aed;word-break:break-all;">https://my.loyalink.ai/auth/verify?token_hash={{ .TokenHash }}&amp;type=email_change&amp;next=/settings</span></p>
+            </td></tr>
+
+            <tr><td class="sm-px" style="padding:0 36px;"><div style="border-top:1px solid #e4e4e7;font-size:0;line-height:0;">&nbsp;</div></td></tr>
+
+            <tr><td class="sm-px" style="padding:24px 36px;">
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.65;color:#52525b;">Didn&rsquo;t request this? Ignore this email and your address stays put. Nothing changes until the link above is used.<br><br><span style="color:#18181b;font-weight:600;">&mdash; The Loyalink team</span></p>
+            </td></tr>
+
+            <tr><td class="sm-px" style="background-color:#fafafa;border-top:1px solid #e4e4e7;padding:22px 36px;">
+              <p style="margin:0 0 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#a1a1aa;">You received this because an email change was requested on your Loyalink account.</p>
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;color:#a1a1aa;">&copy; Loyalink</p>
+            </td></tr>
+
+          </table>
+        </td></tr>
+
+        <tr><td align="center" style="padding:20px 8px;">
+          <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;color:#a1a1aa;">Loyalink &middot; loyalty that keeps customers coming back</p>
+        </td></tr>
+
+      </table>
+
+    </td></tr>
+  </table>
+</body>
+</html>

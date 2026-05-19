@@ -1,0 +1,81 @@
+<!--
+  Reauthentication email — Supabase Auth.
+
+  Paste into Supabase Dashboard → Authentication → Email Templates →
+  Reauthentication. Supabase substitutes {{ .Token }} (a short numeric code).
+  Subject: Your Loyalink verification code
+
+  This email carries a code, not a link — nothing for prefetchers to break.
+  The user types the code back into Loyalink to confirm a sensitive action.
+-->
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="light only">
+  <meta name="supported-color-schemes" content="light only">
+  <title>Your Loyalink verification code</title>
+  <!--[if mso]><noscript><xml><o:OfficeDocumentSettings xmlns:o="urn:schemas-microsoft-com:office:office"><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
+  <style>
+    @media (max-width:600px){.sm-px{padding-left:24px!important;padding-right:24px!important}.sm-full{width:100%!important}}
+    a{text-decoration:none}
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;-webkit-font-smoothing:antialiased;">
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f4f4f5;">Your Loyalink verification code &mdash; expires shortly.</div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5;">
+    <tr><td align="center" style="padding:40px 16px;">
+
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0" class="sm-full" style="width:480px;max-width:480px;">
+
+        <tr><td style="background-color:#ffffff;border:1px solid #e4e4e7;border-radius:16px;overflow:hidden;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+
+            <tr><td style="height:4px;background-color:#7c3aed;font-size:0;line-height:0;">&nbsp;</td></tr>
+
+            <tr><td align="center" style="background-color:#0a0a0a;padding:24px 32px;">
+              <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;letter-spacing:0.2em;color:#ffffff;">LOYALINK</span>
+            </td></tr>
+
+            <tr><td class="sm-px" style="padding:40px 36px 8px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td width="44" height="44" align="center" valign="middle" style="background-color:#f3e8ff;border-radius:22px;font-size:21px;line-height:44px;">&#128274;</td>
+              </tr></table>
+              <p style="margin:20px 0 8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#7c3aed;">Verification</p>
+              <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:23px;line-height:1.3;font-weight:700;color:#18181b;">Here&rsquo;s your verification code</h1>
+              <p style="margin:0 0 22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#52525b;">Enter this code in Loyalink to confirm it&rsquo;s really you. It expires shortly, so be quick.</p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;"><tr>
+                <td align="center" style="background-color:#fafafa;border:1px solid #e4e4e7;border-radius:12px;padding:22px 16px;">
+                  <span style="font-family:'SF Mono',SFMono-Regular,ui-monospace,Menlo,Consolas,'Courier New',monospace;font-size:34px;font-weight:700;letter-spacing:0.32em;color:#18181b;">{{ .Token }}</span>
+                </td>
+              </tr></table>
+            </td></tr>
+
+            <tr><td class="sm-px" style="padding:0 36px;"><div style="border-top:1px solid #e4e4e7;font-size:0;line-height:0;">&nbsp;</div></td></tr>
+
+            <tr><td class="sm-px" style="padding:24px 36px;">
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.65;color:#52525b;">Didn&rsquo;t ask for this? Someone may have your password &mdash; change it as soon as you can, and never share this code with anyone.<br><br><span style="color:#18181b;font-weight:600;">&mdash; The Loyalink team</span></p>
+            </td></tr>
+
+            <tr><td class="sm-px" style="background-color:#fafafa;border-top:1px solid #e4e4e7;padding:22px 36px;">
+              <p style="margin:0 0 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#a1a1aa;">You received this because a sensitive action on your Loyalink account needs verification.</p>
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;color:#a1a1aa;">&copy; Loyalink</p>
+            </td></tr>
+
+          </table>
+        </td></tr>
+
+        <tr><td align="center" style="padding:20px 8px;">
+          <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;color:#a1a1aa;">Loyalink &middot; loyalty that keeps customers coming back</p>
+        </td></tr>
+
+      </table>
+
+    </td></tr>
+  </table>
+</body>
+</html>
