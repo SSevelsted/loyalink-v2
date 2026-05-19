@@ -1,14 +1,19 @@
 'use client'
 
-import { Suspense, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, AlertCircle, Mail, KeyRound, RefreshCw, ShieldCheck } from 'lucide-react'
+import { Loader2, AlertCircle, Mail, KeyRound, RefreshCw, ShieldCheck, CheckCircle2, Smartphone } from 'lucide-react'
 import Link from 'next/link'
 import { LogoMark } from '@/components/logo'
+import { getMobileOS } from '@/lib/platform'
+
+// Custom URL scheme registered for the native shell (iOS Info.plist +
+// Android intent filter). Opening it foregrounds the Loyalink app.
+const APP_DEEP_LINK = 'ai.loyalink.app://auth/callback'
 
 export default function ResetPasswordPage() {
   return (
@@ -29,11 +34,16 @@ function ResetPasswordContent() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [resendSent, setResendSent] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [mobileOS, setMobileOS] = useState<'ios' | 'android' | null>(null)
   const { user, loading: authLoading, updatePassword, resetPasswordForEmail } = useAuth()
-  const router = useRouter()
   const searchParams = useSearchParams()
   const isExpired = searchParams.get('expired') === 'true'
   const isRecoveryError = isExpired || searchParams.get('error') === 'auth_callback_failed'
+
+  useEffect(() => {
+    setMobileOS(getMobileOS())
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,7 +68,8 @@ function ResetPasswordContent() {
       return
     }
 
-    router.push('/overview')
+    setSuccess(true)
+    setLoading(false)
   }
 
   const handleResend = async (e: React.FormEvent) => {
@@ -81,6 +92,50 @@ function ResetPasswordContent() {
     return (
       <div className="flex min-h-dvh items-center justify-center px-4 bg-background">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (success) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center px-4 bg-background">
+        <div className="fixed inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-primary/8 blur-[150px]" />
+        </div>
+
+        <div className="relative w-full max-w-sm animate-fade-up text-center">
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 mb-4 glow-primary">
+            <CheckCircle2 className="h-7 w-7 text-primary" aria-hidden="true" />
+          </div>
+          <h1 className="text-display-xl text-foreground mb-2" style={{ fontFamily: 'var(--font-display)' }}>
+            Password updated
+          </h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            {mobileOS
+              ? 'Your new password is set. Open the Loyalink app and sign in to pick up where you left off.'
+              : 'Your new password is set — you’re good to go.'}
+          </p>
+
+          <div className="rounded-2xl glass-card p-6">
+            {mobileOS ? (
+              <div className="space-y-3">
+                <Button asChild variant="glow" size="lg" className="w-full font-medium">
+                  <a href={APP_DEEP_LINK}>
+                    <Smartphone className="h-4 w-4" aria-hidden="true" />
+                    Open the Loyalink app
+                  </a>
+                </Button>
+                <Button asChild variant="outline" size="lg" className="w-full font-medium">
+                  <Link href="/overview">Continue in this browser</Link>
+                </Button>
+              </div>
+            ) : (
+              <Button asChild variant="glow" size="lg" className="w-full font-medium">
+                <Link href="/overview">Continue to dashboard</Link>
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
     )
   }
