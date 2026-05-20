@@ -473,7 +473,11 @@ export default function SetupPage() {
     }
   }
 
-  const currency = ((currentStudio?.settings as Record<string, unknown>)?.currency as string) ?? 'dkk'
+  // Drive currency & language from the in-memory selection so they propagate to
+  // steps 1-4 the moment the user picks them in step 0 — `currentStudio.settings`
+  // only updates after a `useStudio()` refresh, which would lag a step behind.
+  const currency = selectedCurrency
+  const language = selectedLanguage
 
   // Filter tiers to only show active ones (from rewards config) + custom tiers.
   // Always include a theme entry for every active slug, generating defaults for missing ones.
@@ -896,8 +900,8 @@ export default function SetupPage() {
 
               {/* What You Get Section */}
               {(() => {
-                const currentBenefits = settings.benefits ?? generateDefaultBenefits(rewardsConfig, currency)
-                const generatedBenefits = generateDefaultBenefits(rewardsConfig, currency)
+                const currentBenefits = settings.benefits ?? generateDefaultBenefits(rewardsConfig, currency, language)
+                const generatedBenefits = generateDefaultBenefits(rewardsConfig, currency, language)
                 const RATE_IDS = ['base_cashback', 'max_cashback', 'referral_commission', 'welcome_bonus']
                 const isOutOfSync = settings.benefits != null && RATE_IDS.some(id => {
                   const stored = settings.benefits!.find(b => b.id === id)
@@ -931,7 +935,7 @@ export default function SetupPage() {
                           variant="ghost"
                           size="sm"
                           className="gap-1.5 text-xs text-muted-foreground"
-                          onClick={() => updateSetting('benefits', generateDefaultBenefits(rewardsConfig, currency))}
+                          onClick={() => updateSetting('benefits', generateDefaultBenefits(rewardsConfig, currency, language))}
                         >
                           <RotateCcw className="h-3 w-3" />
                           Reset
@@ -1080,7 +1084,7 @@ export default function SetupPage() {
             <label className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Eye className="h-3.5 w-3.5" /> Preview
             </label>
-            <LandingPagePreview headline={headline} description={description} settings={settings} rewardsConfig={rewardsConfig} currency={currency} />
+            <LandingPagePreview headline={headline} description={description} settings={settings} rewardsConfig={rewardsConfig} currency={currency} language={language} />
           </div>
         </div>
       )}
@@ -1234,16 +1238,19 @@ export default function SetupPage() {
             config={rewardsConfig}
             onChange={handleRewardsConfigChange}
             baseTemplate={REWARD_TEMPLATES.find(t => t.id === baseTemplateId)}
+            currency={currency}
           />
           <div className="border-t border-border/50" />
           <ReferralProgram
             config={rewardsConfig}
             onChange={handleRewardsConfigChange}
+            currency={currency}
           />
           <RewardsConfigForm
             config={rewardsConfig}
             onChange={handleRewardsConfigChange}
             fromSetup
+            currency={currency}
           />
         </div>
       )}
@@ -1354,7 +1361,7 @@ export default function SetupPage() {
                   <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                     Landing Page
                   </h3>
-                  <LandingPagePreview headline={headline} description={description} settings={settings} rewardsConfig={rewardsConfig} currency={currency} />
+                  <LandingPagePreview headline={headline} description={description} settings={settings} rewardsConfig={rewardsConfig} currency={currency} language={language} />
                 </div>
 
                 {/* Card preview summary */}
@@ -1393,7 +1400,7 @@ export default function SetupPage() {
                             <p className="text-xs font-medium opacity-80">{tier.name}</p>
                             {tier.upgrade_trigger && (
                               <p className="text-[10px] opacity-60 mt-1" style={{ color: theme?.labelColor }}>
-                                {getTriggerLabel(tier.upgrade_trigger)}
+                                {getTriggerLabel(tier.upgrade_trigger, currency)}
                               </p>
                             )}
                           </div>

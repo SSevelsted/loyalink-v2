@@ -5,6 +5,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { TrustBar } from '@/components/landing/trust-bar'
 import { Gift, Sparkles, CreditCard, Wallet } from 'lucide-react'
+import { getCurrencyConfig, formatAmount } from '@/lib/currency'
+import { getSignupTranslations } from '@/lib/i18n/signup'
 
 function detectPlatform(): 'apple' | 'google' {
   if (typeof navigator === 'undefined') return 'apple'
@@ -32,6 +34,8 @@ type Props = {
   passPlatform: 'apple' | 'google'
   referrerName: string | null
   memberCount: number
+  currency?: string
+  language?: string
 }
 
 export function SuccessHub({
@@ -48,7 +52,11 @@ export function SuccessHub({
   passPlatform,
   referrerName,
   memberCount,
+  currency = 'dkk',
+  language,
 }: Props) {
+  const t = getSignupTranslations(language)
+  const currencyCfg = getCurrencyConfig(currency)
   const [clientPlatform, setClientPlatform] = useState<'apple' | 'google'>(passPlatform)
   const [isDesktop, setIsDesktop] = useState(false)
   const [downloading, setDownloading] = useState(false)
@@ -196,10 +204,10 @@ export function SuccessHub({
               className="text-3xl font-bold"
               style={txtStyle}
             >
-              Welcome, {customerName}!
+              {t.welcomeName(customerName)}
             </h1>
             <p className="text-lg" style={mutedStyle}>
-              {studioName} Loyalty Program
+              {t.studioLoyaltyProgram(studioName)}
             </p>
           </div>
         </div>
@@ -216,14 +224,14 @@ export function SuccessHub({
                   <div className="flex items-center gap-2">
                     <Gift className="h-4 w-4 shrink-0" style={{ color: accent }} />
                     <span className="text-sm font-medium" style={txtStyle}>
-                      {welcomeBonus} kr bonus credited
+                      {t.bonusCredited(formatAmount(welcomeBonus, currencyCfg))}
                     </span>
                   </div>
                 )}
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 shrink-0" style={{ color: accent }} />
                   <span className="text-sm font-medium" style={txtStyle}>
-                    {cashbackRate}% cashback unlocked
+                    {t.cashbackUnlocked(cashbackRate)}
                   </span>
                 </div>
               </div>
@@ -252,7 +260,7 @@ export function SuccessHub({
                   <path d="M12.17 5.44c1.51 0 2.87.52 3.94 1.54l2.96-2.96C17.3 2.31 14.96 1.28 12.17 1.28 8.17 1.28 4.73 3.5 2.97 7.06l3.44 2.66c.81-2.43 3.08-4.28 5.76-4.28z" fill="currentColor"/>
                 </svg>
               )}
-              {downloading ? 'Opening...' : `Add to ${primaryPlatform === 'apple' ? 'Apple' : 'Google'} Wallet`}
+              {downloading ? t.opening : t.addToWallet(primaryPlatform)}
             </button>
 
             {/* Secondary platform link */}
@@ -262,7 +270,7 @@ export function SuccessHub({
                 className="block w-full text-center text-xs underline transition-opacity hover:opacity-80"
                 style={textColor ? { color: textColor, opacity: 0.5 } : { color: 'var(--muted-foreground)' }}
               >
-                Add to {secondaryPlatform === 'apple' ? 'Apple' : 'Google'} Wallet instead
+                {t.addToOtherWalletInstead(secondaryPlatform)}
               </button>
             )}
           </div>
@@ -274,28 +282,28 @@ export function SuccessHub({
           style={backgroundColor ? { backgroundColor, borderColor: `${textColor}20` } : undefined}
         >
           <CardContent className="p-5 space-y-4">
-            <p className="text-sm font-semibold" style={txtStyle}>What&apos;s next</p>
+            <p className="text-sm font-semibold" style={txtStyle}>{t.whatsNext}</p>
             <div className="space-y-4">
               <Step
                 number={1}
-                title="Add your loyalty card to your wallet"
-                description="Tap the button above to save it"
+                title={t.stepAddCard}
+                description={t.stepAddCardDesc}
                 accent={accent}
                 textColor={textColor}
                 icon={Wallet}
               />
               <Step
                 number={2}
-                title={`Visit ${studioName} and show your card`}
-                description="Show it at checkout to earn rewards"
+                title={t.stepVisitStudio(studioName)}
+                description={t.stepVisitStudioDesc}
                 accent={accent}
                 textColor={textColor}
                 icon={CreditCard}
               />
               <Step
                 number={3}
-                title={`Earn ${cashbackRate}% cashback on every purchase`}
-                description="Your balance grows automatically"
+                title={t.stepEarnCashback(cashbackRate)}
+                description={t.stepEarnCashbackDesc}
                 accent={accent}
                 textColor={textColor}
                 icon={Sparkles}
@@ -310,6 +318,7 @@ export function SuccessHub({
             signupCount={memberCount}
             brandColor={accent}
             textColor={textColor || 'var(--foreground)'}
+            language={language}
           />
         </div>
 
@@ -321,7 +330,7 @@ export function SuccessHub({
               className="text-xs px-3 py-1"
               style={textColor ? { color: textColor, opacity: 0.6, backgroundColor: `${accent}10` } : undefined}
             >
-              Referred by {referrerName}
+              {t.referredBy(referrerName)}
             </Badge>
           </div>
         )}

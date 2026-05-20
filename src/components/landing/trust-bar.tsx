@@ -1,17 +1,20 @@
 import { Shield, Clock, Users, Smartphone } from 'lucide-react'
+import { getSignupTranslations } from '@/lib/i18n/signup'
 
 type Props = {
   signupCount: number
   brandColor: string
   textColor: string
+  language?: string
 }
 
-export function TrustBar({ signupCount, brandColor, textColor }: Props) {
+export function TrustBar({ signupCount, brandColor, textColor, language }: Props) {
+  const t = getSignupTranslations(language)
   const pills = [
-    { icon: Shield, label: 'Free forever' },
-    { icon: Clock, label: '30 seconds' },
-    ...(signupCount >= 25 ? [{ icon: Users, label: `${signupCount}+ members` }] : []),
-    { icon: Smartphone, label: 'No app needed' },
+    { icon: Shield, label: t.freeForever },
+    { icon: Clock, label: t.thirtySeconds },
+    ...(signupCount >= 25 ? [{ icon: Users, label: t.membersCount(signupCount) }] : []),
+    { icon: Smartphone, label: t.noAppNeeded },
   ]
 
   return (

@@ -4,6 +4,7 @@ import {
 } from 'lucide-react'
 import type { RewardsConfig } from '@/types/database'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
+import { getSignupTranslations } from '@/lib/i18n/signup'
 import type { LucideIcon } from 'lucide-react'
 import type { Benefit } from '@/hooks/use-landing-page'
 
@@ -31,28 +32,35 @@ export const BENEFIT_ICON_OPTIONS = Object.keys(BENEFIT_ICON_MAP)
 
 /**
  * Generate the default benefits list from a rewards config.
- * Returns plain-text strings that the studio can later edit freely.
+ * Returns plain-text strings, translated to the studio language, that the
+ * studio can later edit freely. The IDs stay stable so saved customisations
+ * survive a language switch.
  */
-export function generateDefaultBenefits(rewardsConfig: RewardsConfig, currency: string): Benefit[] {
+export function generateDefaultBenefits(
+  rewardsConfig: RewardsConfig,
+  currency: string,
+  language?: string,
+): Benefit[] {
   const baseTier = rewardsConfig.tiers[0]
   const maxTier = rewardsConfig.tiers[rewardsConfig.tiers.length - 1]
   const hasMultipleTiers = rewardsConfig.tiers.length >= 2
   const referrals = rewardsConfig.referrals
   const cfg = getCurrencyConfig(currency)
+  const t = getSignupTranslations(language)
 
   const benefits: Benefit[] = []
 
   benefits.push({
     id: 'base_cashback',
     icon: 'check',
-    text: `${baseTier.cashback_rate}% cashback on every purchase`,
+    text: t.benefitBaseCashback(baseTier.cashback_rate),
   })
 
   if (hasMultipleTiers) {
     benefits.push({
       id: 'max_cashback',
       icon: 'trending',
-      text: `Up to ${maxTier.cashback_rate}% cashback as you level up`,
+      text: t.benefitMaxCashback(maxTier.cashback_rate),
     })
   }
 
@@ -60,7 +68,7 @@ export function generateDefaultBenefits(rewardsConfig: RewardsConfig, currency: 
     benefits.push({
       id: 'referral_commission',
       icon: 'users',
-      text: `Earn ${referrals.referrer_commission_rate}% on friends' purchases`,
+      text: t.benefitReferralCommission(referrals.referrer_commission_rate),
     })
   }
 
@@ -68,20 +76,20 @@ export function generateDefaultBenefits(rewardsConfig: RewardsConfig, currency: 
     benefits.push({
       id: 'welcome_bonus',
       icon: 'gift',
-      text: `${formatAmount(referrals.friend_welcome_bonus, cfg)} welcome bonus when referred`,
+      text: t.benefitWelcomeBonus(formatAmount(referrals.friend_welcome_bonus, cfg)),
     })
   }
 
   benefits.push({
     id: 'wallet_card',
     icon: 'wallet',
-    text: 'Digital loyalty card in Apple & Google Wallet',
+    text: t.benefitWalletCard,
   })
 
   benefits.push({
     id: 'instant_signup',
     icon: 'zap',
-    text: 'Instant signup — no app download needed',
+    text: t.benefitInstantSignup,
   })
 
   return benefits
@@ -91,10 +99,12 @@ type Props = {
   benefits: Benefit[]
   brandColor: string
   textColor: string
+  language?: string
 }
 
-export function ValueStack({ benefits, brandColor, textColor }: Props) {
+export function ValueStack({ benefits, brandColor, textColor, language }: Props) {
   if (benefits.length === 0) return null
+  const t = getSignupTranslations(language)
 
   return (
     <div
@@ -102,7 +112,7 @@ export function ValueStack({ benefits, brandColor, textColor }: Props) {
       style={{ backgroundColor: `${brandColor}08` }}
     >
       <p className="text-sm font-semibold text-center" style={{ color: textColor }}>
-        What You Get
+        {t.whatYouGet}
       </p>
       <div className="space-y-2.5">
         {benefits.map((b) => {

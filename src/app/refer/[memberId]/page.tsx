@@ -6,6 +6,7 @@ import { Clock, Shield, Smartphone, Users } from 'lucide-react'
 import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig } from '@/types/database'
 import type { RewardsConfig } from '@/types/database'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
+import { getSignupTranslations } from '@/lib/i18n/signup'
 
 type Props = {
   params: Promise<{ memberId: string }>
@@ -44,7 +45,9 @@ export default async function ReferralLandingPage({ params }: Props) {
     ? migrateRewardsConfig(studioSettings.rewards_config)
     : DEFAULT_REWARDS_CONFIG
   const currency = (studioSettings.currency as string) ?? 'dkk'
+  const language = (studioSettings.language as string) ?? 'en'
   const currencyCfg = getCurrencyConfig(currency)
+  const t = getSignupTranslations(language)
 
   // Get landing page for branding
   const { data: landingPage } = await supabase
@@ -112,25 +115,29 @@ export default async function ReferralLandingPage({ params }: Props) {
             className="text-sm px-4 py-1"
             style={settings.brandColor ? { backgroundColor: settings.brandColor, color: '#fff' } : undefined}
           >
-            Referred by {customer.name}
+            {t.referredBy(customer.name)}
           </Badge>
           <h1 className="text-3xl font-bold" style={txtColor ? { color: txtColor } : undefined}>
-            {studio.name} Loyalty Program
+            {t.studioLoyaltyProgram(studio.name)}
           </h1>
           <p style={txtColor ? { color: txtColor, opacity: 0.7 } : undefined} className="text-muted-foreground">
-            Sign up and get {rewardsConfig.referrals.friend_cashback_rate}% cashback{rewardsConfig.referrals.friend_welcome_bonus > 0 ? ` + ${formatAmount(rewardsConfig.referrals.friend_welcome_bonus, currencyCfg)} welcome bonus` : ''}
+            {t.signUpAndGet(
+              rewardsConfig.referrals.friend_cashback_rate,
+              rewardsConfig.referrals.friend_welcome_bonus > 0,
+              formatAmount(rewardsConfig.referrals.friend_welcome_bonus, currencyCfg),
+            )}
           </p>
         </div>
 
         {/* Trust signs */}
         <div className="flex flex-wrap items-center justify-center gap-2">
           {[
-            { icon: Shield, label: 'Free forever' },
-            { icon: Clock, label: '30 seconds' },
+            { icon: Shield, label: t.freeForever },
+            { icon: Clock, label: t.thirtySeconds },
             ...(memberCount && memberCount > 1
-              ? [{ icon: Users, label: `${memberCount}+ members` }]
+              ? [{ icon: Users, label: t.membersCount(memberCount) }]
               : []),
-            { icon: Smartphone, label: 'No app needed' },
+            { icon: Smartphone, label: t.noAppNeeded },
           ].map(({ icon: Icon, label }) => (
             <div
               key={label}
@@ -148,10 +155,11 @@ export default async function ReferralLandingPage({ params }: Props) {
           brandColor={settings.brandColor}
           backgroundColor={bgColor}
           textColor={txtColor}
-          buttonText={settings.buttonText || 'Join & Get Your Bonus'}
+          buttonText={settings.buttonText || t.joinAndGetBonus}
           showEmail={settings.showEmail ?? true}
           showPhone={settings.showPhone ?? true}
           referralCode={customer.referral_code}
+          language={language}
         />
       </div>
     </div>

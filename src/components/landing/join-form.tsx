@@ -15,6 +15,7 @@ import {
 import { AlertCircle, Loader2 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { formatPhone } from '@/lib/format'
+import { getSignupTranslations } from '@/lib/i18n/signup'
 
 const COUNTRY_CODES = [
   { code: '+45', flag: '\u{1F1E9}\u{1F1F0}', country: 'DK' },
@@ -63,6 +64,7 @@ export function JoinForm({
   successHeading,
   successMessage,
   termsUrl,
+  language,
 }: {
   studioId: string
   landingPageId: string
@@ -77,7 +79,9 @@ export function JoinForm({
   successHeading?: string
   successMessage?: string
   termsUrl?: string
+  language?: string
 }) {
+  const t = getSignupTranslations(language)
   const [form, setForm] = useState({ name: '', email: '', phone: '' })
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
   const [countryCode, setCountryCode] = useState('+45')
@@ -166,7 +170,7 @@ export function JoinForm({
           setDuplicateEmail(form.email)
           setResendStatus('idle')
         }
-        throw new Error(data.error || 'Something went wrong')
+        throw new Error(data.error || t.somethingWentWrong)
       }
 
       // Referral signups → redirect to dedicated success page
@@ -230,7 +234,7 @@ export function JoinForm({
         }
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(err instanceof Error ? err.message : t.somethingWentWrong)
       setStatus('error')
     }
   }
@@ -265,10 +269,12 @@ export function JoinForm({
           </div>
           <div className="space-y-1.5">
             <h2 className="text-2xl font-bold font-display" style={textColor ? { color: textColor } : undefined}>
-              {successHeading || "You're in!"}
+              {successHeading || t.youreIn}
             </h2>
             <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.6 } : { color: 'var(--muted-foreground)' }}>
-              {(successMessage || 'Welcome, {name}. Your loyalty card is ready.').replace('{name}', form.name)}
+              {successMessage
+                ? successMessage.replace('{name}', form.name)
+                : t.welcomeYourCardReady(form.name)}
             </p>
           </div>
           <div className="space-y-3 pt-2">
@@ -277,7 +283,7 @@ export function JoinForm({
                 // Desktop fallback: QR code that auto-adds pass on phone
                 <div className="space-y-4">
                   <p className="text-sm font-medium" style={textColor ? { color: textColor, opacity: 0.8 } : { color: 'var(--foreground)' }}>
-                    Scan with your phone to add the pass
+                    {t.scanWithPhone}
                   </p>
                   <div className="flex justify-center">
                     <div className="rounded-2xl bg-white p-4 shadow-md inline-block">
@@ -291,12 +297,12 @@ export function JoinForm({
                     </div>
                   </div>
                   <p className="text-xs" style={textColor ? { color: textColor, opacity: 0.4 } : { color: 'var(--muted-foreground)' }}>
-                    Point your phone camera at the QR code above
+                    {t.pointCameraAtQR}
                   </p>
                 </div>
               ) : (
                 <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.5 } : { color: 'var(--muted-foreground)' }}>
-                  Your card will be sent to you shortly.
+                  {t.cardWillBeSent}
                 </p>
               )
             ) : passUrl ? (
@@ -304,7 +310,7 @@ export function JoinForm({
                 // Desktop: QR code with platform picker
                 <div className="space-y-4">
                   <p className="text-sm font-medium" style={textColor ? { color: textColor, opacity: 0.8 } : { color: 'var(--foreground)' }}>
-                    Scan with your phone to add the pass
+                    {t.scanWithPhone}
                   </p>
 
                   {/* Platform toggle — only show when both URLs are ready */}
@@ -353,7 +359,7 @@ export function JoinForm({
                   </div>
 
                   <p className="text-xs" style={textColor ? { color: textColor, opacity: 0.4 } : { color: 'var(--muted-foreground)' }}>
-                    Point your phone camera at the QR code above
+                    {t.pointCameraAtQR}
                   </p>
                 </div>
               ) : (
@@ -361,7 +367,7 @@ export function JoinForm({
                 <div className="space-y-3">
                   {platform === 'apple' && (
                     <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.6 } : { color: 'var(--muted-foreground)' }}>
-                      Can&apos;t see your pass? Tap below to add it again
+                      {t.cantSeeYourPass}
                     </p>
                   )}
                   {platform === 'apple' ? (
@@ -373,7 +379,7 @@ export function JoinForm({
                       <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
                       </svg>
-                      Add to Apple Wallet
+                      {t.addToAppleWallet}
                     </a>
                   ) : (
                     <a
@@ -389,7 +395,7 @@ export function JoinForm({
                         <path d="M6.41 13.64c-.21-.62-.33-1.28-.33-1.96s.12-1.35.33-1.96L2.97 7.06C2.06 8.87 1.5 10.87 1.5 13s.56 4.13 1.47 5.94l3.44-2.66z" fill="currentColor"/>
                         <path d="M12.17 5.44c1.51 0 2.87.52 3.94 1.54l2.96-2.96C17.3 2.31 14.96 1.28 12.17 1.28 8.17 1.28 4.73 3.5 2.97 7.06l3.44 2.66c.81-2.43 3.08-4.28 5.76-4.28z" fill="currentColor"/>
                       </svg>
-                      Add to Google Wallet
+                      {t.addToGoogleWallet}
                     </a>
                   )}
                   {altPassUrl && (
@@ -400,7 +406,7 @@ export function JoinForm({
                       className="block text-center text-xs underline transition-opacity hover:opacity-80"
                       style={textColor ? { color: textColor, opacity: 0.5 } : { color: 'var(--muted-foreground)' }}
                     >
-                      {platform === 'apple' ? 'Add to Google Wallet' : 'Add to Apple Wallet'}
+                      {platform === 'apple' ? t.addToGoogleWallet : t.addToAppleWallet}
                     </a>
                   )}
                 </div>
@@ -422,10 +428,10 @@ export function JoinForm({
       <CardContent className="py-8">
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
-            <Label htmlFor="name" style={textColor ? { color: textColor } : undefined}>Full name</Label>
+            <Label htmlFor="name" style={textColor ? { color: textColor } : undefined}>{t.fullNameLabel}</Label>
             <Input
               id="name"
-              placeholder="Your full name"
+              placeholder={t.fullNamePlaceholder}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               autoComplete="name"
@@ -436,11 +442,11 @@ export function JoinForm({
           </div>
           {showEmail && (
             <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both">
-              <Label htmlFor="email" style={textColor ? { color: textColor } : undefined}>Email</Label>
+              <Label htmlFor="email" style={textColor ? { color: textColor } : undefined}>{t.emailLabel}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="you@email.com"
+                placeholder={t.emailPlaceholder}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 autoComplete="email"
@@ -452,7 +458,7 @@ export function JoinForm({
           )}
           {showPhone && (
             <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300 fill-mode-both">
-              <Label htmlFor="phone" style={textColor ? { color: textColor } : undefined}>Phone</Label>
+              <Label htmlFor="phone" style={textColor ? { color: textColor } : undefined}>{t.phoneLabel}</Label>
               <div className="flex gap-2">
                 <Select value={countryCode} onValueChange={setCountryCode}>
                   <SelectTrigger
@@ -475,7 +481,7 @@ export function JoinForm({
                   id="phone"
                   type="tel"
                   inputMode="numeric"
-                  placeholder="12 34 56 78"
+                  placeholder={t.phonePlaceholder}
                   value={form.phone}
                   onChange={(e) => {
                     const raw = e.target.value.replace(/[^\d\s]/g, '')
@@ -501,7 +507,7 @@ export function JoinForm({
                     className="transition-all duration-200"
                     style={{ ...inputStyle, ...focusRingStyle }}
                   >
-                    <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
+                    <SelectValue placeholder={t.selectPlaceholder(field.label)} />
                   </SelectTrigger>
                   <SelectContent>
                     {field.options?.filter(Boolean).map((opt) => (
@@ -529,7 +535,7 @@ export function JoinForm({
               </div>
               {duplicateEmail && resendStatus === 'sent' ? (
                 <p className="text-sm" style={textColor ? { color: textColor, opacity: 0.6 } : { color: 'var(--muted-foreground)' }}>
-                  Check your email for a link to add your card.
+                  {t.sentLinkCheckEmail}
                 </p>
               ) : duplicateEmail ? (
                 <Button
@@ -543,7 +549,7 @@ export function JoinForm({
                   {resendStatus === 'sending' ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : null}
-                  Send me a link to add my card
+                  {t.sendMeLink}
                 </Button>
               ) : null}
             </div>
@@ -564,15 +570,15 @@ export function JoinForm({
               {status === 'loading' ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  Signing up...
+                  {t.signingUp}
                 </span>
-              ) : (buttonText || 'Join & Get Your Pass')}
+              ) : (buttonText || t.joinButton)}
             </Button>
             {termsUrl && (
               <p className="text-center text-[11px] pt-1.5" style={textColor ? { color: textColor, opacity: 0.4 } : { color: 'var(--muted-foreground)' }}>
-                By signing up you agree to our{' '}
+                {t.agreeToTerms}{' '}
                 <a href={termsUrl} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">
-                  Terms & Privacy Policy
+                  {t.termsAndPrivacy}
                 </a>
               </p>
             )}

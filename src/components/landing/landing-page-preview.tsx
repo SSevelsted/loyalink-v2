@@ -6,6 +6,7 @@ import type { RewardsConfig } from '@/types/database'
 import { Star } from 'lucide-react'
 import { generateDefaultBenefits, BENEFIT_ICON_MAP } from '@/components/landing/value-stack'
 import { getTriggerDisplayText } from '@/lib/format'
+import { getSignupTranslations } from '@/lib/i18n/signup'
 
 type Props = {
   headline: string
@@ -13,6 +14,8 @@ type Props = {
   settings: LandingPageSettings
   rewardsConfig?: RewardsConfig
   currency?: string
+  /** Studio language — preview renders in this so the studio sees what their customers will. */
+  language?: string
 }
 
 function MockInput({ label, textColor }: { label: string; textColor: string }) {
@@ -24,12 +27,13 @@ function MockInput({ label, textColor }: { label: string; textColor: string }) {
   )
 }
 
-export function LandingPagePreview({ headline, description, settings, rewardsConfig, currency }: Props) {
+export function LandingPagePreview({ headline, description, settings, rewardsConfig, currency, language }: Props) {
   const [view, setView] = useState<'form' | 'success'>('form')
+  const t = getSignupTranslations(language)
 
   // Resolve benefits: use saved ones, or generate defaults
   const benefits = settings.benefits
-    ?? (rewardsConfig ? generateDefaultBenefits(rewardsConfig, currency ?? 'dkk') : [])
+    ?? (rewardsConfig ? generateDefaultBenefits(rewardsConfig, currency ?? 'dkk', language) : [])
 
   const visibleBenefits = benefits.filter((b) => b.text)
 
@@ -93,12 +97,12 @@ export function LandingPagePreview({ headline, description, settings, rewardsCon
 
               {/* Form mockup */}
               <div className="space-y-2.5">
-                <MockInput label="Full name" textColor={settings.textColor} />
+                <MockInput label={t.fullNameLabel} textColor={settings.textColor} />
                 {settings.showEmail && (
-                  <MockInput label="Email" textColor={settings.textColor} />
+                  <MockInput label={t.emailLabel} textColor={settings.textColor} />
                 )}
                 {settings.showPhone && (
-                  <MockInput label="Phone" textColor={settings.textColor} />
+                  <MockInput label={t.phoneLabel} textColor={settings.textColor} />
                 )}
                 {settings.customFields?.map((field) => (
                   <MockInput key={field.id} label={field.label || 'Untitled field'} textColor={settings.textColor} />
@@ -107,11 +111,11 @@ export function LandingPagePreview({ headline, description, settings, rewardsCon
                   className="h-8 rounded-md flex items-center justify-center text-xs font-medium"
                   style={{ backgroundColor: settings.brandColor, color: '#FFFFFF' }}
                 >
-                  {settings.buttonText || 'Join'}
+                  {settings.buttonText || t.joinButton}
                 </div>
                 {settings.termsUrl && (
                   <p className="text-center text-[8px] opacity-40" style={{ color: settings.textColor }}>
-                    By signing up you agree to our <span className="underline">Terms & Privacy</span>
+                    {t.agreeToTerms} <span className="underline">{t.termsAndPrivacy}</span>
                   </p>
                 )}
               </div>
@@ -120,7 +124,7 @@ export function LandingPagePreview({ headline, description, settings, rewardsCon
               {visibleBenefits.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-[10px] font-semibold text-center" style={{ color: settings.textColor }}>
-                    What You Get
+                    {t.whatYouGet}
                   </p>
                   <div className="rounded-lg p-2.5 space-y-1.5" style={{ backgroundColor: `${settings.brandColor}08` }}>
                     {visibleBenefits.map((b) => {
@@ -142,7 +146,7 @@ export function LandingPagePreview({ headline, description, settings, rewardsCon
               {showTiers && (
                 <div className="space-y-1.5">
                   <p className="text-[10px] font-semibold text-center" style={{ color: settings.textColor }}>
-                    Your Cashback Journey
+                    {t.yourCashbackJourney}
                   </p>
                   <div className="relative pl-4">
                     {tiers.map((tier, i) => {
@@ -174,9 +178,9 @@ export function LandingPagePreview({ headline, description, settings, rewardsCon
                             </span>
                             <p className="text-[8px]" style={{ color: settings.textColor, opacity: 0.4 }}>
                               {isFirst
-                                ? 'Start here'
+                                ? t.startHere
                                 : tier.upgrade_trigger
-                                  ? getTriggerDisplayText(tier.upgrade_trigger, currency ?? 'dkk')
+                                  ? getTriggerDisplayText(tier.upgrade_trigger, currency ?? 'dkk', language)
                                   : ''}
                             </p>
                           </div>
@@ -198,10 +202,12 @@ export function LandingPagePreview({ headline, description, settings, rewardsCon
                 </div>
                 <div className="space-y-1">
                   <h3 className="text-lg font-bold leading-tight" style={{ color: settings.textColor }}>
-                    {settings.successHeading || "You're in!"}
+                    {settings.successHeading || t.youreIn}
                   </h3>
                   <p className="text-xs opacity-60" style={{ color: settings.textColor }}>
-                    {(settings.successMessage || 'Welcome, {name}. Your loyalty card is ready.').replace('{name}', 'Jane')}
+                    {settings.successMessage
+                      ? settings.successMessage.replace('{name}', 'Jane')
+                      : t.welcomeYourCardReady('Jane')}
                   </p>
                 </div>
                 <div className="space-y-1.5 pt-2">
@@ -209,10 +215,10 @@ export function LandingPagePreview({ headline, description, settings, rewardsCon
                     className="h-8 rounded-md flex items-center justify-center gap-1.5 text-xs font-medium"
                     style={{ backgroundColor: settings.brandColor, color: '#FFFFFF' }}
                   >
-                    Add to Apple Wallet
+                    {t.addToAppleWallet}
                   </div>
                   <p className="text-center text-[8px] underline opacity-40" style={{ color: settings.textColor }}>
-                    Add to Google Wallet
+                    {t.addToGoogleWallet}
                   </p>
                 </div>
               </div>
