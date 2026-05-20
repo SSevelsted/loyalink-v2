@@ -1,4 +1,5 @@
-import { emailWrapper, greeting, p, bulletList, escapeHtml, fmtAmount } from '../base'
+import { emailWrapper, greetingLine, p, bulletList, escapeHtml, fmtAmount } from '../base'
+import { getEmailTranslations } from '../i18n'
 
 type TierUpgradeData = {
   customerName: string
@@ -9,28 +10,32 @@ type TierUpgradeData = {
   balance: number
   lifetimeCashback: number
   currency: string
+  language?: string
 }
 
 export function tierUpgradeEmail(data: TierUpgradeData): { subject: string; html: string } {
   const {
     customerName, studioName, newTierName, newCashbackRate,
-    oldCashbackRate, balance, lifetimeCashback, currency,
+    oldCashbackRate, balance, lifetimeCashback, currency, language,
   } = data
 
+  const tBase = getEmailTranslations(language)
+  const t = tBase.tierUpgrade
+
   const studio = escapeHtml(studioName)
-  const subject = `You just unlocked ${newTierName}`
+  const subject = t.subject(newTierName)
 
   const html = emailWrapper([
-    greeting(customerName),
-    p(`You&rsquo;ve been upgraded to <strong>${escapeHtml(newTierName)}</strong> at <strong>${studio}</strong>.`),
-    p(`What this means:`),
+    greetingLine(tBase.greeting(customerName)),
+    p(t.intro(escapeHtml(newTierName), studio)),
+    p(t.whatItMeans),
     bulletList([
-      `Your cashback rate is now <strong>${newCashbackRate}%</strong> (was ${oldCashbackRate}%)`,
-      `Every visit earns you more`,
+      t.bullet1(newCashbackRate, oldCashbackRate),
+      t.bullet2,
     ]),
-    p(`Your current balance: <strong>${fmtAmount(balance, currency)}</strong>`),
-    p(`Total earned lifetime: <strong>${fmtAmount(lifetimeCashback, currency)}</strong>`),
-    p(`Thanks for being a loyal client. This is well-earned.`),
+    p(t.yourBalance(fmtAmount(balance, currency))),
+    p(t.lifetimeEarned(fmtAmount(lifetimeCashback, currency))),
+    p(t.thanksLoyal),
     `<p style="color:#555;margin:16px 0 0"><strong>${studio}</strong></p>`,
   ].join(''))
 

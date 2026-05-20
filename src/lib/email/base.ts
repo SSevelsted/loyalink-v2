@@ -28,9 +28,14 @@ export function heading(text: string): string {
   return `<h2 style="font-size:20px;font-weight:600;margin:0 0 8px">${escapeHtml(text)}</h2>`
 }
 
-/** Greeting paragraph: "Hey {name}," */
-export function greeting(name: string): string {
-  return `<p style="color:#555;margin:0 0 16px">Hey ${escapeHtml(name)},</p>`
+/** Greeting paragraph. `prefix` defaults to "Hey" (English). */
+export function greeting(name: string, prefix: string = 'Hey'): string {
+  return `<p style="color:#555;margin:0 0 16px">${escapeHtml(prefix)} ${escapeHtml(name)},</p>`
+}
+
+/** Greeting using a fully-localised greeting line (e.g. "Hej Simon,"). */
+export function greetingLine(line: string): string {
+  return `<p style="color:#555;margin:0 0 16px">${escapeHtml(line)}</p>`
 }
 
 /** Standard body paragraph */

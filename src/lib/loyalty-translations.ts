@@ -551,8 +551,392 @@ const de: LoyaltyTranslations = {
   monthsAgo: (mo) => `vor ${mo} Mon.`,
 }
 
-const translations: Record<string, LoyaltyTranslations> = { en, da, sv, nb, de }
+// French — formal "vous" (commerce default for loyalty programs).
+const fr: LoyaltyTranslations = {
+  cashback: 'Cashback',
+  balance: 'Solde',
+
+  shareMessage: (studio, rate, bonus, link) =>
+    `Recevez ${rate}% de cashback${bonus > 0 ? ` + ${bonus} de bonus` : ''} chez ${studio} ! ${link}`,
+
+  whatYourFriendGets: 'Ce que reçoit votre ami',
+  howReferralsWork: 'Comment fonctionne le parrainage',
+  shareYourLink: 'Partagez votre lien',
+  cashbackProgression: 'Progression du cashback',
+  recentActivity: 'Activité récente',
+  stepsToComplete: 'Étapes à compléter',
+
+  daysLeftThisMonth: (d) => `${d} jours restants ce mois-ci`,
+  maximumCashback: 'Cashback maximum !',
+  keepSharing: (rate) => `Vous gagnez ${rate}% — continuez à partager pour toucher des commissions`,
+  inviteFriendsTitle: 'Invitez des amis. Gagnez plus.',
+  permanentCashback: (bonus) => `+${bonus}% de cashback permanent`,
+  forEachFriend: 'pour chaque ami parrainé',
+  friendSpend: (rate) => `${rate}% des dépenses de votre ami`,
+  forDays: (days) => `pendant ${days} jours`,
+  forUnlimitedTime: 'sans limite de temps',
+  earnRewardsGeneric: 'Gagnez des récompenses pour chaque ami invité',
+  inviteFriendsButton: 'Inviter des amis',
+
+  cashbackFromDayOne: (rate) => `${rate}% de cashback dès le premier jour`,
+  earnBackOnEveryPurchase: 'Récupérez à chaque achat, dès maintenant',
+  welcomeBonus: (amount, currency) => `${amount} ${currency} de bonus de bienvenue`,
+  addedToBalance: 'Ajouté à leur solde dès leur qualification',
+  digitalLoyaltyCard: 'Carte de fidélité numérique',
+  savedToWallet: 'Enregistrée instantanément dans Apple Wallet ou Google Wallet',
+
+  shareYourLinkStep: 'Partagez votre lien',
+  friendSignsUp: 'L\'ami s\'inscrit et ajoute la carte au wallet',
+  onceComplete: 'Une fois complété, vos récompenses arrivent automatiquement.',
+
+  makesFirstPurchase: 'Effectue son premier achat',
+  completesFirstFullPayment: 'Complète son premier paiement intégral',
+  spendsAmount: (amount) => `Dépense ${amount}`,
+  completesQualifyingAction: 'Effectue une action qualifiante',
+
+  copied: 'Copié !',
+
+  maximumCashbackReached: 'Cashback maximum atteint !',
+  youveReferred: (n) => `Vous avez parrainé ${n} ami${n !== 1 ? 's' : ''}`,
+  moreToReach: (n) => `${n} de plus pour atteindre`,
+
+  howToEarnMore: 'Comment gagner plus',
+  doFirstPurchase: 'Effectuez votre premier achat',
+  doFirstFullPayment: 'Complétez votre premier paiement intégral',
+  doTotalSpend: (amount) => `Atteignez ${amount} de dépenses totales`,
+  doReferralCount: (n) => `Parrainez ${n} ami${n !== 1 ? 's' : ''}`,
+  doDaysMember: (n) => `Soyez membre pendant ${n} jour${n !== 1 ? 's' : ''}`,
+  upgradeToRate: (rate) => `→ ${rate}% de cashback`,
+  inviteAndBoost: (bonus) => `Invitez un ami → +${bonus}% de cashback`,
+
+  noActivityYet: 'Aucune activité pour le moment',
+  transactionLabels: {
+    credit: 'Achat enregistré',
+    debit: 'Solde utilisé',
+    adjustment: 'Ajustement du solde',
+    cashback: 'Cashback gagné',
+    referral_commission: 'Bonus de parrainage',
+  },
+
+  youveEarned: 'Vous avez gagné',
+  fromReferrals: (activated, pending) =>
+    `de ${activated} parrainage${activated !== 1 ? 's' : ''} réussi${activated !== 1 ? 's' : ''}${pending > 0 ? ` · ${pending} en attente` : ''}`,
+  completedStatus: 'Complété',
+  pendingStatus: 'En attente',
+  expiredStatus: 'Expiré',
+  waitingForFirstVisit: 'En attente de la première visite',
+
+  earnedFromReferral: (amount) => `Vous avez gagné ${amount} grâce à ce parrainage`,
+  waitingForActivation: (name) => `En attente que ${name} complète l'activation`,
+  thisReferralExpired: 'Ce parrainage a expiré',
+  signUp: 'Inscription',
+  addWalletPass: 'Ajouter la carte wallet',
+  referredTimeAgo: (time) => `Parrainé ${time}`,
+  activatedTimeAgo: (time) => `Activé ${time}`,
+
+  changePhoto: 'Changer la photo',
+
+  justNow: 'à l\'instant',
+  minutesAgo: (m) => `il y a ${m} min`,
+  hoursAgo: (h) => `il y a ${h}h`,
+  daysAgo: (d) => `il y a ${d}j`,
+  monthsAgo: (mo) => `il y a ${mo} mois`,
+}
+
+// Spanish — informal "tú" (standard for loyalty/retail).
+const es: LoyaltyTranslations = {
+  cashback: 'Cashback',
+  balance: 'Saldo',
+
+  shareMessage: (studio, rate, bonus, link) =>
+    `¡Consigue ${rate}% de cashback${bonus > 0 ? ` + ${bonus} de bono` : ''} en ${studio}! ${link}`,
+
+  whatYourFriendGets: 'Lo que recibe tu amigo',
+  howReferralsWork: 'Cómo funciona',
+  shareYourLink: 'Comparte tu enlace',
+  cashbackProgression: 'Progresión de cashback',
+  recentActivity: 'Actividad reciente',
+  stepsToComplete: 'Pasos a completar',
+
+  daysLeftThisMonth: (d) => `${d} días restantes este mes`,
+  maximumCashback: '¡Cashback máximo!',
+  keepSharing: (rate) => `Estás ganando ${rate}% — sigue compartiendo para conseguir comisiones`,
+  inviteFriendsTitle: 'Invita a amigos. Gana más.',
+  permanentCashback: (bonus) => `+${bonus}% de cashback permanente`,
+  forEachFriend: 'por cada amigo que recomiendes',
+  friendSpend: (rate) => `${rate}% de las compras de tu amigo`,
+  forDays: (days) => `durante ${days} días`,
+  forUnlimitedTime: 'sin límite de tiempo',
+  earnRewardsGeneric: 'Gana recompensas por cada amigo que invites',
+  inviteFriendsButton: 'Invitar amigos',
+
+  cashbackFromDayOne: (rate) => `${rate}% de cashback desde el primer día`,
+  earnBackOnEveryPurchase: 'Recupera en cada compra, desde el primer momento',
+  welcomeBonus: (amount, currency) => `${amount} ${currency} de bono de bienvenida`,
+  addedToBalance: 'Se añade a su saldo cuando se cualifican',
+  digitalLoyaltyCard: 'Tarjeta de fidelidad digital',
+  savedToWallet: 'Guardada al instante en Apple Wallet o Google Wallet',
+
+  shareYourLinkStep: 'Comparte tu enlace',
+  friendSignsUp: 'El amigo se registra y añade la tarjeta al wallet',
+  onceComplete: 'Cuando se complete, recibirás tus recompensas automáticamente.',
+
+  makesFirstPurchase: 'Hace su primera compra',
+  completesFirstFullPayment: 'Completa su primer pago completo',
+  spendsAmount: (amount) => `Gasta ${amount}`,
+  completesQualifyingAction: 'Completa una acción cualificada',
+
+  copied: '¡Copiado!',
+
+  maximumCashbackReached: '¡Cashback máximo alcanzado!',
+  youveReferred: (n) => `Has recomendado a ${n} amigo${n !== 1 ? 's' : ''}`,
+  moreToReach: (n) => `${n} más para alcanzar`,
+
+  howToEarnMore: 'Formas de ganar más',
+  doFirstPurchase: 'Haz tu primera compra',
+  doFirstFullPayment: 'Completa tu primer pago completo',
+  doTotalSpend: (amount) => `Alcanza ${amount} en compras totales`,
+  doReferralCount: (n) => `Recomienda a ${n} amigo${n !== 1 ? 's' : ''}`,
+  doDaysMember: (n) => `Sé miembro durante ${n} día${n !== 1 ? 's' : ''}`,
+  upgradeToRate: (rate) => `→ ${rate}% de cashback`,
+  inviteAndBoost: (bonus) => `Invita a un amigo → +${bonus}% de cashback`,
+
+  noActivityYet: 'Aún sin actividad',
+  transactionLabels: {
+    credit: 'Compra registrada',
+    debit: 'Saldo canjeado',
+    adjustment: 'Ajuste de saldo',
+    cashback: 'Cashback ganado',
+    referral_commission: 'Bono de recomendación',
+  },
+
+  youveEarned: 'Has ganado',
+  fromReferrals: (activated, pending) =>
+    `de ${activated} recomendación${activated !== 1 ? 'es' : ''} exitosa${activated !== 1 ? 's' : ''}${pending > 0 ? ` · ${pending} pendiente${pending !== 1 ? 's' : ''}` : ''}`,
+  completedStatus: 'Completado',
+  pendingStatus: 'Pendiente',
+  expiredStatus: 'Caducado',
+  waitingForFirstVisit: 'Esperando la primera visita',
+
+  earnedFromReferral: (amount) => `Ganaste ${amount} con esta recomendación`,
+  waitingForActivation: (name) => `Esperando a que ${name} complete la activación`,
+  thisReferralExpired: 'Esta recomendación ha caducado',
+  signUp: 'Registro',
+  addWalletPass: 'Añadir tarjeta wallet',
+  referredTimeAgo: (time) => `Recomendado ${time}`,
+  activatedTimeAgo: (time) => `Activado ${time}`,
+
+  changePhoto: 'Cambiar foto',
+
+  justNow: 'ahora mismo',
+  minutesAgo: (m) => `hace ${m} min`,
+  hoursAgo: (h) => `hace ${h}h`,
+  daysAgo: (d) => `hace ${d}d`,
+  monthsAgo: (mo) => `hace ${mo} mes${mo !== 1 ? 'es' : ''}`,
+}
+
+// Dutch — informal "je" (loyalty default).
+const nl: LoyaltyTranslations = {
+  cashback: 'Cashback',
+  balance: 'Saldo',
+
+  shareMessage: (studio, rate, bonus, link) =>
+    `Krijg ${rate}% cashback${bonus > 0 ? ` + ${bonus} bonus` : ''} bij ${studio}! ${link}`,
+
+  whatYourFriendGets: 'Wat je vriend krijgt',
+  howReferralsWork: 'Zo werkt het',
+  shareYourLink: 'Deel je link',
+  cashbackProgression: 'Cashback-progressie',
+  recentActivity: 'Recente activiteit',
+  stepsToComplete: 'Te voltooien stappen',
+
+  daysLeftThisMonth: (d) => `Nog ${d} dagen deze maand`,
+  maximumCashback: 'Maximale cashback!',
+  keepSharing: (rate) => `Je verdient ${rate}% — blijf delen om commissie te verdienen`,
+  inviteFriendsTitle: 'Nodig vrienden uit. Verdien meer.',
+  permanentCashback: (bonus) => `+${bonus}% permanente cashback`,
+  forEachFriend: 'voor elke vriend die je uitnodigt',
+  friendSpend: (rate) => `${rate}% van de aankopen van je vriend`,
+  forDays: (days) => `${days} dagen lang`,
+  forUnlimitedTime: 'zonder tijdslimiet',
+  earnRewardsGeneric: 'Verdien beloningen voor elke vriend die je uitnodigt',
+  inviteFriendsButton: 'Vrienden uitnodigen',
+
+  cashbackFromDayOne: (rate) => `${rate}% cashback vanaf dag één`,
+  earnBackOnEveryPurchase: 'Direct terugverdienen bij elke aankoop',
+  welcomeBonus: (amount, currency) => `${amount} ${currency} welkomstbonus`,
+  addedToBalance: 'Wordt aan hun saldo toegevoegd zodra ze zich kwalificeren',
+  digitalLoyaltyCard: 'Digitale loyaliteitskaart',
+  savedToWallet: 'Direct opgeslagen in Apple Wallet of Google Wallet',
+
+  shareYourLinkStep: 'Deel je link',
+  friendSignsUp: 'Vriend meldt zich aan en voegt de wallet-pas toe',
+  onceComplete: 'Zodra dit voltooid is, ontvang je je beloningen automatisch.',
+
+  makesFirstPurchase: 'Doet zijn/haar eerste aankoop',
+  completesFirstFullPayment: 'Voltooit de eerste volledige betaling',
+  spendsAmount: (amount) => `Besteedt ${amount}`,
+  completesQualifyingAction: 'Voltooit een kwalificerende actie',
+
+  copied: 'Gekopieerd!',
+
+  maximumCashbackReached: 'Maximale cashback bereikt!',
+  youveReferred: (n) => `Je hebt ${n} vriend${n !== 1 ? 'en' : ''} uitgenodigd`,
+  moreToReach: (n) => `${n} meer om te bereiken`,
+
+  howToEarnMore: 'Manieren om meer te verdienen',
+  doFirstPurchase: 'Doe je eerste aankoop',
+  doFirstFullPayment: 'Voltooi je eerste volledige betaling',
+  doTotalSpend: (amount) => `Bereik ${amount} aan totale uitgaven`,
+  doReferralCount: (n) => `Nodig ${n} vriend${n !== 1 ? 'en' : ''} uit`,
+  doDaysMember: (n) => `Wees ${n} dag${n !== 1 ? 'en' : ''} lid`,
+  upgradeToRate: (rate) => `→ ${rate}% cashback`,
+  inviteAndBoost: (bonus) => `Nodig een vriend uit → +${bonus}% cashback`,
+
+  noActivityYet: 'Nog geen activiteit',
+  transactionLabels: {
+    credit: 'Aankoop geregistreerd',
+    debit: 'Saldo gebruikt',
+    adjustment: 'Saldo-aanpassing',
+    cashback: 'Cashback verdiend',
+    referral_commission: 'Verwijzingsbonus',
+  },
+
+  youveEarned: 'Je hebt verdiend',
+  fromReferrals: (activated, pending) =>
+    `van ${activated} succesvolle verwijzing${activated !== 1 ? 'en' : ''}${pending > 0 ? ` · ${pending} in afwachting` : ''}`,
+  completedStatus: 'Voltooid',
+  pendingStatus: 'In afwachting',
+  expiredStatus: 'Verlopen',
+  waitingForFirstVisit: 'Wachten op eerste bezoek',
+
+  earnedFromReferral: (amount) => `Je hebt ${amount} verdiend met deze verwijzing`,
+  waitingForActivation: (name) => `Wachten tot ${name} de activering voltooit`,
+  thisReferralExpired: 'Deze verwijzing is verlopen',
+  signUp: 'Aanmelden',
+  addWalletPass: 'Wallet-pas toevoegen',
+  referredTimeAgo: (time) => `Uitgenodigd ${time}`,
+  activatedTimeAgo: (time) => `Geactiveerd ${time}`,
+
+  changePhoto: 'Foto wijzigen',
+
+  justNow: 'zojuist',
+  minutesAgo: (m) => `${m} min geleden`,
+  hoursAgo: (h) => `${h}u geleden`,
+  daysAgo: (d) => `${d}d geleden`,
+  monthsAgo: (mo) => `${mo} mnd geleden`,
+}
+
+// Polish — informal "ty" / 2nd person verb forms.
+const pl: LoyaltyTranslations = {
+  cashback: 'Cashback',
+  balance: 'Saldo',
+
+  shareMessage: (studio, rate, bonus, link) =>
+    `Odbierz ${rate}% cashbacku${bonus > 0 ? ` + ${bonus} bonusu` : ''} w ${studio}! ${link}`,
+
+  whatYourFriendGets: 'Co dostanie Twój znajomy',
+  howReferralsWork: 'Jak działają polecenia',
+  shareYourLink: 'Udostępnij swój link',
+  cashbackProgression: 'Postęp cashbacku',
+  recentActivity: 'Ostatnia aktywność',
+  stepsToComplete: 'Kroki do wykonania',
+
+  daysLeftThisMonth: (d) => `${d} dni do końca miesiąca`,
+  maximumCashback: 'Maksymalny cashback!',
+  keepSharing: (rate) => `Zarabiasz ${rate}% — udostępniaj dalej, by zdobyć prowizje`,
+  inviteFriendsTitle: 'Zapraszaj znajomych. Zarabiaj więcej.',
+  permanentCashback: (bonus) => `+${bonus}% stałego cashbacku`,
+  forEachFriend: 'za każdego poleconego znajomego',
+  friendSpend: (rate) => `${rate}% wydatków Twojego znajomego`,
+  forDays: (days) => `przez ${days} dni`,
+  forUnlimitedTime: 'bez ograniczenia czasowego',
+  earnRewardsGeneric: 'Zdobywaj nagrody za każdego zaproszonego znajomego',
+  inviteFriendsButton: 'Zaproś znajomych',
+
+  cashbackFromDayOne: (rate) => `${rate}% cashbacku od pierwszego dnia`,
+  earnBackOnEveryPurchase: 'Odbieraj z każdego zakupu, od razu',
+  welcomeBonus: (amount, currency) => `${amount} ${currency} bonusu powitalnego`,
+  addedToBalance: 'Doliczane do salda po spełnieniu warunków',
+  digitalLoyaltyCard: 'Cyfrowa karta lojalnościowa',
+  savedToWallet: 'Natychmiast zapisana w Apple Wallet lub Google Wallet',
+
+  shareYourLinkStep: 'Udostępnij swój link',
+  friendSignsUp: 'Znajomy rejestruje się i dodaje kartę do wallet',
+  onceComplete: 'Po zakończeniu nagrody trafią do Ciebie automatycznie.',
+
+  makesFirstPurchase: 'Dokona pierwszego zakupu',
+  completesFirstFullPayment: 'Dokończy pierwszą pełną płatność',
+  spendsAmount: (amount) => `Wyda ${amount}`,
+  completesQualifyingAction: 'Wykona kwalifikującą czynność',
+
+  copied: 'Skopiowano!',
+
+  maximumCashbackReached: 'Osiągnięto maksymalny cashback!',
+  youveReferred: (n) => {
+    if (n === 1) return 'Polecono 1 znajomego'
+    return `Poleconych znajomych: ${n}`
+  },
+  moreToReach: (n) => `Jeszcze ${n}, aby osiągnąć`,
+
+  howToEarnMore: 'Sposoby, by zarobić więcej',
+  doFirstPurchase: 'Dokonaj pierwszego zakupu',
+  doFirstFullPayment: 'Dokończ pierwszą pełną płatność',
+  doTotalSpend: (amount) => `Osiągnij ${amount} łącznych wydatków`,
+  doReferralCount: (n) => (n === 1 ? 'Poleć 1 znajomego' : `Poleć ${n} znajomych`),
+  doDaysMember: (n) => `Bądź członkiem przez ${n} ${n === 1 ? 'dzień' : 'dni'}`,
+  upgradeToRate: (rate) => `→ ${rate}% cashbacku`,
+  inviteAndBoost: (bonus) => `Zaproś znajomego → +${bonus}% cashbacku`,
+
+  noActivityYet: 'Brak aktywności',
+  transactionLabels: {
+    credit: 'Zarejestrowano zakup',
+    debit: 'Wykorzystano saldo',
+    adjustment: 'Korekta salda',
+    cashback: 'Naliczony cashback',
+    referral_commission: 'Bonus za polecenie',
+  },
+
+  youveEarned: 'Zarobiłeś',
+  fromReferrals: (activated, pending) =>
+    `z ${activated} ${activated === 1 ? 'udanego polecenia' : 'udanych poleceń'}${pending > 0 ? ` · ${pending} oczekujących` : ''}`,
+  completedStatus: 'Zakończone',
+  pendingStatus: 'Oczekuje',
+  expiredStatus: 'Wygasło',
+  waitingForFirstVisit: 'Oczekiwanie na pierwszą wizytę',
+
+  earnedFromReferral: (amount) => `Zarobiłeś ${amount} z tego polecenia`,
+  waitingForActivation: (name) => `Oczekiwanie na zakończenie aktywacji przez: ${name}`,
+  thisReferralExpired: 'To polecenie wygasło',
+  signUp: 'Rejestracja',
+  addWalletPass: 'Dodaj kartę do wallet',
+  referredTimeAgo: (time) => `Polecone ${time}`,
+  activatedTimeAgo: (time) => `Aktywowane ${time}`,
+
+  changePhoto: 'Zmień zdjęcie',
+
+  justNow: 'przed chwilą',
+  minutesAgo: (m) => `${m} min temu`,
+  hoursAgo: (h) => `${h} godz. temu`,
+  daysAgo: (d) => `${d} dni temu`,
+  monthsAgo: (mo) => `${mo} mies. temu`,
+}
+
+const translations: Record<string, LoyaltyTranslations> = {
+  en,
+  da,
+  sv,
+  // ISO 639-1 `no` is Norwegian (macro); `nb` is Bokmål. The studio language
+  // picker stores `no`, so register both as aliases for the same dictionary.
+  no: nb,
+  nb,
+  de,
+  fr,
+  es,
+  nl,
+  pl,
+}
 
 export function getLoyaltyTranslations(lang: string): LoyaltyTranslations {
-  return translations[lang] ?? translations.en
+  return translations[lang?.toLowerCase()] ?? translations.en
 }

@@ -9,6 +9,7 @@ import { ReferralBanner } from '@/components/landing/referral-banner'
 import { migrateRewardsConfig } from '@/types/database'
 import { WalletTrustBadge } from '@/components/landing/wallet-trust-badge'
 import { MARKETING_URL } from '@/lib/constants'
+import { getSignupTranslations } from '@/lib/i18n/signup'
 
 type Props = {
   params: Promise<{ slug: string }>
@@ -21,14 +22,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const { data: page } = await supabase
     .from('studio_landing_pages')
-    .select('headline, description')
+    .select('headline, description, studios(settings)')
     .eq('slug', slug)
     .single()
 
   if (!page) return { title: 'Not Found' }
 
+  const studio = page.studios as unknown as { settings: Record<string, unknown> } | null
+  const language = (studio?.settings?.language as string) ?? 'en'
+  const t = getSignupTranslations(language)
+
   return {
-    title: page.headline ?? 'Join',
+    title: page.headline ?? t.fallbackJoinTitle,
     description: page.description ?? undefined,
   }
 }
@@ -69,10 +74,12 @@ export default async function JoinPage({ params, searchParams }: Props) {
     termsUrl?: string
   }
 
-  // Extract rewards config and currency from studio settings
+  // Extract rewards config, currency, and language from studio settings
   const studioSettings = (page.studios?.settings ?? {}) as Record<string, unknown>
   const rewardsConfig = migrateRewardsConfig(studioSettings.rewards_config)
   const currency = (studioSettings.currency as string) ?? 'dkk'
+  const language = (studioSettings.language as string) ?? 'en'
+  const t = getSignupTranslations(language)
   const baseTier = rewardsConfig.tiers[0]
 
   // Check referral code
@@ -104,19 +111,19 @@ export default async function JoinPage({ params, searchParams }: Props) {
   const brandColor = settings.brandColor || '#6366f1'
   const logoSrc = settings.logoUrl || page.hero_image_url || studioLogo
 
-  // Dynamic headline fallback
-  const headline = page.headline ?? `Get ${baseTier.cashback_rate}% Back on Every Visit`
+  // Dynamic headline fallback — translated to studio language when no custom headline.
+  const headline = page.headline ?? t.fallbackHeadline(baseTier.cashback_rate)
 
   // Benefits: use stored list if customised, but always keep rate-derived rows in sync
   // with the live rewards config so they don't show a stale % after a config change.
   const maxTier = rewardsConfig.tiers[rewardsConfig.tiers.length - 1]
   const benefits = settings.benefits
     ? settings.benefits.map((b) => {
-        if (b.id === 'base_cashback') return { ...b, text: `${baseTier.cashback_rate}% cashback on every purchase` }
-        if (b.id === 'max_cashback') return { ...b, text: `Up to ${maxTier.cashback_rate}% cashback as you level up` }
+        if (b.id === 'base_cashback') return { ...b, text: t.benefitBaseCashback(baseTier.cashback_rate) }
+        if (b.id === 'max_cashback') return { ...b, text: t.benefitMaxCashback(maxTier.cashback_rate) }
         return b
       })
-    : generateDefaultBenefits(rewardsConfig, currency)
+    : generateDefaultBenefits(rewardsConfig, currency, language)
 
   // Referral bonus details
   const showReferralBanner =
@@ -155,6 +162,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
           signupCount={page.signup_count ?? 0}
           brandColor={brandColor}
           textColor={txtColor}
+          language={language}
         />
 
         {showReferralBanner && referrerName && (
@@ -165,6 +173,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
             currency={currency}
             brandColor={brandColor}
             textColor={txtColor}
+            language={language}
           />
         )}
 
@@ -182,6 +191,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
           successHeading={settings.successHeading}
           successMessage={settings.successMessage}
           termsUrl={settings.termsUrl || `${MARKETING_URL}/join/${slug}/terms`}
+          language={language}
         />
 
         <WalletTrustBadge textColor={txtColor} />
@@ -190,6 +200,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
           benefits={benefits}
           brandColor={brandColor}
           textColor={txtColor}
+          language={language}
         />
 
         {(settings.showTierProgression ?? true) && (
@@ -198,6 +209,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
             currency={currency}
             brandColor={brandColor}
             textColor={txtColor}
+            language={language}
           />
         )}
 

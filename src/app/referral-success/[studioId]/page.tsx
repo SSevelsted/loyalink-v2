@@ -5,6 +5,7 @@ import type { RewardsConfig } from '@/types/database'
 import type { Metadata } from 'next'
 import { SuccessHub } from './success-hub'
 import { createCustomerAccessToken } from '@/lib/customer-access'
+import { getSignupTranslations } from '@/lib/i18n/signup'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,12 +21,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { studioId } = await params
   const { data: studio } = await supabase
     .from('studios')
-    .select('name')
+    .select('name, settings')
     .eq('id', studioId)
     .single()
 
+  const language = (studio?.settings as { language?: string } | null)?.language ?? 'en'
+  const t = getSignupTranslations(language)
   return {
-    title: studio ? `Welcome to ${studio.name}!` : 'Welcome!',
+    title: studio ? t.welcomeMetaTitle(studio.name) : t.welcomeName(''),
   }
 }
 
@@ -58,6 +61,8 @@ export default async function ReferralSuccessPage({ params, searchParams }: Prop
   const rewardsConfig: RewardsConfig = studioSettings?.rewards_config
     ? migrateRewardsConfig(studioSettings.rewards_config)
     : DEFAULT_REWARDS_CONFIG
+  const studioCurrency = (studioSettings?.currency as string) ?? 'dkk'
+  const studioLanguage = (studioSettings?.language as string) ?? 'en'
 
   // Fetch landing page for branding
   const { data: landingPage } = await supabase
@@ -119,6 +124,8 @@ export default async function ReferralSuccessPage({ params, searchParams }: Prop
       passPlatform={passPlatform}
       referrerName={referrerName}
       memberCount={memberCount ?? 0}
+      currency={studioCurrency}
+      language={studioLanguage}
     />
   )
 }

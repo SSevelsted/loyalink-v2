@@ -1,20 +1,23 @@
 import type { TierConfig } from '@/types/database'
 import { getTriggerDisplayText } from '@/lib/format'
+import { getSignupTranslations } from '@/lib/i18n/signup'
 
 type Props = {
   tiers: TierConfig[]
   currency: string
   brandColor: string
   textColor: string
+  language?: string
 }
 
-export function TierProgression({ tiers, currency, brandColor, textColor }: Props) {
+export function TierProgression({ tiers, currency, brandColor, textColor, language }: Props) {
   if (tiers.length < 2) return null
+  const t = getSignupTranslations(language)
 
   return (
     <div className="space-y-2">
       <p className="text-sm font-semibold text-center" style={{ color: textColor }}>
-        Your Cashback Journey
+        {t.yourCashbackJourney}
       </p>
       <div className="relative pl-6">
         {tiers.map((tier, i) => {
@@ -50,14 +53,22 @@ export function TierProgression({ tiers, currency, brandColor, textColor }: Prop
                     {tier.name}
                   </span>
                   <span className="text-sm" style={{ color: textColor, opacity: 0.7 }}>
-                    — <strong>{tier.cashback_rate}%</strong> cashback
+                    {t.tierCashbackSuffix(tier.cashback_rate).replace(
+                      `${tier.cashback_rate}%`,
+                      '__RATE__',
+                    ).split('__RATE__').map((part, i, arr) => (
+                      <span key={i}>
+                        {part}
+                        {i < arr.length - 1 && <strong>{tier.cashback_rate}%</strong>}
+                      </span>
+                    ))}
                   </span>
                 </div>
                 <p className="text-xs mt-0.5" style={{ color: textColor, opacity: 0.5 }}>
                   {isFirst
-                    ? 'Start here'
+                    ? t.startHere
                     : tier.upgrade_trigger
-                      ? getTriggerDisplayText(tier.upgrade_trigger, currency)
+                      ? getTriggerDisplayText(tier.upgrade_trigger, currency, language)
                       : ''}
                 </p>
               </div>

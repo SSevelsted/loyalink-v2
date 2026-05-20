@@ -2,6 +2,35 @@ import crypto from 'crypto';
 import { GoogleAuth } from 'google-auth-library';
 import { googleConfig } from '../config.js';
 
+/**
+ * Customer-facing labels rendered on the Google Wallet pass surface. Mirrors
+ * the language coverage in applePassService.ts so a studio's Apple and Google
+ * customers see the same words. Unknown codes fall back to English.
+ */
+interface GoogleWalletLabels {
+  balance: string;
+  tier: string;
+  cashbackRate: string;
+}
+
+const GOOGLE_WALLET_LABELS: Record<string, GoogleWalletLabels> = {
+  en: { balance: 'Balance', tier: 'Tier', cashbackRate: 'Cashback Rate' },
+  da: { balance: 'Saldo', tier: 'Niveau', cashbackRate: 'Cashback-sats' },
+  sv: { balance: 'Saldo', tier: 'Nivå', cashbackRate: 'Cashback-sats' },
+  no: { balance: 'Saldo', tier: 'Nivå', cashbackRate: 'Cashback-sats' },
+  nb: { balance: 'Saldo', tier: 'Nivå', cashbackRate: 'Cashback-sats' },
+  de: { balance: 'Guthaben', tier: 'Stufe', cashbackRate: 'Cashback-Rate' },
+  fr: { balance: 'Solde', tier: 'Niveau', cashbackRate: 'Taux de cashback' },
+  es: { balance: 'Saldo', tier: 'Nivel', cashbackRate: 'Tasa de cashback' },
+  nl: { balance: 'Saldo', tier: 'Niveau', cashbackRate: 'Cashback-percentage' },
+  pl: { balance: 'Saldo', tier: 'Poziom', cashbackRate: 'Stawka cashbacku' },
+};
+
+function getGoogleWalletLabels(language?: string): GoogleWalletLabels {
+  if (!language) return GOOGLE_WALLET_LABELS.en;
+  return GOOGLE_WALLET_LABELS[language.toLowerCase()] ?? GOOGLE_WALLET_LABELS.en;
+}
+
 interface LoyaltyClassData {
   classId: string;
   studioName: string;
@@ -19,6 +48,7 @@ interface LoyaltyObjectData {
   cashbackRate: number;
   loyaltyTier: string;
   currency: string;
+  language?: string;
 }
 
 export class GoogleWalletService {
@@ -134,6 +164,8 @@ export class GoogleWalletService {
     const token = await this.getAccessToken();
     if (!token) return false;
 
+    const labels = getGoogleWalletLabels(data.language);
+
     const objectPayload = {
       id: `${googleConfig.issuerId}.${data.objectId}`,
       classId: `${googleConfig.issuerId}.${data.classId}`,
@@ -141,7 +173,7 @@ export class GoogleWalletService {
       accountId: data.memberId,
       accountName: data.customerName,
       loyaltyPoints: {
-        label: 'Balance',
+        label: labels.balance,
         balance: {
           money: {
             micros: data.balance * 1000000,
@@ -151,11 +183,11 @@ export class GoogleWalletService {
       },
       textModulesData: [
         {
-          header: 'Tier',
+          header: labels.tier,
           body: data.loyaltyTier,
         },
         {
-          header: 'Cashback Rate',
+          header: labels.cashbackRate,
           body: `${data.cashbackRate}%`,
         },
       ],
@@ -253,7 +285,7 @@ export class GoogleWalletService {
               accountId: objectData.memberId,
               accountName: objectData.customerName,
               loyaltyPoints: {
-                label: 'Balance',
+                label: getGoogleWalletLabels(objectData.language).balance,
                 balance: {
                   money: {
                     micros: objectData.balance * 1000000,
@@ -262,8 +294,8 @@ export class GoogleWalletService {
                 },
               },
               textModulesData: [
-                { header: 'Tier', body: objectData.loyaltyTier },
-                { header: 'Cashback Rate', body: `${objectData.cashbackRate}%` },
+                { header: getGoogleWalletLabels(objectData.language).tier, body: objectData.loyaltyTier },
+                { header: getGoogleWalletLabels(objectData.language).cashbackRate, body: `${objectData.cashbackRate}%` },
               ],
               barcode: {
                 type: 'QR_CODE',

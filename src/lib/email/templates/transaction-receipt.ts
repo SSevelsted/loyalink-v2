@@ -1,4 +1,5 @@
-import { emailWrapper, greeting, p, successBanner, escapeHtml, fmtAmount } from '../base'
+import { emailWrapper, greetingLine, p, successBanner, escapeHtml, fmtAmount } from '../base'
+import { getEmailTranslations } from '../i18n'
 
 type TransactionReceiptData = {
   customerName: string
@@ -18,6 +19,7 @@ type TransactionReceiptData = {
   nextTierName?: string
   nextTierRate?: number
   amountToNextTier?: number
+  language?: string
 }
 
 export function transactionReceiptEmail(data: TransactionReceiptData): { subject: string; html: string } {
@@ -25,52 +27,54 @@ export function transactionReceiptEmail(data: TransactionReceiptData): { subject
     customerName, studioName, currency, amount, balanceUsed,
     chargeOnPOS, cashbackEarned, cashbackRate, newBalance,
     tierName, tierUpgraded, newTierName, newCashbackRate,
-    nextTierName, nextTierRate, amountToNextTier,
+    nextTierName, nextTierRate, amountToNextTier, language,
   } = data
 
+  const tBase = getEmailTranslations(language)
+  const t = tBase.transactionReceipt
+
   const studio = escapeHtml(studioName)
-  const sym = escapeHtml(currency)
   const fmt = (n: number) => fmtAmount(n, currency)
 
   const subject = cashbackEarned > 0
-    ? `${studioName} \u2014 ${fmt(cashbackEarned)} earned`
-    : `Your receipt from ${studioName}`
+    ? t.subjectEarned(studioName, fmt(cashbackEarned))
+    : t.subjectReceipt(studioName)
 
-  const parts = [greeting(customerName)]
+  const parts = [greetingLine(tBase.greeting(customerName))]
 
   // Tier upgrade banner
   if (tierUpgraded && newTierName) {
     parts.push(successBanner(
-      `\ud83c\udf89 You&rsquo;ve been upgraded to ${escapeHtml(newTierName)}! Your new cashback rate: ${newCashbackRate ?? cashbackRate}%.`
+      t.upgradeBanner(escapeHtml(newTierName), newCashbackRate ?? cashbackRate)
     ))
   }
 
-  parts.push(p(`Here&rsquo;s your breakdown:`))
+  parts.push(p(t.breakdown))
 
   // Build table rows
   const rows: string[] = []
-  rows.push(row('Purchase', fmt(amount)))
+  rows.push(row(t.rowPurchase, fmt(amount)))
   if (balanceUsed > 0) {
-    rows.push(row('Balance used', `-${fmt(balanceUsed)}`, '#10B981'))
+    rows.push(row(t.rowBalanceUsed, `-${fmt(balanceUsed)}`, '#10B981'))
   }
   if (chargeOnPOS != null && chargeOnPOS !== amount) {
-    rows.push(row('Charged', fmt(chargeOnPOS)))
+    rows.push(row(t.rowCharged, fmt(chargeOnPOS)))
   }
   if (cashbackEarned > 0) {
-    rows.push(row(`Cashback earned (${cashbackRate}%)`, `+${fmt(cashbackEarned)}`, '#10B981'))
+    rows.push(row(t.rowCashback(cashbackRate), `+${fmt(cashbackEarned)}`, '#10B981'))
   }
-  rows.push(row('Your balance', fmt(newBalance), undefined, true))
+  rows.push(row(t.rowYourBalance, fmt(newBalance), undefined, true))
 
   parts.push(`<table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 16px">${rows.join('')}</table>`)
 
-  parts.push(p(`Your tier: <strong>${escapeHtml(tierUpgraded && newTierName ? newTierName : tierName)}</strong>`))
+  parts.push(p(t.yourTier(escapeHtml(tierUpgraded && newTierName ? newTierName : tierName))))
 
   // Next tier nudge
   if (nextTierName && amountToNextTier != null && amountToNextTier > 0) {
-    parts.push(p(`Spend <strong>${Math.round(amountToNextTier)} ${sym}</strong> more to unlock <strong>${escapeHtml(nextTierName)}</strong> and earn <strong>${nextTierRate}%</strong> cashback.`))
+    parts.push(p(t.spendMoreNudge(fmt(amountToNextTier), escapeHtml(nextTierName), nextTierRate ?? 0)))
   }
 
-  parts.push(p(`Thanks for choosing <strong>${studio}</strong>.`))
+  parts.push(p(t.thanksFor(studio)))
 
   return { subject, html: emailWrapper(parts.join('')) }
 }

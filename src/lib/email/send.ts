@@ -179,6 +179,7 @@ export async function sendCustomerWelcome(customerId: string, studioId: string):
   const settings = studio.settings as Record<string, unknown> | null
   const config = getRewardsConfig(settings)
   const currency = (settings?.currency as string) ?? 'kr'
+  const language = (settings?.language as string) ?? 'en'
   const tier = config.tiers.find(t => t.slug === customer.loyalty_stage) ?? config.tiers[0]
 
   const memberId = customer.member_id || customer.id
@@ -194,6 +195,7 @@ export async function sendCustomerWelcome(customerId: string, studioId: string):
     currency,
     passInstalled: !!pass,
     passLink,
+    language,
   })
 
   send(customer.email, tpl).catch(err => console.error('[email] customer welcome error:', err))
@@ -205,11 +207,12 @@ export async function sendPassReminder(customerId: string, studioId: string): Pr
 
   const [{ data: customer }, { data: studio }] = await Promise.all([
     supabase.from('customers').select('name, email, cashback_rate, member_id, id').eq('id', customerId).single(),
-    supabase.from('studios').select('name').eq('id', studioId).single(),
+    supabase.from('studios').select('name, settings').eq('id', studioId).single(),
   ])
 
   if (!customer?.email || !studio) return
 
+  const language = ((studio.settings as { language?: string } | null)?.language) ?? 'en'
   const memberId = customer.member_id || customer.id
   const token = createCustomerAccessToken(customer.id, 24 * 60 * 60)
   const passLink = `${MARKETING_URL}/loyalty/${memberId}?addPass=1&token=${token}`
@@ -219,6 +222,7 @@ export async function sendPassReminder(customerId: string, studioId: string): Pr
     studioName: studio.name,
     cashbackRate: Number(customer.cashback_rate),
     passLink,
+    language,
   })
 
   await send(customer.email, tpl)
@@ -237,6 +241,7 @@ export async function sendPassRemoved(customerId: string, studioId: string): Pro
 
   const settings = studio.settings as Record<string, unknown> | null
   const currency = (settings?.currency as string) ?? 'kr'
+  const language = (settings?.language as string) ?? 'en'
   const memberId = customer.member_id || customer.id
   const token = createCustomerAccessToken(customer.id, 24 * 60 * 60)
   const passLink = `${MARKETING_URL}/loyalty/${memberId}?addPass=1&token=${token}`
@@ -248,6 +253,7 @@ export async function sendPassRemoved(customerId: string, studioId: string): Pro
     cashbackRate: Number(customer.cashback_rate),
     currency,
     passLink,
+    language,
   })
 
   await send(customer.email, tpl)
@@ -284,11 +290,13 @@ export async function sendTransactionReceipt(
 
   const settings = studio.settings as Record<string, unknown> | null
   const currency = (settings?.currency as string) ?? 'kr'
+  const language = (settings?.language as string) ?? 'en'
 
   const tpl = transactionReceiptEmail({
     customerName: customer.name,
     studioName: studio.name,
     currency,
+    language,
     ...txData,
   })
 
@@ -301,11 +309,12 @@ export async function sendResendPassLink(customerId: string, studioId: string): 
 
   const [{ data: customer }, { data: studio }] = await Promise.all([
     supabase.from('customers').select('name, email, member_id, id').eq('id', customerId).single(),
-    supabase.from('studios').select('name').eq('id', studioId).single(),
+    supabase.from('studios').select('name, settings').eq('id', studioId).single(),
   ])
 
   if (!customer?.email || !studio) return
 
+  const language = ((studio.settings as { language?: string } | null)?.language) ?? 'en'
   const memberId = customer.member_id || customer.id
   const token = createCustomerAccessToken(customer.id, 24 * 60 * 60)
   const passLink = `${MARKETING_URL}/loyalty/${memberId}?addPass=1&token=${token}`
@@ -314,6 +323,7 @@ export async function sendResendPassLink(customerId: string, studioId: string): 
     customerName: customer.name ?? '',
     studioName: studio.name,
     passLink,
+    language,
   })
 
   await send(customer.email, tpl)
@@ -359,6 +369,7 @@ export async function sendTierUpgrade(
     balance: Number(customer.balance ?? 0),
     lifetimeCashback: Math.round(lifetimeCashback),
     currency,
+    language: (settings?.language as string) ?? 'en',
   })
 
   send(customer.email, tpl).catch(err => console.error('[email] tier upgrade error:', err))
@@ -379,6 +390,7 @@ export async function sendReferralReward(
 
   const settings = studio.settings as Record<string, unknown> | null
   const currency = (settings?.currency as string) ?? 'kr'
+  const language = (settings?.language as string) ?? 'en'
 
   const tpl = referralRewardEmail({
     referrerName: referrer.name,
@@ -387,6 +399,7 @@ export async function sendReferralReward(
     rewardAmount,
     newBalance: Number(referrer.balance ?? 0),
     currency,
+    language,
   })
 
   send(referrer.email, tpl).catch(err => console.error('[email] referral reward error:', err))
@@ -405,12 +418,20 @@ export async function sendWinBack(customerId: string, studioId: string): Promise
 
   const settings = studio.settings as Record<string, unknown> | null
   const currency = (settings?.currency as string) ?? 'kr'
+  const language = (settings?.language as string) ?? 'en'
   const metadata = (customer.metadata ?? {}) as Record<string, unknown>
   const boost = metadata.cashback_boost as { original_rate?: number; bonus_rate?: number; expires_at?: string } | undefined
 
   const hasCashbackBoost = !!(boost?.expires_at && new Date(boost.expires_at) > new Date())
   const memberId = customer.member_id || customer.id
   const token = createCustomerAccessToken(customer.id, 24 * 60 * 60)
+
+  // Map studio language → BCP47 for Intl date formatting. Unknown codes use UK English.
+  const localeMap: Record<string, string> = {
+    en: 'en-GB', da: 'da-DK', sv: 'sv-SE', no: 'nb-NO', nb: 'nb-NO',
+    de: 'de-DE', fr: 'fr-FR', es: 'es-ES', nl: 'nl-NL', pl: 'pl-PL',
+  }
+  const dateLocale = localeMap[language] ?? 'en-GB'
 
   const tpl = winBackEmail({
     customerName: customer.name,
@@ -421,9 +442,10 @@ export async function sendWinBack(customerId: string, studioId: string): Promise
     boostedRate: hasCashbackBoost ? Number(customer.cashback_rate) : undefined,
     normalRate: hasCashbackBoost ? boost?.original_rate : undefined,
     boostExpiry: hasCashbackBoost && boost?.expires_at
-      ? new Date(boost.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+      ? new Date(boost.expires_at).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })
       : undefined,
     balanceLink: `${MARKETING_URL}/loyalty/${memberId}?token=${token}`,
+    language,
   })
 
   send(customer.email, tpl).catch(err => console.error('[email] win-back error:', err))

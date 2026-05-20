@@ -36,12 +36,14 @@ googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) 
     // Create/update Google Wallet class for this studio
     const classId = `loyalty_${walletPass.studio_id}`.replace(/-/g, '_');
 
-    // Fetch studio name
+    // Fetch studio name + settings (settings.language drives label localisation)
     const { data: studio } = await supabase
       .from('studios')
-      .select('name')
+      .select('name, settings')
       .eq('id', walletPass.studio_id)
       .single();
+
+    const studioLanguage = (studio?.settings as { language?: string } | null)?.language ?? 'en';
 
     const loyaltyTier = customer.loyalty_stage || 'base';
     const tierThemes = template?.tier_themes as Record<string, { stripImage?: string | null; logoOverride?: string | null }> || {};
@@ -68,6 +70,7 @@ googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) 
       cashbackRate: customer.cashback_rate,
       loyaltyTier: customer.loyalty_stage || 'base',
       currency: customer.currency || 'DKK',
+      language: studioLanguage,
     });
 
     if (jwt) {
@@ -111,6 +114,14 @@ googleRoutes.post('/update/:serialNumber', requireInternalAuth, async (req: Requ
     const classId = `loyalty_${walletPass.studio_id}`.replace(/-/g, '_');
     const objectId = serialNumber.replace(/-/g, '_');
 
+    // Fetch studio language for the localised pass labels
+    const { data: studioData } = await supabase
+      .from('studios')
+      .select('settings')
+      .eq('id', walletPass.studio_id)
+      .single();
+    const studioLanguage = (studioData?.settings as { language?: string } | null)?.language ?? 'en';
+
     // Update the Google Wallet object
     const success = await googleWalletService.createOrUpdateObject({
       objectId,
@@ -122,6 +133,7 @@ googleRoutes.post('/update/:serialNumber', requireInternalAuth, async (req: Requ
       cashbackRate: customer.cashback_rate,
       loyaltyTier: customer.loyalty_stage || 'base',
       currency: customer.currency || 'DKK',
+      language: studioLanguage,
     });
 
     if (success) {

@@ -1,21 +1,24 @@
 'use client'
 
 import { QRCodeSVG } from 'qrcode.react'
+import { getSignupTranslations } from '@/lib/i18n/signup'
 
 interface PassWalletProps {
   appleDownloadUrl: string
   googleSaveUrl: string | null
+  language?: string
 }
 
-export function PassWallet({ appleDownloadUrl, googleSaveUrl }: PassWalletProps) {
+export function PassWallet({ appleDownloadUrl, googleSaveUrl, language }: PassWalletProps) {
+  const t = getSignupTranslations(language)
   return (
     <div className="min-h-dvh bg-background flex items-center justify-center p-6">
       <div className="flex flex-col items-center gap-10 w-full max-w-2xl text-center">
 
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight">Add to Wallet</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t.passAddToWallet}</h1>
           <p className="text-muted-foreground text-sm">
-            Scan with your phone camera to add your loyalty card
+            {t.scanWithPhoneCamera}
           </p>
         </div>
 
@@ -30,7 +33,7 @@ export function PassWallet({ appleDownloadUrl, googleSaveUrl }: PassWalletProps)
             <div className="rounded-xl bg-white p-3 shadow-sm">
               <QRCodeSVG value={appleDownloadUrl} size={176} level="M" />
             </div>
-            <p className="text-xs text-muted-foreground">For iPhone &amp; Apple Watch</p>
+            <p className="text-xs text-muted-foreground">{t.forIPhoneAppleWatch}</p>
           </div>
 
           {/* Google Wallet */}
@@ -43,13 +46,13 @@ export function PassWallet({ appleDownloadUrl, googleSaveUrl }: PassWalletProps)
               <div className="rounded-xl bg-white p-3 shadow-sm">
                 <QRCodeSVG value={googleSaveUrl} size={176} level="M" />
               </div>
-              <p className="text-xs text-muted-foreground">For Android</p>
+              <p className="text-xs text-muted-foreground">{t.forAndroid}</p>
             </div>
           )}
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Open your phone's camera app and point it at the QR code
+          {t.openCameraAndPoint}
         </p>
       </div>
     </div>

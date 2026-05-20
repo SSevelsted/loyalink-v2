@@ -1,5 +1,6 @@
 import type { RewardsConfig, UpgradeTriggerConfig, Transaction } from '@/types/database'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
+import { getSignupTranslations } from '@/lib/i18n/signup'
 import { CreditCard, Sparkles, Wallet, Gift, SlidersHorizontal } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -201,25 +202,28 @@ export const MANUAL_TRANSACTION_TYPES = [
 ] as const
 
 /**
- * Customer-facing display text for tier upgrade triggers.
+ * Customer-facing display text for tier upgrade triggers, localised to the
+ * studio language. `language` is optional for backward compatibility — callers
+ * that don't pass one get the English copy.
  */
-export function getTriggerDisplayText(trigger: UpgradeTriggerConfig, currency: string): string {
+export function getTriggerDisplayText(
+  trigger: UpgradeTriggerConfig,
+  currency: string,
+  language?: string,
+): string {
   const cfg = getCurrencyConfig(currency)
+  const t = getSignupTranslations(language)
   switch (trigger.type) {
     case 'first_purchase':
-      return 'After your first purchase'
+      return t.triggerFirstPurchase
     case 'first_full_payment':
-      return 'After your first full payment'
+      return t.triggerFirstFullPayment
     case 'total_spend':
-      return `Spend ${formatAmount(trigger.threshold ?? 0, cfg)} total`
-    case 'referral_count': {
-      const n = trigger.threshold ?? 1
-      return n === 1 ? 'Refer 1 friend' : `Refer ${n} friends`
-    }
-    case 'days_member': {
-      const d = trigger.threshold ?? 30
-      return `After ${d} days as a member`
-    }
+      return t.triggerTotalSpend(formatAmount(trigger.threshold ?? 0, cfg))
+    case 'referral_count':
+      return t.triggerReferralCount(trigger.threshold ?? 1)
+    case 'days_member':
+      return t.triggerDaysMember(trigger.threshold ?? 30)
     default:
       return ''
   }

@@ -1,31 +1,35 @@
-import { emailWrapper, ctaButton, greeting, p, bulletList, footerNote, escapeHtml } from '../base'
+import { emailWrapper, ctaButton, greetingLine, p, bulletList, footerNote, escapeHtml } from '../base'
+import { getEmailTranslations } from '../i18n'
 
 type PassReminderData = {
   customerName: string
   studioName: string
   cashbackRate: number
   passLink: string
+  language?: string
 }
 
 export function passReminderEmail(data: PassReminderData): { subject: string; html: string } {
-  const { customerName, studioName, cashbackRate, passLink } = data
+  const { customerName, studioName, cashbackRate, passLink, language } = data
+  const tBase = getEmailTranslations(language)
+  const t = tBase.passReminder
 
   const studio = escapeHtml(studioName)
-  const subject = `Your ${studioName} card is waiting`
+  const subject = t.subject(studioName)
 
   const html = emailWrapper([
-    greeting(customerName),
-    p(`You signed up for <strong>${studio}</strong>&rsquo;s loyalty program but haven&rsquo;t added the card to your wallet yet.`),
-    p(`Here&rsquo;s what you&rsquo;re missing out on:`),
+    greetingLine(tBase.greeting(customerName)),
+    p(t.intro(studio)),
+    p(t.missingOut),
     bulletList([
-      `<strong>${cashbackRate}%</strong> cashback on every visit &mdash; automatically added to your balance`,
-      `Higher tiers with bigger rewards the more you visit`,
-      `Earn cashback when you refer friends`,
-      `Exclusive offers sent straight to your lock screen`,
+      t.bullet1(cashbackRate),
+      t.bullet2,
+      t.bullet3,
+      t.bullet4,
     ]),
-    p(`One tap and it&rsquo;s in your Apple or Google Wallet. No app needed.`),
-    ctaButton('Add to Wallet \u2192', passLink),
-    footerNote('This link expires in 24 hours.'),
+    p(t.oneTap),
+    ctaButton(t.addCta, passLink),
+    footerNote(t.linkExpiresShort),
     `<p style="color:#555;margin:16px 0 0"><strong>${studio}</strong></p>`,
   ].join(''))
 

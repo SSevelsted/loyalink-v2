@@ -10,21 +10,23 @@ export default async function PassPage({ params, searchParams }: { params: Promi
   const { serialNumber } = await params
   const { token: providedToken } = await searchParams
 
-  // Use provided token or generate a short-lived one by looking up the pass owner
-  let token = providedToken
-  if (!token) {
-    const { data: pass } = await adminSupabase
-      .from('wallet_passes')
-      .select('customer_id')
-      .eq('serial_number', serialNumber)
-      .single()
+  // Always look up the pass to find the owning studio's language — this page
+  // renders studio-localised UI, so we need the language even when a token was
+  // already provided in the URL.
+  const { data: pass } = await adminSupabase
+    .from('wallet_passes')
+    .select('customer_id, customers:customer_id(studios:studio_id(settings))')
+    .eq('serial_number', serialNumber)
+    .single()
 
-    if (!pass) {
-      return <div style={{ padding: '2rem', textAlign: 'center' }}>Pass not found.</div>
-    }
-
-    token = createCustomerAccessToken(pass.customer_id, 5 * 60)
+  if (!pass) {
+    return <div style={{ padding: '2rem', textAlign: 'center' }}>Pass not found.</div>
   }
+
+  const customer = pass.customers as unknown as { studios: { settings: Record<string, unknown> | null } | null } | null
+  const studioLanguage = (customer?.studios?.settings?.language as string) ?? 'en'
+
+  const token = providedToken ?? createCustomerAccessToken(pass.customer_id, 5 * 60)
 
   const appleDownloadUrl = `${PASS_SERVICE_URL}/api/passes/${serialNumber}/download?token=${encodeURIComponent(token)}`
 
@@ -58,5 +60,5 @@ export default async function PassPage({ params, searchParams }: { params: Promi
   }
 
   // Desktop: show QR codes for both platforms
-  return <PassWallet appleDownloadUrl={appleDownloadUrl} googleSaveUrl={googleSaveUrl} />
+  return <PassWallet appleDownloadUrl={appleDownloadUrl} googleSaveUrl={googleSaveUrl} language={studioLanguage} />
 }

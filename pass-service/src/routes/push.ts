@@ -228,6 +228,14 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
         const classId = `loyalty_${studioId}`.replace(/-/g, '_');
         const objectId = reg.serial_number.replace(/-/g, '_');
 
+        // Studio language drives the localised Google Wallet labels
+        const { data: studioRow } = await supabase
+          .from('studios')
+          .select('settings')
+          .eq('id', studioId)
+          .single();
+        const studioLanguage = (studioRow?.settings as { language?: string } | null)?.language ?? 'en';
+
         await googleWalletService.createOrUpdateObject({
           objectId,
           classId,
@@ -238,6 +246,7 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
           cashbackRate: customer.cashback_rate,
           loyaltyTier: customer.loyalty_stage || 'base',
           currency: customer.currency || 'DKK',
+          language: studioLanguage,
         });
 
         googleUpdated++;

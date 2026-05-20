@@ -1,4 +1,5 @@
-import { emailWrapper, ctaButton, greeting, p, bulletList, footerNote, escapeHtml, fmtAmount } from '../base'
+import { emailWrapper, ctaButton, greetingLine, p, bulletList, footerNote, escapeHtml, fmtAmount } from '../base'
+import { getEmailTranslations } from '../i18n'
 
 type PassRemovedData = {
   customerName: string
@@ -7,26 +8,29 @@ type PassRemovedData = {
   cashbackRate: number
   currency: string
   passLink: string
+  language?: string
 }
 
 export function passRemovedEmail(data: PassRemovedData): { subject: string; html: string } {
-  const { customerName, studioName, currentBalance, cashbackRate, currency, passLink } = data
+  const { customerName, studioName, currentBalance, cashbackRate, currency, passLink, language } = data
+  const tBase = getEmailTranslations(language)
+  const t = tBase.passRemoved
 
   const studio = escapeHtml(studioName)
-  const subject = 'Your balance is still safe'
+  const subject = t.subject
 
   const html = emailWrapper([
-    greeting(customerName),
-    p(`Looks like your <strong>${studio}</strong> loyalty card was removed from your wallet.`),
-    p(`No worries &mdash; your balance of <strong>${fmtAmount(currentBalance, currency)}</strong> and all your rewards are still here. You can re-add the card anytime.`),
-    p(`With your card in your wallet, you get:`),
+    greetingLine(tBase.greeting(customerName)),
+    p(t.intro(studio)),
+    p(t.safeBalance(fmtAmount(currentBalance, currency))),
+    p(t.withCardYouGet),
     bulletList([
-      `<strong>${cashbackRate}%</strong> cashback on every visit`,
-      `Balance updates and exclusive offers on your lock screen`,
-      `Cashback for referring friends`,
+      t.bullet1(cashbackRate),
+      t.bullet2,
+      t.bullet3,
     ]),
-    ctaButton('Re-add to Wallet \u2192', passLink),
-    footerNote(`This link expires in 24 hours. If you removed it on purpose, ignore this &mdash; your rewards aren&rsquo;t going anywhere.`),
+    ctaButton(t.reAddCta, passLink),
+    footerNote(t.expiresAndIgnore),
     `<p style="color:#555;margin:16px 0 0"><strong>${studio}</strong></p>`,
   ].join(''))
 
