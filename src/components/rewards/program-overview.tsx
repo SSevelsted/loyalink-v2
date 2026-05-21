@@ -196,6 +196,7 @@ export function ProgramOverview({
                 type="number"
                 value={tier.cashback_rate}
                 onChange={(e) => updateTier(globalIndex, { cashback_rate: parseFloat(e.target.value) || 0 })}
+                onFocus={(e) => e.currentTarget.select()}
                 min={0}
                 max={100}
                 step={0.5}

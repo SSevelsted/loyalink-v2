@@ -53,6 +53,7 @@ function NumberInput({
         type="number"
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+        onFocus={(e) => e.currentTarget.select()}
         min={min}
         max={max}
         step={step}

@@ -58,7 +58,9 @@ import { RewardsConfigForm, getTriggerLabel } from '@/components/rewards/rewards
 import { ProgramOverview } from '@/components/rewards/program-overview'
 import { ReferralProgram } from '@/components/rewards/referral-program'
 import { TemplatePicker } from '@/components/rewards/template-picker'
+import { RewardsProgramPreview } from '@/components/rewards/program-preview'
 import { REWARD_TEMPLATES, DEFAULT_TEMPLATE_ID, type TemplateId } from '@/lib/rewards-templates'
+import { DownloadAppCard } from '@/components/layout/download-app-card'
 
 const CURRENCY_OPTIONS = Object.entries(CURRENCY_MAP)
   .filter(([key]) => key !== 'kr')
@@ -144,6 +146,9 @@ export default function SetupPage() {
   const [baseTemplateId, setBaseTemplateId] = useState<TemplateId>(DEFAULT_TEMPLATE_ID)
   const classicConfig = REWARD_TEMPLATES.find(t => t.id === DEFAULT_TEMPLATE_ID)!.config
   const [rewardsConfig, setRewardsConfig] = useState<RewardsConfig>(classicConfig)
+  // Default to template-first preview; flips on when the user clicks Customize
+  // or when a previously-saved custom config is restored from DB.
+  const [customizingRewards, setCustomizingRewards] = useState(false)
 
   const [selectedTier, setSelectedTier] = useState(DEFAULT_REWARDS_CONFIG.tiers[0].slug)
   const [tierThemes, setTierThemes] = useState<Record<string, TierTheme>>(DEFAULT_TIER_THEMES)
@@ -222,6 +227,8 @@ export default function SetupPage() {
       setRewardsConfig(migrateRewardsConfig(s.rewards_config))
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedTemplateId('custom')
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCustomizingRewards(true)
     }
     // Load studio info state
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -329,6 +336,8 @@ export default function SetupPage() {
     if (id !== 'custom') setBaseTemplateId(id)
     const template = REWARD_TEMPLATES.find(t => t.id === id)
     if (template) setRewardsConfig(template.config)
+    // "Custom" template has no preview — jump straight into the editor.
+    setCustomizingRewards(id === 'custom')
   }, [])
 
   const handleRewardsConfigChange = useCallback((config: RewardsConfig) => {
@@ -1233,6 +1242,42 @@ export default function SetupPage() {
       {step === 1 && (
         <div className="space-y-8">
           <TemplatePicker selected={selectedTemplateId} onSelect={handleTemplateSelect} />
+
+          {!customizingRewards ? (
+            <>
+              <RewardsProgramPreview config={rewardsConfig} currency={currency} />
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setCustomizingRewards(true)}
+                  className="gap-2"
+                >
+                  <Paintbrush className="h-4 w-4" />
+                  Customize this program
+                </Button>
+              </div>
+            </>
+          ) : (
+          <>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCustomizingRewards(false)}
+              className="gap-1.5 -ml-2"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back to templates
+            </Button>
+            {baseTemplateId !== 'custom' && (
+              <p className="text-xs text-muted-foreground">
+                Based on{' '}
+                <span className="text-foreground font-medium">
+                  {REWARD_TEMPLATES.find(t => t.id === baseTemplateId)?.name}
+                </span>
+              </p>
+            )}
+          </div>
           <div className="border-t border-border/50" />
           <ProgramOverview
             config={rewardsConfig}
@@ -1252,6 +1297,8 @@ export default function SetupPage() {
             fromSetup
             currency={currency}
           />
+          </>
+          )}
         </div>
       )}
 
@@ -1451,6 +1498,9 @@ export default function SetupPage() {
               </p>
             </div>
           </div>
+
+          {/* Download App prompt */}
+          <DownloadAppCard />
         </div>
       )}
 

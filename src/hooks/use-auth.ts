@@ -4,6 +4,19 @@ import { createClient } from '@/lib/supabase/client'
 import type { StudioMember } from '@/types/database'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
+import { Capacitor } from '@capacitor/core'
+
+const NATIVE_OAUTH_CALLBACK_URL = 'ai.loyalink.app://auth/callback'
+
+function getOAuthRedirectTo(next = '/overview') {
+  return isNativeRuntime()
+    ? `${NATIVE_OAUTH_CALLBACK_URL}?next=${encodeURIComponent(next)}`
+    : `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+}
+
+function isNativeRuntime() {
+  return Capacitor.isNativePlatform()
+}
 
 async function sha256Hex(input: string): Promise<string> {
   const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
@@ -66,9 +79,7 @@ export function useAuth() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: isNative()
-          ? 'ai.loyalink.app://auth/callback?next=/overview'
-          : `${window.location.origin}/auth/callback?next=/overview`,
+        redirectTo: getOAuthRedirectTo('/overview'),
         ...(isNative() && { skipBrowserRedirect: false }),
       },
     })
@@ -127,9 +138,7 @@ export function useAuth() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: {
-        redirectTo: isNative()
-          ? 'ai.loyalink.app://auth/callback?next=/overview'
-          : `${window.location.origin}/auth/callback?next=/overview`,
+        redirectTo: getOAuthRedirectTo('/overview'),
         ...(isNative() && { skipBrowserRedirect: false }),
       },
     })
