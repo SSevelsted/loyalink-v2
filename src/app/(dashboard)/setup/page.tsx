@@ -42,7 +42,8 @@ const LANDING_PRESETS = [
 ]
 import { toast } from 'sonner'
 import { MARKETING_URL } from '@/lib/constants'
-import { CURRENCY_MAP, getCurrencyConfig, formatAmount } from '@/lib/currency'
+import { getCurrencyConfig, formatAmount } from '@/lib/currency'
+import { CURRENCY_OPTIONS, LANGUAGE_OPTIONS } from '@/lib/locale-options'
 import type { CustomField, Benefit } from '@/hooks/use-landing-page'
 import { generateDefaultBenefits, BENEFIT_ICON_MAP, BENEFIT_ICON_OPTIONS } from '@/components/landing/value-stack'
 import {
@@ -54,29 +55,13 @@ import {
 } from '@/components/ui/select'
 import type { TierTheme, CardField, RewardsConfig } from '@/types/database'
 import { DEFAULT_TIER_THEMES, DEFAULT_CARD_FIELDS, DEFAULT_REWARDS_CONFIG, migrateRewardsConfig, getActiveTierSlugs } from '@/types/database'
-import { RewardsConfigForm, getTriggerLabel } from '@/components/rewards/rewards-config-form'
+import { getTriggerLabel } from '@/components/rewards/rewards-config-form'
 import { ProgramOverview } from '@/components/rewards/program-overview'
 import { ReferralProgram } from '@/components/rewards/referral-program'
 import { TemplatePicker } from '@/components/rewards/template-picker'
 import { RewardsProgramPreview } from '@/components/rewards/program-preview'
 import { REWARD_TEMPLATES, DEFAULT_TEMPLATE_ID, type TemplateId } from '@/lib/rewards-templates'
 import { DownloadAppCard } from '@/components/layout/download-app-card'
-
-const CURRENCY_OPTIONS = Object.entries(CURRENCY_MAP)
-  .filter(([key]) => key !== 'kr')
-  .map(([key, cfg]) => ({ value: key, label: `${key.toUpperCase()} (${cfg.symbol})` }))
-
-const LANGUAGE_OPTIONS = [
-  { value: 'en', label: 'English' },
-  { value: 'da', label: 'Danish (Dansk)' },
-  { value: 'sv', label: 'Swedish (Svenska)' },
-  { value: 'no', label: 'Norwegian (Norsk)' },
-  { value: 'de', label: 'German (Deutsch)' },
-  { value: 'fr', label: 'French (Français)' },
-  { value: 'es', label: 'Spanish (Español)' },
-  { value: 'nl', label: 'Dutch (Nederlands)' },
-  { value: 'pl', label: 'Polish (Polski)' },
-]
 
 const COUNTRY_OPTIONS = [
   { value: 'DK', label: 'Denmark' },
@@ -1284,17 +1269,12 @@ export default function SetupPage() {
             onChange={handleRewardsConfigChange}
             baseTemplate={REWARD_TEMPLATES.find(t => t.id === baseTemplateId)}
             currency={currency}
+            hideWhyCashbackWorks
           />
           <div className="border-t border-border/50" />
           <ReferralProgram
             config={rewardsConfig}
             onChange={handleRewardsConfigChange}
-            currency={currency}
-          />
-          <RewardsConfigForm
-            config={rewardsConfig}
-            onChange={handleRewardsConfigChange}
-            fromSetup
             currency={currency}
           />
           </>
