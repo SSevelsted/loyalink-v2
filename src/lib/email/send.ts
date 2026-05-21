@@ -44,12 +44,6 @@ function getRewardsConfig(settings: Record<string, unknown> | null): RewardsConf
     : DEFAULT_REWARDS_CONFIG
 }
 
-async function getStudioCurrency(studioId: string): Promise<string> {
-  const { data } = await supabase.from('studios').select('settings').eq('id', studioId).single()
-  const settings = data?.settings as Record<string, unknown> | null
-  return (settings?.currency as string) ?? 'kr'
-}
-
 // ──────────────────────────────────────────
 // Studio Owner Emails
 // ──────────────────────────────────────────
@@ -169,7 +163,7 @@ export async function sendCustomerWelcome(customerId: string, studioId: string):
   if (!canSend()) return
 
   const [{ data: customer }, { data: studio }, { data: pass }] = await Promise.all([
-    supabase.from('customers').select('name, email, balance, cashback_rate, loyalty_stage, member_id, id').eq('id', customerId).single(),
+    supabase.from('customers').select('name, email, balance, cashback_rate, loyalty_stage, member_id, id, currency, language').eq('id', customerId).single(),
     supabase.from('studios').select('name, settings').eq('id', studioId).single(),
     supabase.from('wallet_passes').select('status').eq('customer_id', customerId).eq('status', 'installed').limit(1).maybeSingle(),
   ])
@@ -178,8 +172,8 @@ export async function sendCustomerWelcome(customerId: string, studioId: string):
 
   const settings = studio.settings as Record<string, unknown> | null
   const config = getRewardsConfig(settings)
-  const currency = (settings?.currency as string) ?? 'kr'
-  const language = (settings?.language as string) ?? 'en'
+  const currency = (customer.currency as string) ?? (settings?.currency as string) ?? 'kr'
+  const language = (customer.language as string) ?? (settings?.language as string) ?? 'en'
   const tier = config.tiers.find(t => t.slug === customer.loyalty_stage) ?? config.tiers[0]
 
   const memberId = customer.member_id || customer.id
@@ -206,13 +200,13 @@ export async function sendPassReminder(customerId: string, studioId: string): Pr
   if (!canSend()) return
 
   const [{ data: customer }, { data: studio }] = await Promise.all([
-    supabase.from('customers').select('name, email, cashback_rate, member_id, id').eq('id', customerId).single(),
+    supabase.from('customers').select('name, email, cashback_rate, member_id, id, currency, language').eq('id', customerId).single(),
     supabase.from('studios').select('name, settings').eq('id', studioId).single(),
   ])
 
   if (!customer?.email || !studio) return
 
-  const language = ((studio.settings as { language?: string } | null)?.language) ?? 'en'
+  const language = (customer.language as string) ?? ((studio.settings as { language?: string } | null)?.language) ?? 'en'
   const memberId = customer.member_id || customer.id
   const token = createCustomerAccessToken(customer.id, 24 * 60 * 60)
   const passLink = `${MARKETING_URL}/loyalty/${memberId}?addPass=1&token=${token}`
@@ -233,15 +227,15 @@ export async function sendPassRemoved(customerId: string, studioId: string): Pro
   if (!canSend()) return
 
   const [{ data: customer }, { data: studio }] = await Promise.all([
-    supabase.from('customers').select('name, email, balance, cashback_rate, member_id, id').eq('id', customerId).single(),
+    supabase.from('customers').select('name, email, balance, cashback_rate, member_id, id, currency, language').eq('id', customerId).single(),
     supabase.from('studios').select('name, settings').eq('id', studioId).single(),
   ])
 
   if (!customer?.email || !studio) return
 
   const settings = studio.settings as Record<string, unknown> | null
-  const currency = (settings?.currency as string) ?? 'kr'
-  const language = (settings?.language as string) ?? 'en'
+  const currency = (customer.currency as string) ?? (settings?.currency as string) ?? 'kr'
+  const language = (customer.language as string) ?? (settings?.language as string) ?? 'en'
   const memberId = customer.member_id || customer.id
   const token = createCustomerAccessToken(customer.id, 24 * 60 * 60)
   const passLink = `${MARKETING_URL}/loyalty/${memberId}?addPass=1&token=${token}`
@@ -282,15 +276,15 @@ export async function sendTransactionReceipt(
   if (!canSend()) return
 
   const [{ data: customer }, { data: studio }] = await Promise.all([
-    supabase.from('customers').select('name, email').eq('id', customerId).single(),
+    supabase.from('customers').select('name, email, currency, language').eq('id', customerId).single(),
     supabase.from('studios').select('name, settings').eq('id', studioId).single(),
   ])
 
   if (!customer?.email || !studio) return
 
   const settings = studio.settings as Record<string, unknown> | null
-  const currency = (settings?.currency as string) ?? 'kr'
-  const language = (settings?.language as string) ?? 'en'
+  const currency = (customer.currency as string) ?? (settings?.currency as string) ?? 'kr'
+  const language = (customer.language as string) ?? (settings?.language as string) ?? 'en'
 
   const tpl = transactionReceiptEmail({
     customerName: customer.name,
@@ -308,13 +302,13 @@ export async function sendResendPassLink(customerId: string, studioId: string): 
   if (!canSend()) return
 
   const [{ data: customer }, { data: studio }] = await Promise.all([
-    supabase.from('customers').select('name, email, member_id, id').eq('id', customerId).single(),
+    supabase.from('customers').select('name, email, member_id, id, currency, language').eq('id', customerId).single(),
     supabase.from('studios').select('name, settings').eq('id', studioId).single(),
   ])
 
   if (!customer?.email || !studio) return
 
-  const language = ((studio.settings as { language?: string } | null)?.language) ?? 'en'
+  const language = (customer.language as string) ?? ((studio.settings as { language?: string } | null)?.language) ?? 'en'
   const memberId = customer.member_id || customer.id
   const token = createCustomerAccessToken(customer.id, 24 * 60 * 60)
   const passLink = `${MARKETING_URL}/loyalty/${memberId}?addPass=1&token=${token}`
@@ -336,7 +330,7 @@ export async function sendTierUpgrade(
   if (!canSend()) return
 
   const [{ data: customer }, { data: studio }] = await Promise.all([
-    supabase.from('customers').select('name, email, balance').eq('id', customerId).single(),
+    supabase.from('customers').select('name, email, balance, currency, language').eq('id', customerId).single(),
     supabase.from('studios').select('name, settings').eq('id', studioId).single(),
   ])
 
@@ -344,7 +338,7 @@ export async function sendTierUpgrade(
 
   const settings = studio.settings as Record<string, unknown> | null
   const config = getRewardsConfig(settings)
-  const currency = (settings?.currency as string) ?? 'kr'
+  const currency = (customer.currency as string) ?? (settings?.currency as string) ?? 'kr'
 
   const fromTier = config.tiers.find(t => t.slug === fromTierSlug) ?? config.tiers[0]
   const toTier = config.tiers.find(t => t.slug === toTierSlug)
@@ -369,7 +363,7 @@ export async function sendTierUpgrade(
     balance: Number(customer.balance ?? 0),
     lifetimeCashback: Math.round(lifetimeCashback),
     currency,
-    language: (settings?.language as string) ?? 'en',
+    language: (customer.language as string) ?? (settings?.language as string) ?? 'en',
   })
 
   send(customer.email, tpl).catch(err => console.error('[email] tier upgrade error:', err))
@@ -382,15 +376,15 @@ export async function sendReferralReward(
   if (!canSend()) return
 
   const [{ data: referrer }, { data: studio }] = await Promise.all([
-    supabase.from('customers').select('name, email, balance').eq('id', referrerCustomerId).single(),
+    supabase.from('customers').select('name, email, balance, currency, language').eq('id', referrerCustomerId).single(),
     supabase.from('studios').select('name, settings').eq('id', studioId).single(),
   ])
 
   if (!referrer?.email || !studio) return
 
   const settings = studio.settings as Record<string, unknown> | null
-  const currency = (settings?.currency as string) ?? 'kr'
-  const language = (settings?.language as string) ?? 'en'
+  const currency = (referrer.currency as string) ?? (settings?.currency as string) ?? 'kr'
+  const language = (referrer.language as string) ?? (settings?.language as string) ?? 'en'
 
   const tpl = referralRewardEmail({
     referrerName: referrer.name,
@@ -410,15 +404,15 @@ export async function sendWinBack(customerId: string, studioId: string): Promise
   if (!canSend()) return
 
   const [{ data: customer }, { data: studio }] = await Promise.all([
-    supabase.from('customers').select('name, email, balance, cashback_rate, metadata, member_id, id').eq('id', customerId).single(),
+    supabase.from('customers').select('name, email, balance, cashback_rate, metadata, member_id, id, currency, language').eq('id', customerId).single(),
     supabase.from('studios').select('name, settings').eq('id', studioId).single(),
   ])
 
   if (!customer?.email || !studio) return
 
   const settings = studio.settings as Record<string, unknown> | null
-  const currency = (settings?.currency as string) ?? 'kr'
-  const language = (settings?.language as string) ?? 'en'
+  const currency = (customer.currency as string) ?? (settings?.currency as string) ?? 'kr'
+  const language = (customer.language as string) ?? (settings?.language as string) ?? 'en'
   const metadata = (customer.metadata ?? {}) as Record<string, unknown>
   const boost = metadata.cashback_boost as { original_rate?: number; bonus_rate?: number; expires_at?: string } | undefined
 

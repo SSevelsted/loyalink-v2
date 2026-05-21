@@ -20,7 +20,7 @@ export default async function ReferralLandingPage({ params }: Props) {
   let customer
   const { data: byMemberId } = await supabase
     .from('customers')
-    .select('id, name, referral_code, studio_id, metadata, studios:studio_id(id, name, slug, settings)')
+    .select('id, name, referral_code, studio_id, metadata, currency, language, landing_page_id, studios:studio_id(id, name, slug, settings)')
     .eq('member_id', memberId)
     .single()
 
@@ -29,7 +29,7 @@ export default async function ReferralLandingPage({ params }: Props) {
   } else {
     const { data: byId } = await supabase
       .from('customers')
-      .select('id, name, referral_code, studio_id, metadata, studios:studio_id(id, name, slug, settings)')
+      .select('id, name, referral_code, studio_id, metadata, currency, language, landing_page_id, studios:studio_id(id, name, slug, settings)')
       .eq('id', memberId)
       .single()
     customer = byId
@@ -44,18 +44,19 @@ export default async function ReferralLandingPage({ params }: Props) {
   const rewardsConfig: RewardsConfig = studioSettings.rewards_config
     ? migrateRewardsConfig(studioSettings.rewards_config)
     : DEFAULT_REWARDS_CONFIG
-  const currency = (studioSettings.currency as string) ?? 'dkk'
-  const language = (studioSettings.language as string) ?? 'en'
+  // The referred friend joins the referrer's market, so this page renders in the
+  // referrer's currency/language (fallback: studio settings).
+  const currency = (customer.currency as string) ?? (studioSettings.currency as string) ?? 'dkk'
+  const language = (customer.language as string) ?? (studioSettings.language as string) ?? 'en'
   const currencyCfg = getCurrencyConfig(currency)
   const t = getSignupTranslations(language)
 
-  // Get landing page for branding
-  const { data: landingPage } = await supabase
-    .from('studio_landing_pages')
-    .select('id, settings, hero_image_url')
-    .eq('studio_id', customer.studio_id)
-    .limit(1)
-    .single()
+  // Branding comes from the referrer's own landing page (their market) when known,
+  // otherwise the studio's first landing page.
+  const landingPageQuery = customer.landing_page_id
+    ? supabase.from('studio_landing_pages').select('id, settings, hero_image_url').eq('id', customer.landing_page_id)
+    : supabase.from('studio_landing_pages').select('id, settings, hero_image_url').eq('studio_id', customer.studio_id).limit(1)
+  const { data: landingPage } = await landingPageQuery.maybeSingle()
 
   const settings = (landingPage?.settings ?? {}) as {
     brandColor?: string

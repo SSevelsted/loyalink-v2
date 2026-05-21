@@ -246,7 +246,7 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
           cashbackRate: customer.cashback_rate,
           loyaltyTier: customer.loyalty_stage || 'base',
           currency: customer.currency || 'DKK',
-          language: studioLanguage,
+          language: customer.language || studioLanguage,
         });
 
         googleUpdated++;
