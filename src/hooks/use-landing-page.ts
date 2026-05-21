@@ -33,6 +33,10 @@ export type LandingPageSettings = {
   successHeading?: string
   successMessage?: string
   termsUrl?: string
+  // Market: currency + language for this landing page. When unset, the studio's
+  // currency/language is used. Stamped onto each customer who joins via this page.
+  currency?: string
+  language?: string
 }
 
 export const DEFAULT_LANDING_SETTINGS: LandingPageSettings = {

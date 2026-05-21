@@ -74,11 +74,13 @@ export default async function JoinPage({ params, searchParams }: Props) {
     termsUrl?: string
   }
 
-  // Extract rewards config, currency, and language from studio settings
+  // Rewards config comes from the studio. Currency + language come from this
+  // landing page's own market, falling back to the studio defaults when unset.
   const studioSettings = (page.studios?.settings ?? {}) as Record<string, unknown>
+  const pageSettings = (page.settings ?? {}) as Record<string, unknown>
   const rewardsConfig = migrateRewardsConfig(studioSettings.rewards_config)
-  const currency = (studioSettings.currency as string) ?? 'dkk'
-  const language = (studioSettings.language as string) ?? 'en'
+  const currency = (pageSettings.currency as string) ?? (studioSettings.currency as string) ?? 'dkk'
+  const language = (pageSettings.language as string) ?? (studioSettings.language as string) ?? 'en'
   const t = getSignupTranslations(language)
   const baseTier = rewardsConfig.tiers[0]
 

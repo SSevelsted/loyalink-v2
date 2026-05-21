@@ -74,12 +74,14 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
   let cashbackRate = config.tiers[0].cashback_rate
   let loyaltyStage = config.tiers[0].slug
   let referrerCustomerId: string | null = null
+  // Referred customers inherit the referrer's market (currency/language/page).
+  let referrerMarket: { currency: string | null; language: string | null; landing_page_id: string | null } | null = null
 
   // Check referral code
   if (referralCode && config.referrals.enabled) {
     const { data: referrer } = await adminSupabase
       .from('customers')
-      .select('id, email')
+      .select('id, email, currency, language, landing_page_id')
       .eq('referral_code', referralCode.toUpperCase())
       .eq('studio_id', studioId)
       .single()
@@ -91,6 +93,8 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
         referrerCustomerId = referrer.id
         cashbackRate = config.referrals.friend_cashback_rate
         loyaltyStage = config.referrals.friend_tier_slug
+        const r = referrer as unknown as { currency: string | null; language: string | null; landing_page_id: string | null }
+        referrerMarket = { currency: r.currency ?? null, language: r.language ?? null, landing_page_id: r.landing_page_id ?? null }
       }
     }
   }
@@ -119,6 +123,31 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
     }
   }
 
+  // Resolve the customer's market (currency + language + originating landing page).
+  // Precedence: referrer's market (referred customers join the referrer's market) >
+  // the landing page they joined through > the studio's defaults. No FX — the
+  // resolved currency is locked onto the card for life.
+  let resolvedCurrency = (settings?.currency as string) ?? 'dkk'
+  let resolvedLanguage = (settings?.language as string) ?? 'en'
+  let resolvedLandingPageId: string | null = landingPageId ?? null
+
+  if (landingPageId) {
+    const { data: lp } = await adminSupabase
+      .from('studio_landing_pages')
+      .select('settings')
+      .eq('id', landingPageId)
+      .single()
+    const lpSettings = (lp?.settings as Record<string, unknown> | null) ?? null
+    if (lpSettings?.currency) resolvedCurrency = lpSettings.currency as string
+    if (lpSettings?.language) resolvedLanguage = lpSettings.language as string
+  }
+
+  if (referrerCustomerId && referrerMarket) {
+    if (referrerMarket.currency) resolvedCurrency = referrerMarket.currency
+    if (referrerMarket.language) resolvedLanguage = referrerMarket.language
+    if (referrerMarket.landing_page_id) resolvedLandingPageId = referrerMarket.landing_page_id
+  }
+
   // Generate unique referral code for the new customer
   const newReferralCode = generateReferralCode()
 
@@ -133,6 +162,9 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
       cashback_rate: cashbackRate,
       loyalty_stage: loyaltyStage,
       referral_code: newReferralCode,
+      currency: resolvedCurrency,
+      language: resolvedLanguage,
+      landing_page_id: resolvedLandingPageId,
     })
     .select('id')
     .single()

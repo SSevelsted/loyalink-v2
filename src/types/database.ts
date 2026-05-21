@@ -58,6 +58,11 @@ export type Customer = {
   referral_count: number
   has_purchased: boolean
   total_real_spend: number
+  // Market: native currency + language + originating landing page, locked at signup.
+  // Nullable — fall back to studio currency/language at render time when unset.
+  currency: string | null
+  language: string | null
+  landing_page_id: string | null
   metadata: Record<string, unknown>
   created_at: string
   updated_at: string

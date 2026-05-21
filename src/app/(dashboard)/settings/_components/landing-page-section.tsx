@@ -21,8 +21,9 @@ import type { LandingPageSettings, CustomField, Benefit } from '@/hooks/use-land
 import { useImageUpload } from '@/hooks/use-image-upload'
 import { useStudio } from '@/hooks/use-studio'
 import { toast } from 'sonner'
-import { FileText, Palette, ListChecks, FormInput, PartyPopper, Scale, Plus, Trash2, ExternalLink, RotateCcw, TrendingUp, Paintbrush, RefreshCw } from 'lucide-react'
+import { FileText, Palette, ListChecks, FormInput, PartyPopper, Scale, Plus, Trash2, ExternalLink, RotateCcw, TrendingUp, Paintbrush, RefreshCw, Globe } from 'lucide-react'
 import { MARKETING_URL } from '@/lib/constants'
+import { CURRENCY_OPTIONS, LANGUAGE_OPTIONS } from '@/lib/locale-options'
 import { cn } from '@/lib/utils'
 
 const LANDING_PRESETS = [
@@ -66,7 +67,7 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
 
   const studioSettings = (currentStudio?.settings ?? {}) as Record<string, unknown>
   const rewardsConfig = migrateRewardsConfig(studioSettings.rewards_config) as RewardsConfig
-  const currency = (studioSettings.currency as string) ?? 'dkk'
+  const currency = settings.currency ?? (studioSettings.currency as string) ?? 'dkk'
 
   const updateSetting = (key: keyof LandingPageSettings, value: unknown) => {
     setSettings((prev) => ({ ...prev, [key]: value }))
@@ -135,6 +136,60 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
         {/* Editor */}
         <div className="space-y-6">
+          {/* Market: currency + language for this page */}
+          <Card variant="glass" className="rounded-2xl">
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Market
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                The currency and language for this page. Anyone who signs up here gets a
+                loyalty card in this currency and language — and keeps it for life.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="market-currency">Currency</Label>
+                  <Select
+                    value={settings.currency ?? (studioSettings.currency as string) ?? 'dkk'}
+                    onValueChange={(value) => updateSetting('currency', value)}
+                  >
+                    <SelectTrigger id="market-currency" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CURRENCY_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="market-language">Language</Label>
+                  <Select
+                    value={settings.language ?? (studioSettings.language as string) ?? 'en'}
+                    onValueChange={(value) => updateSetting('language', value)}
+                  >
+                    <SelectTrigger id="market-language" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LANGUAGE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Content */}
           <Card variant="glass" className="rounded-2xl">
             <CardHeader>
