@@ -63,6 +63,22 @@ export type Customer = {
   updated_at: string
 }
 
+export type LegacyLoyaltyLink = {
+  id: string
+  studio_id: string
+  customer_id: string
+  provider: string
+  legacy_project: string
+  legacy_studio_id: string
+  legacy_customer_id: string | null
+  legacy_member_id: string
+  legacy_passkit_id: string | null
+  legacy_barcode_payload: string | null
+  legacy_payload: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
 export type Transaction = {
   id: string
   customer_id: string
