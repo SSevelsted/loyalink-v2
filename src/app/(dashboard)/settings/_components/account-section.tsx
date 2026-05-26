@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/use-auth'
-import { Mail, Lock, Trash2 } from 'lucide-react'
+import { Mail, Lock, Trash2, LogOut } from 'lucide-react'
 
 export function AccountSection() {
   const { user, updatePassword, updateEmail, signOut } = useAuth()
@@ -36,6 +36,15 @@ export function AccountSection() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
+
+  // Sign out
+  const [signingOut, setSigningOut] = useState(false)
+
+  const handleSignOut = async () => {
+    setSigningOut(true)
+    await signOut()
+    router.replace('/login')
+  }
 
   const handleDeleteAccount = async () => {
     if (deleteConfirm !== 'DELETE') return
@@ -175,6 +184,26 @@ export function AccountSection() {
             disabled={!newPassword || !confirmPassword || passwordSaving}
           >
             {passwordSaving ? 'Updating...' : 'Update password'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Sign out */}
+      <Card variant="glass" className="rounded-2xl">
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSignOut}
+            disabled={signingOut}
+          >
+            {signingOut ? 'Signing out…' : 'Sign out'}
           </Button>
         </CardContent>
       </Card>
