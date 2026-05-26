@@ -42,7 +42,8 @@ const LANDING_PRESETS = [
 ]
 import { toast } from 'sonner'
 import { MARKETING_URL } from '@/lib/constants'
-import { CURRENCY_MAP, getCurrencyConfig, formatAmount } from '@/lib/currency'
+import { getCurrencyConfig, formatAmount } from '@/lib/currency'
+import { CURRENCY_OPTIONS, LANGUAGE_OPTIONS } from '@/lib/locale-options'
 import type { CustomField, Benefit } from '@/hooks/use-landing-page'
 import { generateDefaultBenefits, BENEFIT_ICON_MAP, BENEFIT_ICON_OPTIONS } from '@/components/landing/value-stack'
 import {
@@ -54,27 +55,13 @@ import {
 } from '@/components/ui/select'
 import type { TierTheme, CardField, RewardsConfig } from '@/types/database'
 import { DEFAULT_TIER_THEMES, DEFAULT_CARD_FIELDS, DEFAULT_REWARDS_CONFIG, migrateRewardsConfig, getActiveTierSlugs } from '@/types/database'
-import { RewardsConfigForm, getTriggerLabel } from '@/components/rewards/rewards-config-form'
+import { getTriggerLabel } from '@/components/rewards/rewards-config-form'
 import { ProgramOverview } from '@/components/rewards/program-overview'
 import { ReferralProgram } from '@/components/rewards/referral-program'
 import { TemplatePicker } from '@/components/rewards/template-picker'
+import { RewardsProgramPreview } from '@/components/rewards/program-preview'
 import { REWARD_TEMPLATES, DEFAULT_TEMPLATE_ID, type TemplateId } from '@/lib/rewards-templates'
-
-const CURRENCY_OPTIONS = Object.entries(CURRENCY_MAP)
-  .filter(([key]) => key !== 'kr')
-  .map(([key, cfg]) => ({ value: key, label: `${key.toUpperCase()} (${cfg.symbol})` }))
-
-const LANGUAGE_OPTIONS = [
-  { value: 'en', label: 'English' },
-  { value: 'da', label: 'Danish (Dansk)' },
-  { value: 'sv', label: 'Swedish (Svenska)' },
-  { value: 'no', label: 'Norwegian (Norsk)' },
-  { value: 'de', label: 'German (Deutsch)' },
-  { value: 'fr', label: 'French (Français)' },
-  { value: 'es', label: 'Spanish (Español)' },
-  { value: 'nl', label: 'Dutch (Nederlands)' },
-  { value: 'pl', label: 'Polish (Polski)' },
-]
+import { DownloadAppCard } from '@/components/layout/download-app-card'
 
 const COUNTRY_OPTIONS = [
   { value: 'DK', label: 'Denmark' },
@@ -144,6 +131,9 @@ export default function SetupPage() {
   const [baseTemplateId, setBaseTemplateId] = useState<TemplateId>(DEFAULT_TEMPLATE_ID)
   const classicConfig = REWARD_TEMPLATES.find(t => t.id === DEFAULT_TEMPLATE_ID)!.config
   const [rewardsConfig, setRewardsConfig] = useState<RewardsConfig>(classicConfig)
+  // Default to template-first preview; flips on when the user clicks Customize
+  // or when a previously-saved custom config is restored from DB.
+  const [customizingRewards, setCustomizingRewards] = useState(false)
 
   const [selectedTier, setSelectedTier] = useState(DEFAULT_REWARDS_CONFIG.tiers[0].slug)
   const [tierThemes, setTierThemes] = useState<Record<string, TierTheme>>(DEFAULT_TIER_THEMES)
@@ -222,6 +212,8 @@ export default function SetupPage() {
       setRewardsConfig(migrateRewardsConfig(s.rewards_config))
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedTemplateId('custom')
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCustomizingRewards(true)
     }
     // Load studio info state
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -329,6 +321,8 @@ export default function SetupPage() {
     if (id !== 'custom') setBaseTemplateId(id)
     const template = REWARD_TEMPLATES.find(t => t.id === id)
     if (template) setRewardsConfig(template.config)
+    // "Custom" template has no preview — jump straight into the editor.
+    setCustomizingRewards(id === 'custom')
   }, [])
 
   const handleRewardsConfigChange = useCallback((config: RewardsConfig) => {
@@ -1233,12 +1227,49 @@ export default function SetupPage() {
       {step === 1 && (
         <div className="space-y-8">
           <TemplatePicker selected={selectedTemplateId} onSelect={handleTemplateSelect} />
+
+          {!customizingRewards ? (
+            <>
+              <RewardsProgramPreview config={rewardsConfig} currency={currency} />
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setCustomizingRewards(true)}
+                  className="gap-2"
+                >
+                  <Paintbrush className="h-4 w-4" />
+                  Customize this program
+                </Button>
+              </div>
+            </>
+          ) : (
+          <>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCustomizingRewards(false)}
+              className="gap-1.5 -ml-2"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back to templates
+            </Button>
+            {baseTemplateId !== 'custom' && (
+              <p className="text-xs text-muted-foreground">
+                Based on{' '}
+                <span className="text-foreground font-medium">
+                  {REWARD_TEMPLATES.find(t => t.id === baseTemplateId)?.name}
+                </span>
+              </p>
+            )}
+          </div>
           <div className="border-t border-border/50" />
           <ProgramOverview
             config={rewardsConfig}
             onChange={handleRewardsConfigChange}
             baseTemplate={REWARD_TEMPLATES.find(t => t.id === baseTemplateId)}
             currency={currency}
+            hideWhyCashbackWorks
           />
           <div className="border-t border-border/50" />
           <ReferralProgram
@@ -1246,12 +1277,8 @@ export default function SetupPage() {
             onChange={handleRewardsConfigChange}
             currency={currency}
           />
-          <RewardsConfigForm
-            config={rewardsConfig}
-            onChange={handleRewardsConfigChange}
-            fromSetup
-            currency={currency}
-          />
+          </>
+          )}
         </div>
       )}
 
@@ -1451,6 +1478,9 @@ export default function SetupPage() {
               </p>
             </div>
           </div>
+
+          {/* Download App prompt */}
+          <DownloadAppCard />
         </div>
       )}
 

@@ -17,6 +17,7 @@ import { SignupQR } from '@/components/landing/signup-qr'
 import { MARKETING_URL } from '@/lib/constants'
 import { TRANSACTION_META, groupRelatedTransactions } from '@/lib/format'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
+import { DownloadAppCard } from '@/components/layout/download-app-card'
 
 function ScanButton() {
   const [open, setOpen] = useState(false)
@@ -211,6 +212,9 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Download App Prompt */}
+      <DownloadAppCard dismissKey="loyalink:download-app-dismissed:v1" />
 
       {/* Recent Activity */}
       <Card variant="glass" className="rounded-2xl">

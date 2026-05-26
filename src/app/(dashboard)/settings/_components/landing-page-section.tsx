@@ -16,13 +16,14 @@ import {
 } from '@/components/ui/select'
 import { ImageUpload } from '@/components/wallet/image-upload'
 import { LandingPagePreview } from '@/components/landing/landing-page-preview'
-import { useLandingPage, useUpdateLandingPage, DEFAULT_LANDING_SETTINGS } from '@/hooks/use-landing-page'
+import { useLandingPages, useCreateLandingPage, useUpdateLandingPage, DEFAULT_LANDING_SETTINGS } from '@/hooks/use-landing-page'
 import type { LandingPageSettings, CustomField, Benefit } from '@/hooks/use-landing-page'
 import { useImageUpload } from '@/hooks/use-image-upload'
 import { useStudio } from '@/hooks/use-studio'
 import { toast } from 'sonner'
-import { FileText, Palette, ListChecks, FormInput, PartyPopper, Scale, Plus, Trash2, ExternalLink, RotateCcw, TrendingUp, Paintbrush, RefreshCw } from 'lucide-react'
+import { FileText, Palette, ListChecks, FormInput, PartyPopper, Scale, Plus, Trash2, ExternalLink, RotateCcw, TrendingUp, Paintbrush, RefreshCw, Globe } from 'lucide-react'
 import { MARKETING_URL } from '@/lib/constants'
+import { CURRENCY_OPTIONS, LANGUAGE_OPTIONS } from '@/lib/locale-options'
 import { cn } from '@/lib/utils'
 
 const LANDING_PRESETS = [
@@ -43,14 +44,19 @@ type LandingPageSectionProps = {
 
 export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
   const { currentStudio } = useStudio()
-  const { data: landingPage, isLoading } = useLandingPage()
+  const { data: landingPages, isLoading } = useLandingPages()
   const updateLandingPage = useUpdateLandingPage()
+  const createLandingPage = useCreateLandingPage()
   const { upload, uploading } = useImageUpload()
 
+  const [selectedPageId, setSelectedPageId] = useState<string | null>(null)
   const [headline, setHeadline] = useState('')
   const [description, setDescription] = useState('')
   const [settings, setSettings] = useState<LandingPageSettings>(DEFAULT_LANDING_SETTINGS)
   const [saving, setSaving] = useState(false)
+
+  // The market currently being edited — the selected page, else the first/oldest.
+  const landingPage = landingPages?.find((p) => p.id === selectedPageId) ?? landingPages?.[0] ?? null
 
   // Load data
   useEffect(() => {
@@ -66,7 +72,7 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
 
   const studioSettings = (currentStudio?.settings ?? {}) as Record<string, unknown>
   const rewardsConfig = migrateRewardsConfig(studioSettings.rewards_config) as RewardsConfig
-  const currency = (studioSettings.currency as string) ?? 'dkk'
+  const currency = settings.currency ?? (studioSettings.currency as string) ?? 'dkk'
 
   const updateSetting = (key: keyof LandingPageSettings, value: unknown) => {
     setSettings((prev) => ({ ...prev, [key]: value }))
@@ -93,6 +99,21 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
       toast.error('Failed to save landing page')
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Add a new market: a fresh landing page seeded with the studio's currency/language.
+  // The operator then sets this market's currency, language and content, and saves.
+  const handleAddMarket = async () => {
+    try {
+      const page = await createLandingPage.mutateAsync({
+        currency: (studioSettings.currency as string) ?? 'dkk',
+        language: (studioSettings.language as string) ?? 'en',
+      })
+      setSelectedPageId(page.id)
+      toast.success('Market added — set its currency, language and content, then save')
+    } catch {
+      toast.error('Failed to add market')
     }
   }
 
@@ -132,9 +153,95 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
         </a>
       </div>
 
+      {/* Markets: pills appear once there's more than one. Adding a second market
+          is what turns on multi-market — single-market studios just see the button. */}
+      <div className="flex flex-wrap items-center gap-2">
+        {landingPages && landingPages.length > 1 && landingPages.map((p) => {
+          const ps = (p.settings ?? {}) as LandingPageSettings
+          const cur = (ps.currency ?? (studioSettings.currency as string) ?? 'dkk').toUpperCase()
+          const lang = (ps.language ?? (studioSettings.language as string) ?? 'en').toUpperCase()
+          const active = p.id === landingPage?.id
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setSelectedPageId(p.id)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                active
+                  ? 'border-primary bg-primary/10 text-foreground'
+                  : 'border-border text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Globe className="h-3 w-3" />
+              {cur} · {lang}
+              <span className="opacity-50">/{p.slug}</span>
+            </button>
+          )
+        })}
+        <Button variant="outline" size="sm" onClick={handleAddMarket} disabled={createLandingPage.isPending}>
+          <Plus className="h-3.5 w-3.5" />
+          {createLandingPage.isPending ? 'Adding…' : 'Add market'}
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
         {/* Editor */}
         <div className="space-y-6">
+          {/* Market: currency + language for this page */}
+          <Card variant="glass" className="rounded-2xl">
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Market
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                The currency and language for this page. Anyone who signs up here gets a
+                loyalty card in this currency and language — and keeps it for life.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="market-currency">Currency</Label>
+                  <Select
+                    value={settings.currency ?? (studioSettings.currency as string) ?? 'dkk'}
+                    onValueChange={(value) => updateSetting('currency', value)}
+                  >
+                    <SelectTrigger id="market-currency" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CURRENCY_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="market-language">Language</Label>
+                  <Select
+                    value={settings.language ?? (studioSettings.language as string) ?? 'en'}
+                    onValueChange={(value) => updateSetting('language', value)}
+                  >
+                    <SelectTrigger id="market-language" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LANGUAGE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Content */}
           <Card variant="glass" className="rounded-2xl">
             <CardHeader>

@@ -196,6 +196,7 @@ export function ProgramOverview({
                 type="number"
                 value={tier.cashback_rate}
                 onChange={(e) => updateTier(globalIndex, { cashback_rate: parseFloat(e.target.value) || 0 })}
+                onFocus={(e) => e.currentTarget.select()}
                 min={0}
                 max={100}
                 step={0.5}
@@ -246,16 +247,27 @@ export function ProgramOverview({
     )
   }
 
-  // Render connector between two elements with optional trigger
+  // Render connector between two elements with optional trigger.
+  // The upgrade condition is the key mechanic of the journey, so it's framed as a
+  // bold, labeled "how they level up" step that names the destination tier.
   const renderConnector = (tier: TierConfig | null, globalIndex: number) => {
     const color = TIER_COLOR_PALETTE[globalIndex % TIER_COLOR_PALETTE.length]
     return (
       <div className="flex items-center justify-center py-2">
-        <div className="flex flex-col items-center gap-1.5">
-          <div className={`h-4 border-l-2 border-dashed ${color.border}`} />
-          <ArrowDown className={`h-3 w-3 ${color.text} opacity-50`} />
-          {tier?.upgrade_trigger && (
-            <div className={`rounded-xl border border-dashed ${color.border} bg-secondary/20 px-4 py-2`}>
+        <div className="flex flex-col items-center gap-1.5 w-full max-w-sm">
+          <div className={`h-3 border-l-2 border-dashed ${color.border}`} />
+          {tier?.upgrade_trigger ? (
+            <div className="w-full rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 px-4 py-3 space-y-2.5">
+              <div className="flex items-center gap-1.5">
+                <div className="h-6 w-6 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                  <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <span className="text-xs font-semibold text-foreground">
+                  To unlock{' '}
+                  <span className="text-primary">{tier.name || 'the next tier'}</span>, a customer
+                  must:
+                </span>
+              </div>
               <TriggerSelector
                 value={tier.upgrade_trigger}
                 onChange={(v: UpgradeTriggerConfig) => updateTier(globalIndex, { upgrade_trigger: v })}
@@ -263,6 +275,8 @@ export function ProgramOverview({
                 compact
               />
             </div>
+          ) : (
+            <ArrowDown className={`h-3 w-3 ${color.text} opacity-50`} />
           )}
           <div className={`h-2 border-l-2 border-dashed ${color.border}`} />
         </div>

@@ -242,7 +242,7 @@ appleWebServiceRoutes.get(
         return res.status(401).send('Unauthorized');
       }
 
-      const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string };
+      const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string; language?: string };
 
       // Fetch template
       const { data: template } = await supabase
@@ -279,7 +279,7 @@ appleWebServiceRoutes.get(
         loyaltyTier: customer.loyalty_stage || 'base',
         memberId: customer.member_id || customer.id,
         currency: customer.currency || 'DKK',
-        language: studioLanguage,
+        language: customer.language || studioLanguage,
         pushMessage: walletPass.push_message || undefined,
         logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
         iconUrl: template?.icon_url || undefined,

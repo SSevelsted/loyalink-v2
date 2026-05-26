@@ -10,8 +10,10 @@ import { QrScanner } from '@/components/scanner/qr-scanner'
 import { QRCodeSVG } from 'qrcode.react'
 import { X, Keyboard, Camera, Smartphone } from 'lucide-react'
 import { APP_URL } from '@/lib/constants'
+import { useStudio } from '@/hooks/use-studio'
 
 type Mode = 'camera' | 'phone'
+type LegacyLoyaltySettings = { enabled?: boolean }
 
 export function ScanDialog({
   open,
@@ -30,6 +32,7 @@ export function ScanDialog({
   const router = useRouter()
   const supabase = createClient()
   const queryClient = useQueryClient()
+  const { currentStudio } = useStudio()
 
   // Default to phone QR mode on desktop (no rear camera available)
   useEffect(() => {
@@ -71,11 +74,43 @@ export function ScanDialog({
       onOpenChange(false)
       router.push(`/customers/${data.id}/transaction`)
       // No router.refresh() — it invalidates the cache and adds an extra round-trip
+    } else if (await lookupLegacyCustomer(raw)) {
+      return
     } else {
       setIsLookingUp(false)
       isLookingUpRef.current = false
       setScanError(`No customer found for "${value}"`)
     }
+  }
+
+  const lookupLegacyCustomer = async (scannedValue: string) => {
+    const legacySettings = currentStudio?.settings?.legacy_loyalty as LegacyLoyaltySettings | undefined
+    if (!currentStudio?.id || !legacySettings?.enabled) return false
+
+    const res = await fetch('/api/legacy-loyalty/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studioId: currentStudio.id, scannedValue }),
+    })
+
+    if (res.ok) {
+      const data = await res.json() as { customerId?: string }
+      if (data.customerId) {
+        onOpenChange(false)
+        router.push(`/customers/${data.customerId}/transaction`)
+        return true
+      }
+    }
+
+    if (res.status !== 404) {
+      const data = await res.json().catch(() => null) as { error?: string } | null
+      setScanError(data?.error ?? 'Legacy lookup failed')
+      setIsLookingUp(false)
+      isLookingUpRef.current = false
+      return true
+    }
+
+    return false
   }
 
   const handleScan = useCallback((result: string) => {

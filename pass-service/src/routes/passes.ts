@@ -95,7 +95,7 @@ passRoutes.post('/generate', requireInternalAuth, async (req: Request, res: Resp
         loyaltyTier: formatTierName(loyaltyTier),
         memberId: customer.member_id || customerId,
         currency: customer.currency || 'DKK',
-        language: studioLanguage,
+        language: customer.language || studioLanguage,
         logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
         iconUrl: template?.icon_url || undefined,
         heroImageUrl: tierTheme.stripImage || undefined,
@@ -164,7 +164,7 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
 
     console.log(`[download] Pass found, generating pkpass...`);
 
-    const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string };
+    const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string; language?: string };
 
     // Fetch template
     console.log(`[download] studio_id on walletPass: ${walletPass.studio_id ?? 'NULL'}`);
@@ -211,7 +211,7 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
       loyaltyTier: formatTierName(loyaltyTier),
       memberId: customer.member_id || customer.id,
       currency: customer.currency || 'DKK',
-      language: studioLanguage,
+      language: customer.language || studioLanguage,
       pushMessage: walletPass.push_message || undefined,
       logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
       iconUrl: template?.icon_url || undefined,
@@ -248,7 +248,7 @@ passRoutes.get('/:serialNumber/inspect', requireInternalAuth, async (req: Reques
       .eq('serial_number', serialNumber)
       .single();
     if (error || !walletPass) return res.status(404).json({ error: 'Pass not found' });
-    const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string };
+    const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string; language?: string };
     const { data: template } = await supabase.from('pass_templates').select('*').eq('studio_id', walletPass.studio_id).eq('is_active', true).single();
     const { data: inspectStudio } = await supabase.from('studios').select('name').eq('id', walletPass.studio_id).single();
     const loyaltyTier = customer.loyalty_stage || 'base';

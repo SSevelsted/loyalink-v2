@@ -21,7 +21,7 @@ googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) 
       return res.status(404).json({ error: 'Pass not found' });
     }
 
-    const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string };
+    const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string; language?: string };
 
     // Fetch template
     const { data: template } = await supabase
@@ -70,7 +70,7 @@ googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) 
       cashbackRate: customer.cashback_rate,
       loyaltyTier: customer.loyalty_stage || 'base',
       currency: customer.currency || 'DKK',
-      language: studioLanguage,
+      language: customer.language || studioLanguage,
     });
 
     if (jwt) {
@@ -110,7 +110,7 @@ googleRoutes.post('/update/:serialNumber', requireInternalAuth, async (req: Requ
       return res.status(404).json({ error: 'Google pass not found' });
     }
 
-    const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string };
+    const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string; language?: string };
     const classId = `loyalty_${walletPass.studio_id}`.replace(/-/g, '_');
     const objectId = serialNumber.replace(/-/g, '_');
 
@@ -133,7 +133,7 @@ googleRoutes.post('/update/:serialNumber', requireInternalAuth, async (req: Requ
       cashbackRate: customer.cashback_rate,
       loyaltyTier: customer.loyalty_stage || 'base',
       currency: customer.currency || 'DKK',
-      language: studioLanguage,
+      language: customer.language || studioLanguage,
     });
 
     if (success) {

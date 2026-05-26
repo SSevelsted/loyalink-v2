@@ -50,3 +50,10 @@ supabase/.temp/
 # Per-directory ignores in ios/.gitignore and android/.gitignore exclude build
 # artifacts, Pods / Gradle caches, IDE user state, and regenerated Capacitor
 # config files (capacitor.config.json, config.xml, capacitor.plugins.json).
+
+# iCloud "Desktop & Documents" sync duplicates (e.g. "config 2.xml", "icon 2.svg")
+* [0-9].*
+* [0-9][0-9].*
+# ...including extensionless duplicates (e.g. ".gitignore 2", "config 2")
+* [0-9]
+* [0-9][0-9]

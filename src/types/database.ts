@@ -58,7 +58,28 @@ export type Customer = {
   referral_count: number
   has_purchased: boolean
   total_real_spend: number
+  // Market: native currency + language + originating landing page, locked at signup.
+  // Nullable — fall back to studio currency/language at render time when unset.
+  currency: string | null
+  language: string | null
+  landing_page_id: string | null
   metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export type LegacyLoyaltyLink = {
+  id: string
+  studio_id: string
+  customer_id: string
+  provider: string
+  legacy_project: string
+  legacy_studio_id: string
+  legacy_customer_id: string | null
+  legacy_member_id: string
+  legacy_passkit_id: string | null
+  legacy_barcode_payload: string | null
+  legacy_payload: Record<string, unknown>
   created_at: string
   updated_at: string
 }

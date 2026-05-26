@@ -62,7 +62,7 @@ export function TriggerSelector({
             onChange({ type: v, threshold: opt?.hasThreshold ? (value.threshold ?? undefined) : undefined })
           }}
         >
-          <SelectTrigger className="w-[200px] h-7 text-xs">
+          <SelectTrigger className="w-full sm:w-[200px] h-8 text-xs bg-background">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

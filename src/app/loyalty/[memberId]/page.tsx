@@ -68,8 +68,9 @@ export default async function LoyaltyPage({ params }: Props) {
     .order('created_at', { ascending: false })
     .limit(20)
 
-  const currency = (studioSettings.currency as string) ?? 'kr'
-  const language = (studioSettings.language as string) ?? 'en'
+  // The customer's stamped market wins; studio settings are the fallback.
+  const currency = (customer.currency as string) ?? (studioSettings.currency as string) ?? 'kr'
+  const language = (customer.language as string) ?? (studioSettings.language as string) ?? 'en'
 
   const branding = (landingPage?.settings ?? {}) as Record<string, unknown>
   const logoUrl = (branding.logoUrl as string) ?? landingPage?.hero_image_url ?? null
