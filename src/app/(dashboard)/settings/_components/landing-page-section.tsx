@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select'
 import { ImageUpload } from '@/components/wallet/image-upload'
 import { LandingPagePreview } from '@/components/landing/landing-page-preview'
-import { useLandingPage, useUpdateLandingPage, DEFAULT_LANDING_SETTINGS } from '@/hooks/use-landing-page'
+import { useLandingPages, useCreateLandingPage, useUpdateLandingPage, DEFAULT_LANDING_SETTINGS } from '@/hooks/use-landing-page'
 import type { LandingPageSettings, CustomField, Benefit } from '@/hooks/use-landing-page'
 import { useImageUpload } from '@/hooks/use-image-upload'
 import { useStudio } from '@/hooks/use-studio'
@@ -44,14 +44,19 @@ type LandingPageSectionProps = {
 
 export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
   const { currentStudio } = useStudio()
-  const { data: landingPage, isLoading } = useLandingPage()
+  const { data: landingPages, isLoading } = useLandingPages()
   const updateLandingPage = useUpdateLandingPage()
+  const createLandingPage = useCreateLandingPage()
   const { upload, uploading } = useImageUpload()
 
+  const [selectedPageId, setSelectedPageId] = useState<string | null>(null)
   const [headline, setHeadline] = useState('')
   const [description, setDescription] = useState('')
   const [settings, setSettings] = useState<LandingPageSettings>(DEFAULT_LANDING_SETTINGS)
   const [saving, setSaving] = useState(false)
+
+  // The market currently being edited — the selected page, else the first/oldest.
+  const landingPage = landingPages?.find((p) => p.id === selectedPageId) ?? landingPages?.[0] ?? null
 
   // Load data
   useEffect(() => {
@@ -97,6 +102,21 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
     }
   }
 
+  // Add a new market: a fresh landing page seeded with the studio's currency/language.
+  // The operator then sets this market's currency, language and content, and saves.
+  const handleAddMarket = async () => {
+    try {
+      const page = await createLandingPage.mutateAsync({
+        currency: (studioSettings.currency as string) ?? 'dkk',
+        language: (studioSettings.language as string) ?? 'en',
+      })
+      setSelectedPageId(page.id)
+      toast.success('Market added — set its currency, language and content, then save')
+    } catch {
+      toast.error('Failed to add market')
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -131,6 +151,38 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
           <ExternalLink className="h-3.5 w-3.5" />
           View live page
         </a>
+      </div>
+
+      {/* Markets: pills appear once there's more than one. Adding a second market
+          is what turns on multi-market — single-market studios just see the button. */}
+      <div className="flex flex-wrap items-center gap-2">
+        {landingPages && landingPages.length > 1 && landingPages.map((p) => {
+          const ps = (p.settings ?? {}) as LandingPageSettings
+          const cur = (ps.currency ?? (studioSettings.currency as string) ?? 'dkk').toUpperCase()
+          const lang = (ps.language ?? (studioSettings.language as string) ?? 'en').toUpperCase()
+          const active = p.id === landingPage?.id
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setSelectedPageId(p.id)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                active
+                  ? 'border-primary bg-primary/10 text-foreground'
+                  : 'border-border text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Globe className="h-3 w-3" />
+              {cur} · {lang}
+              <span className="opacity-50">/{p.slug}</span>
+            </button>
+          )
+        })}
+        <Button variant="outline" size="sm" onClick={handleAddMarket} disabled={createLandingPage.isPending}>
+          <Plus className="h-3.5 w-3.5" />
+          {createLandingPage.isPending ? 'Adding…' : 'Add market'}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
