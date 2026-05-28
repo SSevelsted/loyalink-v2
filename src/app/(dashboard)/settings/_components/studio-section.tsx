@@ -57,7 +57,7 @@ const COUNTRY_OPTIONS = [
 ]
 
 export function StudioSection() {
-  const { currentStudio, membership } = useStudio()
+  const { currentStudio, membership, refresh: refreshStudio } = useStudio()
   const supabase = createClient()
   const queryClient = useQueryClient()
   const isAdmin = membership?.role === 'owner' || membership?.role === 'admin' || membership?.role === 'super_admin'
@@ -121,6 +121,10 @@ export function StudioSection() {
       if (error) throw error
     },
     onSuccess: () => {
+      // useStudio uses its own state, not react-query, so invalidateQueries
+      // alone leaves `currentStudio` stale and the form rehydrates from old
+      // settings the next time this tab mounts. Trigger an actual refetch.
+      refreshStudio()
       queryClient.invalidateQueries({ queryKey: ['studios'] })
       toast.success('Studio updated')
     },
