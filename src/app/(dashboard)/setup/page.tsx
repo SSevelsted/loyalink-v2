@@ -146,6 +146,13 @@ export default function SetupPage() {
   const stripUploadRef = useRef<ImageUploadHandle>(null)
   const iconUploadRef = useRef<ImageUploadHandle>(null)
 
+  // Mirror of `currentStudio.settings` that we keep up-to-date with every
+  // write we make from this page. `useStudio` does not refetch after writes,
+  // so spreading `currentStudio.settings` directly causes back-to-back saves
+  // to overwrite each other (e.g. saveStepProgress wiping saveStudioInfo).
+  // Initialized when the studio first loads; merged-into on every save below.
+  const settingsRef = useRef<Record<string, unknown>>({})
+
   const template = templates?.[0]
 
   // Ensure landing page exists
@@ -202,6 +209,9 @@ export default function SetupPage() {
   // Restore step and rewards config from studio settings
   useEffect(() => {
     const s = currentStudio?.settings as Record<string, unknown> | undefined
+    // Seed our settings cache once per studio; subsequent saves merge into this ref
+    // so they don't clobber each other with a stale snapshot.
+    settingsRef.current = { ...(s ?? {}) }
     if (typeof s?.onboarding_step === 'number') {
       const restored = s.onboarding_step as number
       // Clamp to max step (4) in case coming from a previous version
@@ -350,26 +360,38 @@ export default function SetupPage() {
     if (url) handleTierChange({ logoOverride: url })
   }
 
-  const saveStudioInfo = async () => {
+  // Merge a settings patch into our local cache and write it as one atomic
+  // update. Always reads from `settingsRef` (which reflects every prior write
+  // we made on this page), never from the possibly-stale `currentStudio`.
+  const writeStudio = async (
+    patch: Record<string, unknown>,
+    extra?: { name?: string },
+  ) => {
     if (!currentStudio) return
+    settingsRef.current = { ...settingsRef.current, ...patch }
+    const update: Record<string, unknown> = { settings: settingsRef.current }
+    if (extra?.name !== undefined) update.name = extra.name
     const { error } = await supabase
       .from('studios')
-      .update({
-        name: studioName,
-        settings: {
-          ...(currentStudio.settings as Record<string, unknown>),
-          email: studioEmail,
-          phone: studioPhone,
-          address_street: addressStreet,
-          address_city: addressCity,
-          address_postal_code: addressPostalCode,
-          address_country: addressCountry,
-          currency: selectedCurrency,
-          language: selectedLanguage,
-        },
-      })
+      .update(update)
       .eq('id', currentStudio.id)
     if (error) throw error
+  }
+
+  const saveStudioInfo = async () => {
+    await writeStudio(
+      {
+        email: studioEmail,
+        phone: studioPhone,
+        address_street: addressStreet,
+        address_city: addressCity,
+        address_postal_code: addressPostalCode,
+        address_country: addressCountry,
+        currency: selectedCurrency,
+        language: selectedLanguage,
+      },
+      { name: studioName },
+    )
   }
 
   const saveLandingPage = async () => {
@@ -395,30 +417,11 @@ export default function SetupPage() {
   }
 
   const saveRewardsConfig = async () => {
-    if (!currentStudio) return
-    await supabase
-      .from('studios')
-      .update({
-        settings: {
-          ...(currentStudio.settings as Record<string, unknown>),
-          rewards_config: rewardsConfig,
-        },
-      })
-      .eq('id', currentStudio.id)
+    await writeStudio({ rewards_config: rewardsConfig })
   }
 
   const saveStepProgress = async (nextStep: number) => {
-    if (!currentStudio) return
-    await supabase
-      .from('studios')
-      .update({
-        settings: {
-          ...(currentStudio.settings as Record<string, unknown>),
-          onboarding_step: nextStep,
-          onboarding_version: 2,
-        },
-      })
-      .eq('id', currentStudio.id)
+    await writeStudio({ onboarding_step: nextStep, onboarding_version: 2 })
   }
 
   const handleNext = async () => {
@@ -436,9 +439,21 @@ export default function SetupPage() {
     }
   }
 
-  const handleBack = () => {
-    setStep((s) => Math.max(0, s - 1))
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+  const handleBack = async () => {
+    // Persist the current step before leaving it so a typo-fix loop
+    // (Back → edit earlier step → Next) doesn't lose what they typed here.
+    try {
+      if (step === 0) await saveStudioInfo()
+      if (step === 1) await saveRewardsConfig()
+      if (step === 2) await saveCardDesigner()
+      if (step === 3) await saveLandingPage()
+      const prevStep = Math.max(0, step - 1)
+      await saveStepProgress(prevStep)
+      setStep(prevStep)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch {
+      toast.error('Failed to save. Please try again.')
+    }
   }
 
   const handleGoLive = async () => {
@@ -447,19 +462,12 @@ export default function SetupPage() {
       await saveLandingPage()
       await saveCardDesigner()
       await saveRewardsConfig()
-      if (!currentStudio) return
-      await supabase
-        .from('studios')
-        .update({
-          settings: {
-            ...(currentStudio.settings as Record<string, unknown>),
-            rewards_config: rewardsConfig,
-            onboarding_completed: true,
-            onboarding_step: 4,
-            onboarding_version: 2,
-          },
-        })
-        .eq('id', currentStudio.id)
+      await writeStudio({
+        rewards_config: rewardsConfig,
+        onboarding_completed: true,
+        onboarding_step: 4,
+        onboarding_version: 2,
+      })
       refreshStudio()
       setShowLiveDialog(true)
     } catch {

@@ -49,7 +49,7 @@ const STORY_H = 1920
 // ─── Main page ────────────────────────────────────────────────────────────
 
 export default function StoriesPage() {
-  const { currentStudio } = useStudio()
+  const { currentStudio, refresh: refreshStudio } = useStudio()
   const { data: landingPage, isLoading: lpLoading } = useLandingPage()
   const { upload, uploading } = useImageUpload()
   const supabase = createClient()
@@ -92,6 +92,9 @@ export default function StoriesPage() {
       if (error) throw error
     },
     onSuccess: () => {
+      // useStudio holds its own state outside react-query; invalidate alone
+      // doesn't refresh `currentStudio`.
+      refreshStudio()
       queryClient.invalidateQueries({ queryKey: ['studios'] })
       toast.success('Story text saved')
       setEditingStoryId(null)

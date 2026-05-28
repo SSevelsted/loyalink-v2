@@ -7,6 +7,7 @@ import { useStudioLoader } from '@/hooks/use-studio'
 import { useAuth } from '@/hooks/use-auth'
 import { usePushNotifications } from '@/hooks/use-push-notifications'
 import { Toaster } from '@/components/ui/sonner'
+import { DeepLinkHandler } from '@/components/native/deep-link-handler'
 import { isNative, getPlatform } from '@/lib/platform'
 
 /** Tags the <html> element with platform classes so CSS can target native. */
@@ -52,6 +53,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <NativeClassRegistrar />
+      <DeepLinkHandler />
       <StudioProvider>
         {children}
         <Toaster />
