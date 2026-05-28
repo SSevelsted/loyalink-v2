@@ -445,8 +445,11 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               {(() => {
-                const currentBenefits = settings.benefits ?? generateDefaultBenefits(rewardsConfig, currency)
-                const generatedBenefits = generateDefaultBenefits(rewardsConfig, currency)
+                // Defaults must follow the market's language so Sync/Reset don't silently
+                // wipe a non-English studio's benefits back to English copy.
+                const benefitLanguage = settings.language ?? (studioSettings.language as string) ?? 'en'
+                const currentBenefits = settings.benefits ?? generateDefaultBenefits(rewardsConfig, currency, benefitLanguage)
+                const generatedBenefits = generateDefaultBenefits(rewardsConfig, currency, benefitLanguage)
                 const RATE_IDS = ['base_cashback', 'max_cashback', 'referral_commission', 'welcome_bonus']
                 const isOutOfSync = settings.benefits != null && RATE_IDS.some(id => {
                   const stored = settings.benefits!.find(b => b.id === id)
@@ -487,7 +490,7 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
                           variant="ghost"
                           size="sm"
                           className="gap-1.5 text-xs text-muted-foreground"
-                          onClick={() => updateSetting('benefits', generateDefaultBenefits(rewardsConfig, currency))}
+                          onClick={() => updateSetting('benefits', generateDefaultBenefits(rewardsConfig, currency, benefitLanguage))}
                         >
                           <RotateCcw className="h-3.5 w-3.5" />
                           Reset
