@@ -18,6 +18,39 @@ function isNativeRuntime() {
   return Capacitor.isNativePlatform()
 }
 
+type SupabaseBrowserClient = ReturnType<typeof createClient>
+
+/**
+ * Kicks off a provider OAuth flow.
+ *
+ * On native we can't redirect inside the WebView — Google rejects embedded
+ * user-agents — so we ask Supabase for the provider URL, open it in the
+ * system browser (skipBrowserRedirect), and let the deep-link handler bring
+ * the auth code back into this WebView via ai.loyalink.app://auth/callback.
+ * The code is exchanged here, where the PKCE code_verifier was stored.
+ */
+async function startOAuth(supabase: SupabaseBrowserClient, provider: 'google' | 'apple') {
+  const { isNative } = await import('@/lib/platform')
+
+  if (isNative()) {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: getOAuthRedirectTo('/overview'), skipBrowserRedirect: true },
+    })
+    if (error || !data?.url) return { error }
+
+    const { Browser } = await import('@capacitor/browser')
+    await Browser.open({ url: data.url })
+    return { error: null }
+  }
+
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: getOAuthRedirectTo('/overview') },
+  })
+  return { error }
+}
+
 async function sha256Hex(input: string): Promise<string> {
   const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
   return Array.from(new Uint8Array(buffer))
@@ -71,20 +104,7 @@ export function useAuth() {
     return { error }
   }
 
-  const signInWithGoogle = async () => {
-    // On native, open OAuth in the system browser (Safari/Chrome) instead of
-    // in-WebView redirect, then handle the callback via deep link
-    const { isNative } = await import('@/lib/platform')
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: getOAuthRedirectTo('/overview'),
-        ...(isNative() && { skipBrowserRedirect: false }),
-      },
-    })
-    return { error }
-  }
+  const signInWithGoogle = async () => startOAuth(supabase, 'google')
 
   const signInWithApple = async () => {
     const { isNative, getPlatform } = await import('@/lib/platform')
@@ -135,14 +155,7 @@ export function useAuth() {
     }
 
     // Web and Android fall back to Supabase's hosted OAuth flow.
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: {
-        redirectTo: getOAuthRedirectTo('/overview'),
-        ...(isNative() && { skipBrowserRedirect: false }),
-      },
-    })
-    return { error }
+    return startOAuth(supabase, 'apple')
   }
 
   const signOut = async () => {
