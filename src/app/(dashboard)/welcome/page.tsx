@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   ArrowRight,
-  Apple,
   Check,
   Copy,
   Instagram,
@@ -17,6 +16,7 @@ import {
   Users,
   Wallet,
 } from 'lucide-react'
+import { AppleLogo } from '@/components/ui/apple-logo'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useStudio } from '@/hooks/use-studio'
@@ -24,6 +24,11 @@ import { useLandingPage } from '@/hooks/use-landing-page'
 import { useActivation } from '@/hooks/use-activation'
 import { SignupQR } from '@/components/landing/signup-qr'
 import { APP_STORE_URL, GOOGLE_PLAY_URL, MARKETING_URL } from '@/lib/constants'
+import {
+  LandingPageMockup,
+  ScannerMockup,
+  WalletPassMockup,
+} from '@/components/welcome/mockups'
 import { toast } from 'sonner'
 
 const STEPS = ['loop', 'customer', 'scan', 'pitch', 'staff'] as const
@@ -103,8 +108,13 @@ export default function WelcomePage() {
 
         <div className="animate-fade-up">
           {stepId === 'loop' && <StepLoop studioName={currentStudio?.name} />}
-          {stepId === 'customer' && <StepCustomer />}
-          {stepId === 'scan' && <StepScan onAppDownloadClick={() => markStep('appDownloaded').catch(() => {})} />}
+          {stepId === 'customer' && <StepCustomer studioName={currentStudio?.name} />}
+          {stepId === 'scan' && (
+            <StepScan
+              studioName={currentStudio?.name}
+              onAppDownloadClick={() => markStep('appDownloaded').catch(() => {})}
+            />
+          )}
           {stepId === 'pitch' && (
             <StepPitch
               joinUrl={joinUrl}
@@ -187,23 +197,31 @@ function StepLoop({ studioName }: { studioName?: string }) {
   const loop = [
     {
       icon: Users,
+      label: 'Sign up',
       title: 'A customer signs up',
       desc: 'They scan your QR code or click your link and fill in their details. Takes 30 seconds.',
+      mockup: <LandingPageMockup size="sm" studioName={studioName} />,
     },
     {
       icon: Wallet,
+      label: 'Wallet pass',
       title: 'They get a wallet pass',
       desc: 'A digital loyalty card lands straight in Apple or Google Wallet — no app for them to install.',
+      mockup: <WalletPassMockup size="sm" studioName={studioName} balance="0 kr" />,
     },
     {
       icon: ScanLine,
+      label: 'You scan',
       title: 'You scan them at checkout',
       desc: 'They show you the pass on their phone, you scan, you enter the amount they paid.',
+      mockup: <ScannerMockup size="sm" />,
     },
     {
       icon: Sparkles,
+      label: 'Cashback',
       title: 'They earn cashback',
       desc: 'They earn rewards toward their next tattoo automatically — and they come back to spend it.',
+      mockup: <WalletPassMockup size="sm" studioName={studioName} balance="50 kr" showCashbackBurst />,
     },
   ]
   return (
@@ -214,6 +232,20 @@ function StepLoop({ studioName }: { studioName?: string }) {
         title={studioName ? `${studioName} is live` : 'You are live'}
         subtitle="Here is how loyalty will work at your studio, end to end. We will walk you through what your customers do, what you do, and how to get your first signups."
       />
+
+      <div className="flex gap-3 overflow-x-auto -mx-4 px-4 mb-8 snap-x snap-mandatory scrollbar-none">
+        {loop.map((item, i) => (
+          <div key={item.label} className="flex flex-col items-center gap-2 shrink-0 snap-center">
+            <div className="relative">
+              <span className="absolute -top-2 -left-2 z-10 h-6 w-6 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold flex items-center justify-center ring-2 ring-background">
+                {i + 1}
+              </span>
+              {item.mockup}
+            </div>
+            <p className="text-[11px] font-medium text-foreground/70">{item.label}</p>
+          </div>
+        ))}
+      </div>
 
       <div className="grid gap-3">
         {loop.map((item, i) => (
@@ -237,7 +269,7 @@ function StepLoop({ studioName }: { studioName?: string }) {
   )
 }
 
-function StepCustomer() {
+function StepCustomer({ studioName }: { studioName?: string }) {
   return (
     <div>
       <StepHeader
@@ -246,6 +278,18 @@ function StepCustomer() {
         title="What your customer experiences"
         subtitle="Your customers do not download anything. The loyalty card lives in the wallet app they already use every day."
       />
+
+      <div className="-mx-4 px-4 mb-8 overflow-x-auto scrollbar-none"><div className="flex items-center justify-center gap-4 sm:gap-6 min-w-max">
+        <div className="flex flex-col items-center gap-2">
+          <LandingPageMockup size="md" studioName={studioName} />
+          <p className="text-[11px] font-medium text-foreground/70">1. Signup form</p>
+        </div>
+        <ArrowRight className="h-5 w-5 text-foreground/30 shrink-0" />
+        <div className="flex flex-col items-center gap-2">
+          <WalletPassMockup size="md" studioName={studioName} balance="0 kr" />
+          <p className="text-[11px] font-medium text-foreground/70">2. Wallet pass</p>
+        </div>
+      </div></div>
 
       <div className="grid gap-3">
         <Card variant="glass" className="rounded-2xl">
@@ -289,7 +333,13 @@ function StepCustomer() {
   )
 }
 
-function StepScan({ onAppDownloadClick }: { onAppDownloadClick: () => void }) {
+function StepScan({
+  studioName,
+  onAppDownloadClick,
+}: {
+  studioName?: string
+  onAppDownloadClick: () => void
+}) {
   return (
     <div>
       <StepHeader
@@ -298,6 +348,18 @@ function StepScan({ onAppDownloadClick }: { onAppDownloadClick: () => void }) {
         title="When a customer comes in"
         subtitle="Download the Loyalink app on your phone — that is the scanner you will use at the chair or at the register."
       />
+
+      <div className="-mx-4 px-4 mb-8 overflow-x-auto scrollbar-none"><div className="flex items-center justify-center gap-4 sm:gap-6 min-w-max">
+        <div className="flex flex-col items-center gap-2">
+          <ScannerMockup size="md" />
+          <p className="text-[11px] font-medium text-foreground/70">1. Scan their pass</p>
+        </div>
+        <ArrowRight className="h-5 w-5 text-foreground/30 shrink-0" />
+        <div className="flex flex-col items-center gap-2">
+          <WalletPassMockup size="md" studioName={studioName} balance="50 kr" showCashbackBurst />
+          <p className="text-[11px] font-medium text-foreground/70">2. Cashback added</p>
+        </div>
+      </div></div>
 
       <div className="grid gap-3">
         <Card variant="glass" className="rounded-2xl">
@@ -339,7 +401,7 @@ function StepScan({ onAppDownloadClick }: { onAppDownloadClick: () => void }) {
             <div className="flex flex-wrap items-center gap-2 mt-4">
               <Button asChild variant="outline" size="sm" className="gap-2" onClick={onAppDownloadClick}>
                 <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
-                  <Apple className="h-4 w-4" />
+                  <AppleLogo className="h-4 w-4" />
                   App Store
                 </a>
               </Button>

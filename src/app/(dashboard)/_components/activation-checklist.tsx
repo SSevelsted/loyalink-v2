@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Apple,
   Check,
   ChevronDown,
   Copy,
@@ -16,6 +15,7 @@ import {
   Sparkles,
   Users,
 } from 'lucide-react'
+import { AppleLogo } from '@/components/ui/apple-logo'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useStudio } from '@/hooks/use-studio'
@@ -218,7 +218,7 @@ function StepActions({
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="outline" size="sm" className="gap-1.5" onClick={onMark}>
           <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
-            <Apple className="h-3.5 w-3.5" />
+            <AppleLogo className="h-3.5 w-3.5" />
             App Store
           </a>
         </Button>

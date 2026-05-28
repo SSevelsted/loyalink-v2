@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useSyncExternalStore } from 'react'
-import { Apple, Smartphone, X } from 'lucide-react'
+import { Smartphone, X } from 'lucide-react'
+import { AppleLogo } from '@/components/ui/apple-logo'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { isNative } from '@/lib/platform'
@@ -69,7 +70,7 @@ export function DownloadAppCard({ dismissKey, className = '' }: DownloadAppCardP
           <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
             <Button asChild variant="outline" size="sm" className="gap-2">
               <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
-                <Apple className="h-4 w-4" />
+                <AppleLogo className="h-4 w-4" />
                 App Store
               </a>
             </Button>
