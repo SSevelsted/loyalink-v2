@@ -18,6 +18,7 @@ import { MARKETING_URL } from '@/lib/constants'
 import { TRANSACTION_META, groupRelatedTransactions } from '@/lib/format'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { DownloadAppCard } from '@/components/layout/download-app-card'
+import { ActivationChecklist } from '../_components/activation-checklist'
 
 function ScanButton() {
   const [open, setOpen] = useState(false)
@@ -112,6 +113,8 @@ export default function DashboardPage() {
           Welcome back to {currentStudio?.name}
         </p>
       </div>
+
+      <ActivationChecklist />
 
       {/* Scan + Stats */}
       <div className="grid gap-4 xl:grid-cols-5">
