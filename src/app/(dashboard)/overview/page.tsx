@@ -82,12 +82,13 @@ export default function DashboardPage() {
   const { data: passCount } = useQuery({
     queryKey: ['pass_count', currentStudio?.id],
     queryFn: async () => {
-      const { count } = await supabase
+      const { data } = await supabase
         .from('wallet_passes')
-        .select('*', { count: 'exact', head: true })
+        .select('customer_id')
         .eq('studio_id', currentStudio!.id)
         .in('status', ['active', 'installed'])
-      return count ?? 0
+      if (!data) return 0
+      return new Set(data.map((row) => row.customer_id)).size
     },
     enabled: !!currentStudio,
   })

@@ -120,7 +120,7 @@ export type WalletPass = {
   authentication_token: string
   platform: 'apple' | 'google'
   version: number
-  status: 'active' | 'voided' | 'expired'
+  status: 'active' | 'installed' | 'uninstalled' | 'voided' | 'expired'
   created_at: string
   updated_at: string
 }
