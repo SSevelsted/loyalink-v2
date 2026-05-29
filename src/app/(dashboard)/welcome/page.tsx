@@ -233,18 +233,25 @@ function StepLoop({ studioName }: { studioName?: string }) {
         subtitle="Here is how loyalty will work at your studio, end to end. We will walk you through what your customers do, what you do, and how to get your first signups."
       />
 
-      <div className="flex gap-3 overflow-x-auto -mx-4 px-4 mb-8 snap-x snap-mandatory scrollbar-none">
-        {loop.map((item, i) => (
-          <div key={item.label} className="flex flex-col items-center gap-2 shrink-0 snap-center">
-            <div className="relative">
-              <span className="absolute -top-2 -left-2 z-10 h-6 w-6 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold flex items-center justify-center ring-2 ring-background">
-                {i + 1}
-              </span>
-              {item.mockup}
-            </div>
-            <p className="text-[11px] font-medium text-foreground/70">{item.label}</p>
+      <div className="relative -mx-4 mb-10">
+        <div className="overflow-x-auto scrollbar-none">
+          <div className="flex items-end justify-start gap-5 sm:gap-6 px-4 py-6 min-w-max sm:justify-center">
+            {loop.map((item, i) => (
+              <div key={item.label} className="flex flex-col items-center gap-3 shrink-0">
+                {item.mockup}
+                <div className="flex items-center gap-1.5 text-foreground/70">
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-primary text-[9px] font-bold tabular-nums">
+                    {i + 1}
+                  </span>
+                  <span className="text-[11px] font-medium">{item.label}</span>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
+        {/* Fade edges for scroll affordance on mobile */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-background to-transparent sm:hidden" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background to-transparent sm:hidden" />
       </div>
 
       <div className="grid gap-3">
@@ -279,7 +286,7 @@ function StepCustomer({ studioName }: { studioName?: string }) {
         subtitle="Your customers do not download anything. The loyalty card lives in the wallet app they already use every day."
       />
 
-      <div className="-mx-4 px-4 mb-8 overflow-x-auto scrollbar-none"><div className="flex items-center justify-center gap-4 sm:gap-6 min-w-max">
+      <div className="relative -mx-4 mb-10 overflow-x-auto scrollbar-none"><div className="flex items-center justify-center gap-5 sm:gap-8 min-w-max px-4 py-6">
         <div className="flex flex-col items-center gap-2">
           <LandingPageMockup size="md" studioName={studioName} />
           <p className="text-[11px] font-medium text-foreground/70">1. Signup form</p>
@@ -349,7 +356,7 @@ function StepScan({
         subtitle="Download the Loyalink app on your phone — that is the scanner you will use at the chair or at the register."
       />
 
-      <div className="-mx-4 px-4 mb-8 overflow-x-auto scrollbar-none"><div className="flex items-center justify-center gap-4 sm:gap-6 min-w-max">
+      <div className="relative -mx-4 mb-10 overflow-x-auto scrollbar-none"><div className="flex items-center justify-center gap-5 sm:gap-8 min-w-max px-4 py-6">
         <div className="flex flex-col items-center gap-2">
           <ScannerMockup size="md" />
           <p className="text-[11px] font-medium text-foreground/70">1. Scan their pass</p>
