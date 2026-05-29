@@ -1593,10 +1593,10 @@ export default function SetupPage() {
               variant="glow"
               onClick={() => {
                 setShowLiveDialog(false)
-                router.push('/overview')
+                router.push('/welcome')
               }}
             >
-              Go to Dashboard
+              Show me how to get started
             </Button>
           </div>
         </DialogContent>

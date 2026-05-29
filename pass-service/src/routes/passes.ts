@@ -42,9 +42,20 @@ passRoutes.post('/generate', requireInternalAuth, async (req: Request, res: Resp
       .limit(1)
       .maybeSingle();
 
-    // Generate serial number and auth token
-    const serialNumber = `PASS-${uuidv4()}`;
-    const authenticationToken = uuidv4();
+    // Reuse an existing active/installed pass for this (customer, platform)
+    // so re-downloads don't accumulate duplicate wallet_passes rows.
+    const { data: existingPass } = await supabase
+      .from('wallet_passes')
+      .select('id, serial_number, authentication_token, template_id')
+      .eq('customer_id', customerId)
+      .eq('platform', platform)
+      .in('status', ['active', 'installed'])
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const serialNumber = existingPass?.serial_number ?? `PASS-${uuidv4()}`;
+    const authenticationToken = existingPass?.authentication_token ?? uuidv4();
 
     // Determine tier colors
     const loyaltyTier = customer.loyalty_stage || 'base';
@@ -55,22 +66,60 @@ passRoutes.post('/generate', requireInternalAuth, async (req: Request, res: Resp
       labelColor: '#666666',
     };
 
-    // Create wallet pass record
-    const { data: walletPass, error: passError } = await supabase
-      .from('wallet_passes')
-      .insert({
-        customer_id: customerId,
-        studio_id: customer.studio_id,
-        template_id: template?.id || null,
-        serial_number: serialNumber,
-        authentication_token: authenticationToken,
-        platform,
-        status: 'active',
-      })
-      .select()
-      .single();
+    // Create or refresh wallet pass record. If we found an existing pass above,
+    // update it (refreshes template_id + updated_at) instead of inserting.
+    let walletPass: { id: string } | null = null;
+    let passError: { message: string } | null = null;
 
-    if (passError) {
+    if (existingPass) {
+      const { data, error } = await supabase
+        .from('wallet_passes')
+        .update({
+          template_id: template?.id || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingPass.id)
+        .select('id')
+        .single();
+      walletPass = data;
+      passError = error;
+    } else {
+      const { data, error } = await supabase
+        .from('wallet_passes')
+        .insert({
+          customer_id: customerId,
+          studio_id: customer.studio_id,
+          template_id: template?.id || null,
+          serial_number: serialNumber,
+          authentication_token: authenticationToken,
+          platform,
+          status: 'active',
+        })
+        .select('id')
+        .single();
+      walletPass = data;
+      passError = error;
+
+      // Race: a concurrent generate hit the partial unique index. Fall back
+      // to the existing row.
+      if (passError && (passError as { code?: string }).code === '23505') {
+        const { data: raceRow } = await supabase
+          .from('wallet_passes')
+          .select('id')
+          .eq('customer_id', customerId)
+          .eq('platform', platform)
+          .in('status', ['active', 'installed'])
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (raceRow) {
+          walletPass = raceRow;
+          passError = null;
+        }
+      }
+    }
+
+    if (passError || !walletPass) {
       console.error('Error creating wallet pass:', passError);
       return res.status(500).json({ error: 'Failed to create pass record' });
     }
