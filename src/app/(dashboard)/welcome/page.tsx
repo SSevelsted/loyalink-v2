@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
@@ -22,22 +22,39 @@ import { Card, CardContent } from '@/components/ui/card'
 import { useStudio } from '@/hooks/use-studio'
 import { useLandingPage } from '@/hooks/use-landing-page'
 import { useActivation } from '@/hooks/use-activation'
+import { usePassTemplates } from '@/hooks/use-wallet'
+import { useRewardsConfig } from '@/hooks/use-rewards'
 import { SignupQR } from '@/components/landing/signup-qr'
 import { APP_STORE_URL, GOOGLE_PLAY_URL, MARKETING_URL } from '@/lib/constants'
+import { getCurrencyConfig, formatAmount } from '@/lib/currency'
+import { DEFAULT_CARD_FIELDS } from '@/types/database'
+import type { TierTheme, CardField } from '@/types/database'
 import {
   LandingPageMockup,
   ScannerMockup,
   WalletPassMockup,
+  type LandingMock,
+  type PassMock,
 } from '@/components/welcome/mockups'
 import { toast } from 'sonner'
 
 const STEPS = ['loop', 'customer', 'scan', 'pitch', 'staff'] as const
 type StepId = (typeof STEPS)[number]
 
+// Fallback light theme (cream) for studios whose pass template has not been
+// created yet — matches the real default base-tier card.
+const FALLBACK_THEME = {
+  backgroundColor: '#F5F0EB',
+  foregroundColor: '#2D2A26',
+  labelColor: '#8A857F',
+}
+
 export default function WelcomePage() {
   const router = useRouter()
   const { currentStudio } = useStudio()
   const { data: landingPage } = useLandingPage()
+  const { data: templates } = usePassTemplates()
+  const { data: rewardsConfig } = useRewardsConfig()
   const { markStep, markWalkthroughSeen } = useActivation()
   const [stepIndex, setStepIndex] = useState(0)
   const [finishing, setFinishing] = useState(false)
@@ -49,6 +66,63 @@ export default function WelcomePage() {
     () => (landingPage ? `${MARKETING_URL}/join/${landingPage.slug}` : ''),
     [landingPage],
   )
+
+  // Currency formatter for the studio (used for the wallet card balance).
+  const currency = useMemo(
+    () => ((currentStudio?.settings as Record<string, unknown> | undefined)?.currency as string) ?? 'kr',
+    [currentStudio],
+  )
+  const fmt = useCallback((n: number) => formatAmount(n, getCurrencyConfig(currency)), [currency])
+
+  // The studio's REAL wallet card — actual colours, logo, strip image, field
+  // labels (in their language) and base cashback rate.
+  const pass: PassMock = useMemo(() => {
+    const studioName = currentStudio?.name ?? 'Your studio'
+    const lp = (landingPage?.settings ?? {}) as Record<string, unknown>
+    const accent = (lp.brandColor as string) || '#ff6a3d'
+
+    const template = templates?.[0]
+    const themes = (template?.tier_themes ?? {}) as Record<string, TierTheme>
+    const baseSlug = rewardsConfig?.tiers?.[0]?.slug
+    const theme =
+      (baseSlug ? themes[baseSlug] : undefined) ??
+      Object.values(themes).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))[0]
+
+    const fields = (template?.card_fields ?? DEFAULT_CARD_FIELDS) as CardField[]
+    const byKey = Object.fromEntries(fields.map((f) => [f.key, f]))
+    const rate = rewardsConfig?.tiers?.[0]?.cashback_rate ?? 7.5
+
+    return {
+      studioName,
+      backgroundColor: theme?.backgroundColor || FALLBACK_THEME.backgroundColor,
+      foregroundColor: theme?.foregroundColor || FALLBACK_THEME.foregroundColor,
+      labelColor: theme?.labelColor || FALLBACK_THEME.labelColor,
+      logoUrl: theme?.logoOverride || template?.logo_url || null,
+      stripUrl: theme?.stripImage || null,
+      memberLabel: byKey['member']?.label || 'MEMBER',
+      memberValue: 'Anna L.',
+      balanceLabel: byKey['balance']?.label || 'BALANCE',
+      cashbackLabel: byKey['cashback']?.label || 'CASHBACK',
+      cashbackValue: `${rate}%`,
+      accent,
+    }
+  }, [currentStudio, landingPage, templates, rewardsConfig])
+
+  // The studio's real signup landing page.
+  const landing: LandingMock = useMemo(() => {
+    const studioName = currentStudio?.name ?? 'Your studio'
+    const lp = (landingPage?.settings ?? {}) as Record<string, unknown>
+    return {
+      studioName,
+      brandColor: (lp.brandColor as string) || '#7C3AED',
+      backgroundColor: (lp.backgroundColor as string) || '#0A0A0A',
+      textColor: (lp.textColor as string) || '#FFFFFF',
+      logoUrl: (lp.logoUrl as string | null) || null,
+      headline: landingPage?.headline || `Join ${studioName}`,
+      buttonText: (lp.buttonText as string) || 'Get my card',
+      benefits: [],
+    }
+  }, [currentStudio, landingPage])
 
   const handleNext = () => setStepIndex((i) => Math.min(total - 1, i + 1))
   const handleBack = () => setStepIndex((i) => Math.max(0, i - 1))
@@ -107,11 +181,23 @@ export default function WelcomePage() {
         </div>
 
         <div className="animate-fade-up">
-          {stepId === 'loop' && <StepLoop studioName={currentStudio?.name} />}
-          {stepId === 'customer' && <StepCustomer studioName={currentStudio?.name} />}
+          {stepId === 'loop' && (
+            <StepLoop
+              pass={pass}
+              landing={landing}
+              balanceZero={fmt(0)}
+              balanceFifty={fmt(50)}
+              earned={`+${fmt(50)}`}
+            />
+          )}
+          {stepId === 'customer' && (
+            <StepCustomer pass={pass} landing={landing} balanceZero={fmt(0)} />
+          )}
           {stepId === 'scan' && (
             <StepScan
-              studioName={currentStudio?.name}
+              pass={pass}
+              balanceFifty={fmt(50)}
+              earned={`+${fmt(50)}`}
               onAppDownloadClick={() => markStep('appDownloaded').catch(() => {})}
             />
           )}
@@ -193,90 +279,120 @@ function StepHeader({
   )
 }
 
-function StepLoop({ studioName }: { studioName?: string }) {
-  const loop = [
-    {
-      icon: Users,
-      label: 'Sign up',
-      title: 'A customer signs up',
-      desc: 'They scan your QR code or click your link and fill in their details. Takes 30 seconds.',
-      mockup: <LandingPageMockup size="sm" studioName={studioName} />,
-    },
-    {
-      icon: Wallet,
-      label: 'Wallet pass',
-      title: 'They get a wallet pass',
-      desc: 'A digital loyalty card lands straight in Apple or Google Wallet — no app for them to install.',
-      mockup: <WalletPassMockup size="sm" studioName={studioName} balance="0 kr" />,
-    },
-    {
-      icon: ScanLine,
-      label: 'You scan',
-      title: 'You scan them at checkout',
-      desc: 'They show you the pass on their phone, you scan, you enter the amount they paid.',
-      mockup: <ScannerMockup size="sm" />,
-    },
-    {
-      icon: Sparkles,
-      label: 'Cashback',
-      title: 'They earn cashback',
-      desc: 'They earn rewards toward their next tattoo automatically — and they come back to spend it.',
-      mockup: <WalletPassMockup size="sm" studioName={studioName} balance="50 kr" showCashbackBurst />,
-    },
-  ]
+// A phone mockup paired side-by-side with its description, so each visual
+// illustrates exactly the sentence next to it. Alternates sides for rhythm.
+function StepRow({
+  index,
+  title,
+  desc,
+  mockup,
+  reverse = false,
+}: {
+  index: number
+  title: string
+  desc: string
+  mockup: React.ReactNode
+  reverse?: boolean
+}) {
   return (
-    <div>
-      <StepHeader
-        icon={Sparkles}
-        eyebrow="Welcome to Loyalink"
-        title={studioName ? `${studioName} is live` : 'You are live'}
-        subtitle="Here is how loyalty will work at your studio, end to end. We will walk you through what your customers do, what you do, and how to get your first signups."
-      />
-
-      <div className="relative -mx-4 mb-10">
-        <div className="overflow-x-auto scrollbar-none">
-          <div className="flex items-end justify-start gap-5 sm:gap-6 px-4 py-6 min-w-max sm:justify-center">
-            {loop.map((item, i) => (
-              <div key={item.label} className="flex flex-col items-center gap-3 shrink-0">
-                {item.mockup}
-                <div className="flex items-center gap-1.5 text-foreground/70">
-                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-primary text-[9px] font-bold tabular-nums">
-                    {i + 1}
-                  </span>
-                  <span className="text-[11px] font-medium">{item.label}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+    <div
+      className={`flex flex-col items-center gap-5 sm:gap-8 sm:flex-row ${
+        reverse ? 'sm:flex-row-reverse' : ''
+      }`}
+    >
+      <div className="shrink-0">{mockup}</div>
+      <div className="flex-1 text-center sm:text-left">
+        <div className="flex items-center gap-2 justify-center sm:justify-start">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold tabular-nums">
+            {index}
+          </span>
+          <span className="text-xs uppercase tracking-wider text-primary/80">Step {index}</span>
         </div>
-        {/* Fade edges for scroll affordance on mobile */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-background to-transparent sm:hidden" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background to-transparent sm:hidden" />
-      </div>
-
-      <div className="grid gap-3">
-        {loop.map((item, i) => (
-          <Card key={item.title} variant="glass" className="rounded-2xl">
-            <CardContent className="p-5 flex gap-4 items-start">
-              <div className="relative h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                <item.icon className="h-5 w-5 text-primary" />
-                <span className="absolute -top-1.5 -left-1.5 h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center justify-center">
-                  {i + 1}
-                </span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{item.desc}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        <h3
+          className="mt-2.5 text-lg md:text-xl text-foreground leading-tight"
+          style={{ fontFamily: 'var(--font-display)' }}
+        >
+          {title}
+        </h3>
+        <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto sm:mx-0">
+          {desc}
+        </p>
       </div>
     </div>
   )
 }
 
-function StepCustomer({ studioName }: { studioName?: string }) {
+function StepLoop({
+  pass,
+  landing,
+  balanceZero,
+  balanceFifty,
+  earned,
+}: {
+  pass: PassMock
+  landing: LandingMock
+  balanceZero: string
+  balanceFifty: string
+  earned: string
+}) {
+  return (
+    <div>
+      <StepHeader
+        icon={Sparkles}
+        eyebrow="Welcome to Loyalink"
+        title={pass.studioName ? `${pass.studioName} is live` : 'You are live'}
+        subtitle="Here is how loyalty works at your studio, end to end — what your customers do, what you do, and how the cashback flywheel starts."
+      />
+
+      <div className="space-y-10 sm:space-y-12">
+        <StepRow
+          index={1}
+          title="A customer signs up"
+          desc="They scan your QR code or tap your link, then fill in their details. It takes about 30 seconds — this is your real signup page."
+          mockup={<LandingPageMockup size="md" landing={landing} />}
+        />
+        <StepRow
+          index={2}
+          reverse
+          title="They get a wallet pass"
+          desc="A digital loyalty card lands straight in Apple or Google Wallet — no app for them to install. This is your actual card design."
+          mockup={<WalletPassMockup size="md" pass={pass} balanceValue={balanceZero} />}
+        />
+        <StepRow
+          index={3}
+          title="You scan them at checkout"
+          desc="They open the pass on their phone, you scan the QR with the Loyalink app, and you enter the amount they paid."
+          mockup={<ScannerMockup size="md" accent={pass.accent} />}
+        />
+        <StepRow
+          index={4}
+          reverse
+          title="They earn cashback"
+          desc={`Cashback lands on their balance automatically — your base rate is ${pass.cashbackValue}. They come back to spend it on their next tattoo.`}
+          mockup={
+            <WalletPassMockup
+              size="md"
+              pass={pass}
+              balanceValue={balanceFifty}
+              earnedValue={earned}
+              showCashbackBurst
+            />
+          }
+        />
+      </div>
+    </div>
+  )
+}
+
+function StepCustomer({
+  pass,
+  landing,
+  balanceZero,
+}: {
+  pass: PassMock
+  landing: LandingMock
+  balanceZero: string
+}) {
   return (
     <div>
       <StepHeader
@@ -286,65 +402,44 @@ function StepCustomer({ studioName }: { studioName?: string }) {
         subtitle="Your customers do not download anything. The loyalty card lives in the wallet app they already use every day."
       />
 
-      <div className="relative -mx-4 mb-10 overflow-x-auto scrollbar-none"><div className="flex items-center justify-center gap-5 sm:gap-8 min-w-max px-4 py-6">
-        <div className="flex flex-col items-center gap-2">
-          <LandingPageMockup size="md" studioName={studioName} />
-          <p className="text-[11px] font-medium text-foreground/70">1. Signup form</p>
-        </div>
-        <ArrowRight className="h-5 w-5 text-foreground/30 shrink-0" />
-        <div className="flex flex-col items-center gap-2">
-          <WalletPassMockup size="md" studioName={studioName} balance="0 kr" />
-          <p className="text-[11px] font-medium text-foreground/70">2. Wallet pass</p>
-        </div>
-      </div></div>
-
-      <div className="grid gap-3">
-        <Card variant="glass" className="rounded-2xl">
-          <CardContent className="p-5">
-            <p className="text-sm font-semibold text-foreground mb-3">From a customer&rsquo;s point of view</p>
-            <ol className="space-y-3 text-sm text-muted-foreground">
-              <li className="flex gap-3">
-                <span className="font-semibold text-primary shrink-0">1.</span>
-                <span>They scan your QR code or tap your link.</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="font-semibold text-primary shrink-0">2.</span>
-                <span>They enter their name, email, and phone (about 30 seconds).</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="font-semibold text-primary shrink-0">3.</span>
-                <span>
-                  An Apple Wallet or Google Wallet pass appears on their phone instantly — like a boarding pass or
-                  Starbucks card.
-                </span>
-              </li>
-              <li className="flex gap-3">
-                <span className="font-semibold text-primary shrink-0">4.</span>
-                <span>Next time they visit, they open the pass, you scan it, they earn cashback. That is it.</span>
-              </li>
-            </ol>
-          </CardContent>
-        </Card>
-
-        <Card variant="glass" className="rounded-2xl border-primary/15 bg-gradient-to-br from-primary/5 to-transparent">
-          <CardContent className="p-5">
-            <p className="text-sm font-semibold text-foreground">Why this matters</p>
-            <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-              The pass sits next to their plane tickets and credit cards. They see your studio every time they open
-              their wallet. That is what brings them back.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="space-y-10 sm:space-y-12 mb-10">
+        <StepRow
+          index={1}
+          title="They open your signup page"
+          desc="From the QR code or your link. They enter name, email and phone — that is the whole signup, about 30 seconds."
+          mockup={<LandingPageMockup size="md" landing={landing} />}
+        />
+        <StepRow
+          index={2}
+          reverse
+          title="The pass appears instantly"
+          desc="An Apple Wallet or Google Wallet pass shows up on their phone right away — like a boarding pass or Starbucks card, but it is your card."
+          mockup={<WalletPassMockup size="md" pass={pass} balanceValue={balanceZero} />}
+        />
       </div>
+
+      <Card variant="glass" className="rounded-2xl border-primary/15 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardContent className="p-5">
+          <p className="text-sm font-semibold text-foreground">Why this matters</p>
+          <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+            The pass sits next to their plane tickets and credit cards. They see your studio every time they open
+            their wallet. That is what brings them back.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   )
 }
 
 function StepScan({
-  studioName,
+  pass,
+  balanceFifty,
+  earned,
   onAppDownloadClick,
 }: {
-  studioName?: string
+  pass: PassMock
+  balanceFifty: string
+  earned: string
   onAppDownloadClick: () => void
 }) {
   return (
@@ -356,72 +451,53 @@ function StepScan({
         subtitle="Download the Loyalink app on your phone — that is the scanner you will use at the chair or at the register."
       />
 
-      <div className="relative -mx-4 mb-10 overflow-x-auto scrollbar-none"><div className="flex items-center justify-center gap-5 sm:gap-8 min-w-max px-4 py-6">
-        <div className="flex flex-col items-center gap-2">
-          <ScannerMockup size="md" />
-          <p className="text-[11px] font-medium text-foreground/70">1. Scan their pass</p>
-        </div>
-        <ArrowRight className="h-5 w-5 text-foreground/30 shrink-0" />
-        <div className="flex flex-col items-center gap-2">
-          <WalletPassMockup size="md" studioName={studioName} balance="50 kr" showCashbackBurst />
-          <p className="text-[11px] font-medium text-foreground/70">2. Cashback added</p>
-        </div>
-      </div></div>
-
-      <div className="grid gap-3">
-        <Card variant="glass" className="rounded-2xl">
-          <CardContent className="p-5">
-            <p className="text-sm font-semibold text-foreground mb-3">The flow at checkout</p>
-            <ol className="space-y-3 text-sm text-muted-foreground">
-              <li className="flex gap-3">
-                <span className="font-semibold text-primary shrink-0">1.</span>
-                <span>Open the Loyalink app and tap Scan.</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="font-semibold text-primary shrink-0">2.</span>
-                <span>The customer opens their wallet pass — you point the camera at the QR on it.</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="font-semibold text-primary shrink-0">3.</span>
-                <span>
-                  Enter the amount they paid for the tattoo. Cashback gets added to their balance automatically.
-                </span>
-              </li>
-              <li className="flex gap-3">
-                <span className="font-semibold text-primary shrink-0">4.</span>
-                <span>
-                  Next visit they can use that balance toward a new tattoo, on top of earning more. The flywheel
-                  starts.
-                </span>
-              </li>
-            </ol>
-          </CardContent>
-        </Card>
-
-        <Card variant="glass" className="rounded-2xl border-primary/20 bg-gradient-to-r from-primary/8 to-transparent">
-          <CardContent className="p-5">
-            <p className="text-sm font-semibold text-foreground">Download the app on your phone</p>
-            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              Put it on the phone you keep at the front desk or in your pocket during sessions. Scanning takes about 5
-              seconds.
-            </p>
-            <div className="flex flex-wrap items-center gap-2 mt-4">
-              <Button asChild variant="outline" size="sm" className="gap-2" onClick={onAppDownloadClick}>
-                <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
-                  <AppleLogo className="h-4 w-4" />
-                  App Store
-                </a>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="gap-2" onClick={onAppDownloadClick}>
-                <a href={GOOGLE_PLAY_URL} target="_blank" rel="noopener noreferrer">
-                  <PlayIcon className="h-4 w-4" />
-                  Google Play
-                </a>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="space-y-10 sm:space-y-12 mb-10">
+        <StepRow
+          index={1}
+          title="Scan their pass"
+          desc="Open the Loyalink app, tap Scan, and point the camera at the QR on their wallet pass. It takes about 5 seconds."
+          mockup={<ScannerMockup size="md" accent={pass.accent} />}
+        />
+        <StepRow
+          index={2}
+          reverse
+          title="Cashback gets added"
+          desc={`Enter the amount they paid and cashback lands on their balance automatically at ${pass.cashbackValue}. Next visit, they can spend it — the flywheel starts.`}
+          mockup={
+            <WalletPassMockup
+              size="md"
+              pass={pass}
+              balanceValue={balanceFifty}
+              earnedValue={earned}
+              showCashbackBurst
+            />
+          }
+        />
       </div>
+
+      <Card variant="glass" className="rounded-2xl border-primary/20 bg-gradient-to-r from-primary/8 to-transparent">
+        <CardContent className="p-5">
+          <p className="text-sm font-semibold text-foreground">Download the app on your phone</p>
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+            Put it on the phone you keep at the front desk or in your pocket during sessions. Scanning takes about 5
+            seconds.
+          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-4">
+            <Button asChild variant="outline" size="sm" className="gap-2" onClick={onAppDownloadClick}>
+              <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+                <AppleLogo className="h-4 w-4" />
+                App Store
+              </a>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="gap-2" onClick={onAppDownloadClick}>
+              <a href={GOOGLE_PLAY_URL} target="_blank" rel="noopener noreferrer">
+                <PlayIcon className="h-4 w-4" />
+                Google Play
+              </a>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

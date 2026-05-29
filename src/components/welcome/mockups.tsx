@@ -54,6 +54,38 @@ const SIZE: Record<
 }
 
 const ACCENT_DEFAULT = '#ff6a3d'
+const DEFAULT_STRIP = '/images/default-strip.png'
+
+// The studio's real wallet card, derived from their pass template + rewards
+// config. Everything here mirrors what actually lands in the customer's wallet:
+// real tier colors, real logo, real strip image, real field labels (in the
+// studio's language) and the real base cashback rate.
+export type PassMock = {
+  studioName: string
+  backgroundColor: string
+  foregroundColor: string
+  labelColor: string
+  logoUrl: string | null
+  stripUrl: string | null
+  memberLabel: string
+  memberValue: string
+  balanceLabel: string
+  cashbackLabel: string
+  cashbackValue: string
+  /** Brand accent — used for the "cashback earned" notification + scanner. */
+  accent: string
+}
+
+export type LandingMock = {
+  studioName: string
+  brandColor: string
+  backgroundColor: string
+  textColor: string
+  logoUrl: string | null
+  headline: string
+  buttonText: string
+  benefits: string[]
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Phone frame — modern iPhone-style with dynamic island, subtle bezel,
@@ -109,12 +141,13 @@ function DynamicIsland({ size }: { size: Size }) {
   )
 }
 
-function StatusBar({ size }: { size: Size }) {
+function StatusBar({ size, dark = false }: { size: Size; dark?: boolean }) {
   const s = SIZE[size]
   const pt = size === 'sm' ? 'pt-1' : 'pt-1.5'
+  const color = dark ? 'text-black/70' : 'text-white/70'
   return (
     <div
-      className={`absolute inset-x-0 top-0 ${pt} ${s.sidePad} flex items-center justify-between text-white/70 ${s.statusText} z-20 pointer-events-none`}
+      className={`absolute inset-x-0 top-0 ${pt} ${s.sidePad} flex items-center justify-between ${color} ${s.statusText} z-20 pointer-events-none`}
     >
       <span className="font-semibold tracking-tight tabular-nums">9:41</span>
       <div className="flex items-center gap-[3px]">
@@ -169,73 +202,89 @@ function ScreenContent({
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Landing page — the customer-facing signup screen with logo, headline, form.
+// Landing page — the customer-facing signup screen, using the studio's real
+// brand colour, logo, headline and button text.
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function LandingPageMockup({
   size = 'md',
-  studioName,
-  accent = ACCENT_DEFAULT,
+  landing,
 }: {
   size?: Size
-  studioName?: string
-  accent?: string
+  landing: LandingMock
 }) {
   const s = SIZE[size]
   const fieldH = size === 'sm' ? 'h-3' : size === 'md' ? 'h-4' : 'h-5'
   const logoSize = size === 'sm' ? 28 : size === 'md' ? 36 : 44
-  const initial = studioName?.trim().charAt(0).toUpperCase() ?? 'S'
+  const initial = landing.studioName?.trim().charAt(0).toUpperCase() ?? 'S'
+  const bg = landing.backgroundColor || '#0b0b0d'
+  const fg = landing.textColor || '#ffffff'
+  const accent = landing.brandColor || ACCENT_DEFAULT
 
   return (
     <PhoneFrame
       size={size}
       screenStyle={{
-        background:
-          'radial-gradient(120% 80% at 50% 0%, rgba(255,255,255,0.04), transparent 60%), #0b0b0d',
+        background: `radial-gradient(120% 80% at 50% 0%, ${hexToRgba(fg, 0.04)}, transparent 60%), ${bg}`,
       }}
     >
       <ScreenContent size={size}>
         <div className={`flex flex-col items-center gap-2 ${s.sidePad}`}>
           {/* Studio logo */}
-          <div
-            className="rounded-full flex items-center justify-center font-semibold shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5)]"
-            style={{
-              width: logoSize,
-              height: logoSize,
-              background: `linear-gradient(135deg, ${accent}, ${darken(accent, 0.35)})`,
-              color: '#fff',
-              fontSize: logoSize * 0.42,
-              fontFamily: 'var(--font-display)',
-              fontStyle: 'italic',
-            }}
-          >
-            {initial}
-          </div>
+          {landing.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={landing.logoUrl}
+              alt=""
+              className="object-contain"
+              style={{ height: logoSize, maxWidth: logoSize * 2.6 }}
+            />
+          ) : (
+            <div
+              className="rounded-full flex items-center justify-center font-semibold shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5)]"
+              style={{
+                width: logoSize,
+                height: logoSize,
+                background: `linear-gradient(135deg, ${accent}, ${darken(accent, 0.35)})`,
+                color: '#fff',
+                fontSize: logoSize * 0.42,
+                fontFamily: 'var(--font-display)',
+                fontStyle: 'italic',
+              }}
+            >
+              {initial}
+            </div>
+          )}
 
           {/* Headline */}
           <div className="text-center space-y-0.5">
-            <p className={`${s.titleText} font-bold text-white leading-tight tracking-tight`}>
-              {studioName ? `Join ${studioName}` : 'Join Loyalty'}
+            <p
+              className={`${s.titleText} font-bold leading-tight tracking-tight`}
+              style={{ color: fg }}
+            >
+              {landing.headline}
             </p>
-            <p className={`${s.tinyText} text-white/55 leading-tight`}>Cashback on every tattoo</p>
+            <p className={`${s.tinyText} leading-tight`} style={{ color: hexToRgba(fg, 0.55) }}>
+              Cashback on every tattoo
+            </p>
           </div>
 
           {/* Form stubs */}
           <div className="w-full space-y-1.5 mt-1">
-            <FieldStub h={fieldH} label="Name" tinyText={s.tinyText} />
-            <FieldStub h={fieldH} label="Email" tinyText={s.tinyText} />
-            <FieldStub h={fieldH} label="Phone" tinyText={s.tinyText} />
+            <FieldStub h={fieldH} label="Name" tinyText={s.tinyText} fg={fg} />
+            <FieldStub h={fieldH} label="Email" tinyText={s.tinyText} fg={fg} />
+            <FieldStub h={fieldH} label="Phone" tinyText={s.tinyText} fg={fg} />
           </div>
 
           {/* CTA */}
           <div
-            className={`mt-1.5 w-full ${fieldH} ${s.cardRadius} flex items-center justify-center font-semibold tracking-tight shadow-[0_8px_20px_-6px_rgba(255,106,61,0.5)] ${s.bodyText}`}
-            style={{ backgroundColor: accent, color: '#fff' }}
+            className={`mt-1.5 w-full ${fieldH} ${s.cardRadius} flex items-center justify-center font-semibold tracking-tight shadow-[0_8px_20px_-6px_rgba(0,0,0,0.4)] ${s.bodyText} truncate px-1`}
+            style={{ backgroundColor: accent, color: readableText(accent) }}
           >
-            Get my card
+            {landing.buttonText}
           </div>
 
-          <p className={`${s.tinyText} text-white/35 text-center mt-1`}>
+          <p className={`${s.tinyText} text-center mt-1`} style={{ color: hexToRgba(fg, 0.35) }}>
             Free · 30 seconds · No app needed
           </p>
         </div>
@@ -244,155 +293,136 @@ export function LandingPageMockup({
   )
 }
 
-function FieldStub({ h, label, tinyText }: { h: string; label: string; tinyText: string }) {
+function FieldStub({ h, label, tinyText, fg }: { h: string; label: string; tinyText: string; fg: string }) {
   return (
     <div className="space-y-0.5">
-      <p className={`${tinyText} text-white/35 leading-none`}>{label}</p>
-      <div className={`${h} w-full rounded-md bg-white/[0.05] ring-1 ring-inset ring-white/[0.08]`} />
+      <p className={`${tinyText} leading-none`} style={{ color: hexToRgba(fg, 0.35) }}>
+        {label}
+      </p>
+      <div
+        className={`${h} w-full rounded-md`}
+        style={{ backgroundColor: hexToRgba(fg, 0.05), boxShadow: `inset 0 0 0 1px ${hexToRgba(fg, 0.08)}` }}
+      />
     </div>
   )
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Wallet pass — Apple Wallet-style loyalty card with header, strip, fields,
-// QR area, and a peek at a second stacked card behind it.
+// Wallet pass — the studio's REAL Apple Wallet store card, shown the way it
+// appears in the Wallet app: black background, single pass, carousel dots.
+// Mirrors src/components/wallet/card-preview.tsx field-for-field.
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function WalletPassMockup({
   size = 'md',
-  studioName,
-  accent = ACCENT_DEFAULT,
-  balance = '0 kr',
+  pass,
+  balanceValue,
   showCashbackBurst = false,
+  earnedValue,
 }: {
   size?: Size
-  studioName?: string
-  accent?: string
-  balance?: string
+  pass: PassMock
+  /** Formatted balance string, e.g. "0 kr". */
+  balanceValue: string
   showCashbackBurst?: boolean
+  /** Formatted "+earned" string for the notification, e.g. "+50 kr". */
+  earnedValue?: string
 }) {
   const s = SIZE[size]
-  const studioInitial = studioName?.trim().charAt(0).toUpperCase() ?? 'S'
+  const { backgroundColor, foregroundColor, labelColor, logoUrl, stripUrl, studioName } = pass
+  const stripH = size === 'sm' ? 46 : size === 'md' ? 60 : 76
+  const qrSize = size === 'sm' ? 50 : size === 'md' ? 66 : 84
+  const labelText = size === 'sm' ? 'text-[5px]' : 'text-[6px]'
 
   return (
-    <PhoneFrame
-      size={size}
-      screenStyle={{
-        background:
-          'radial-gradient(140% 60% at 50% 0%, rgba(255,255,255,0.04), transparent 50%), #050507',
-      }}
-    >
-      {/* Wallet header OR notification */}
-      {showCashbackBurst ? (
-        <CashbackNotification size={size} accent={accent} />
-      ) : (
-        <div
-          className={`absolute top-7 inset-x-0 flex items-center justify-between ${s.sidePad} pointer-events-none z-10`}
-        >
-          <span className={`${s.tinyText} text-white/50 uppercase tracking-wider`}>Wallet</span>
-          <span className={`${s.tinyText} text-white/40`}>•••</span>
-        </div>
+    <PhoneFrame size={size} screenStyle={{ background: '#000' }}>
+      {/* Cashback earned notification (overlays the wallet) */}
+      {showCashbackBurst && (
+        <CashbackNotification size={size} accent={pass.accent} earnedValue={earnedValue} />
       )}
 
-      <ScreenContent size={size} className="pt-12 sm:pt-12">
-        <div className={`${s.sidePad} relative`}>
-          {/* Peek of card stacked behind */}
+      <ScreenContent size={size} className="pt-9">
+        <div className={`${s.sidePad}`}>
+          {/* The real store card */}
           <div
-            className={`absolute inset-x-2 -top-2 h-4 ${s.cardRadius} bg-zinc-700/40 ring-1 ring-white/5`}
-            aria-hidden="true"
-          />
-
-          {/* Main wallet card */}
-          <div
-            className={`relative ${s.cardRadius} overflow-hidden shadow-[0_18px_40px_-12px_rgba(0,0,0,0.6)] ring-1 ring-inset ring-white/10`}
-            style={{
-              background: `linear-gradient(155deg, ${accent} 0%, ${darken(accent, 0.45)} 100%)`,
-            }}
+            className={`relative ${s.cardRadius} overflow-hidden shadow-[0_18px_40px_-12px_rgba(0,0,0,0.7)]`}
+            style={{ backgroundColor }}
           >
-            {/* Subtle top highlight */}
-            <div
-              className="absolute inset-x-0 top-0 h-1/2 pointer-events-none"
-              style={{
-                background:
-                  'linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 100%)',
-              }}
+            {/* Header: logo / name + balance */}
+            <div className={`flex items-start justify-between ${size === 'sm' ? 'px-2 pt-2 pb-1' : 'px-2.5 pt-2.5 pb-1.5'}`}>
+              <div className="min-w-0">
+                {logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoUrl} alt="" className="object-contain" style={{ height: size === 'sm' ? 14 : 18, maxWidth: size === 'sm' ? 70 : 96 }} />
+                ) : (
+                  <span
+                    className={`${s.bodyText} font-bold italic truncate block`}
+                    style={{ color: foregroundColor, fontFamily: 'var(--font-display)' }}
+                  >
+                    {studioName}
+                  </span>
+                )}
+              </div>
+              <div className="text-right shrink-0 ml-1.5">
+                <p className={`${labelText} uppercase tracking-wider leading-none font-semibold`} style={{ color: labelColor }}>
+                  {pass.balanceLabel}
+                </p>
+                <p className={`${s.bodyText} font-bold leading-tight tabular-nums mt-0.5`} style={{ color: foregroundColor }}>
+                  {balanceValue}
+                </p>
+              </div>
+            </div>
+
+            {/* Strip image — the studio's banner artwork */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={stripUrl || DEFAULT_STRIP}
+              alt=""
+              className="w-full object-cover"
+              style={{ height: stripH }}
             />
 
-            {/* Top row: logo + name | balance */}
-            <div className={`relative flex items-start justify-between ${size === 'sm' ? 'p-2' : 'p-2.5'}`}>
-              <div className="flex items-center gap-1.5 min-w-0">
-                <div
-                  className="rounded-full bg-white/20 ring-1 ring-white/30 flex items-center justify-center text-white font-bold"
-                  style={{
-                    width: size === 'sm' ? 14 : 18,
-                    height: size === 'sm' ? 14 : 18,
-                    fontSize: size === 'sm' ? 7 : 9,
-                  }}
-                >
-                  {studioInitial}
-                </div>
-                <span
-                  className={`${s.tinyText} font-semibold text-white italic truncate`}
-                  style={{ fontFamily: 'var(--font-display)' }}
-                >
-                  {studioName ?? 'Studio'}
-                </span>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-[5px] uppercase tracking-wider text-white/65 leading-none font-medium">
-                  Balance
+            {/* Bottom fields: member + cashback */}
+            <div className={`flex items-start justify-between ${size === 'sm' ? 'px-2 py-1.5' : 'px-2.5 py-2'}`}>
+              <div className="min-w-0">
+                <p className={`${labelText} uppercase tracking-wider leading-none font-semibold`} style={{ color: labelColor }}>
+                  {pass.memberLabel}
                 </p>
-                <p className={`${s.bodyText} font-bold text-white leading-tight tabular-nums`}>{balance}</p>
+                <p className={`${s.tinyText} font-semibold leading-tight mt-0.5 truncate`} style={{ color: foregroundColor }}>
+                  {pass.memberValue}
+                </p>
+              </div>
+              <div className="text-right shrink-0 ml-1.5">
+                <p className={`${labelText} uppercase tracking-wider leading-none font-semibold`} style={{ color: labelColor }}>
+                  {pass.cashbackLabel}
+                </p>
+                <p className={`${s.tinyText} font-semibold leading-tight mt-0.5 tabular-nums`} style={{ color: foregroundColor }}>
+                  {pass.cashbackValue}
+                </p>
               </div>
             </div>
 
-            {/* Strip — gradient pattern */}
-            <div
-              className="relative border-y border-white/10"
-              style={{
-                height: size === 'sm' ? 32 : size === 'md' ? 44 : 56,
-                background: `linear-gradient(135deg, ${lighten(accent, 0.15)} 0%, ${darken(accent, 0.55)} 100%)`,
-              }}
-            >
-              {/* Pattern overlay */}
-              <div
-                className="absolute inset-0 opacity-25"
+            {/* QR code */}
+            <div className="flex items-center justify-center pb-2 pt-0.5">
+              <div className="bg-white rounded-md p-1">
+                <RealisticQR px={qrSize} />
+              </div>
+            </div>
+          </div>
+
+          {/* Wallet carousel dots */}
+          <div className="flex items-center justify-center gap-1 mt-2.5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <span
+                key={i}
+                className="rounded-full"
                 style={{
-                  backgroundImage:
-                    'repeating-linear-gradient(45deg, rgba(255,255,255,0.12) 0 2px, transparent 2px 8px)',
+                  width: i === 1 ? 4 : 3,
+                  height: i === 1 ? 4 : 3,
+                  backgroundColor: i === 1 ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)',
                 }}
               />
-              {/* Subtle studio name watermark */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span
-                  className={`${s.titleText} font-bold text-white/15 italic tracking-tight`}
-                  style={{ fontFamily: 'var(--font-display)' }}
-                >
-                  {studioName ?? 'Studio'}
-                </span>
-              </div>
-            </div>
-
-            {/* Bottom row: member | tier */}
-            <div className={`relative flex items-end justify-between ${size === 'sm' ? 'p-2' : 'p-2.5'}`}>
-              <div>
-                <p className="text-[5px] uppercase tracking-wider text-white/65 leading-none font-medium">
-                  Member
-                </p>
-                <p className={`${s.tinyText} font-medium text-white leading-tight mt-0.5`}>Anna L.</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[5px] uppercase tracking-wider text-white/65 leading-none font-medium">
-                  Tier
-                </p>
-                <p className={`${s.tinyText} font-medium text-white leading-tight mt-0.5`}>Bronze</p>
-              </div>
-            </div>
-
-            {/* QR code area */}
-            <div className="bg-white px-2 py-1.5 flex items-center justify-center">
-              <QRGrid size={size} />
-            </div>
+            ))}
           </div>
         </div>
       </ScreenContent>
@@ -400,47 +430,11 @@ export function WalletPassMockup({
   )
 }
 
-function QRGrid({ size }: { size: Size }) {
-  const cellCount = 7
-  const gridSize = size === 'sm' ? 26 : size === 'md' ? 32 : 40
-  const cells = Array.from({ length: cellCount * cellCount }, (_, i) => i)
-  // Deterministic pattern (Apple Wallet-like aztec/QR feel without being a real code)
-  const pattern = [
-    1, 1, 1, 0, 1, 1, 1,
-    1, 0, 0, 1, 0, 0, 1,
-    1, 0, 1, 0, 1, 0, 1,
-    0, 1, 0, 1, 1, 1, 0,
-    1, 0, 1, 0, 0, 1, 1,
-    1, 0, 0, 1, 1, 0, 0,
-    1, 1, 1, 0, 1, 1, 1,
-  ]
-  return (
-    <div
-      className="grid"
-      style={{
-        width: gridSize,
-        height: gridSize,
-        gridTemplateColumns: `repeat(${cellCount}, 1fr)`,
-        gridTemplateRows: `repeat(${cellCount}, 1fr)`,
-        gap: 1,
-      }}
-    >
-      {cells.map((i) => (
-        <div key={i} className={pattern[i] ? 'bg-black' : 'bg-white'} />
-      ))}
-    </div>
-  )
-}
-
-function CashbackNotification({ size, accent }: { size: Size; accent: string }) {
+function CashbackNotification({ size, accent, earnedValue }: { size: Size; accent: string; earnedValue?: string }) {
   const s = SIZE[size]
-  const topPos = size === 'sm' ? 22 : size === 'md' ? 28 : 32
+  const topPos = size === 'sm' ? 24 : 30
   return (
-    <div
-      className="absolute inset-x-1 z-30 animate-celebrate"
-      style={{ top: topPos }}
-      aria-hidden="true"
-    >
+    <div className="absolute inset-x-1.5 z-30 animate-celebrate" style={{ top: topPos }} aria-hidden="true">
       <div
         className={`flex items-center gap-1.5 ${s.cardRadius} px-1.5 py-1 backdrop-blur-md ring-1 ring-inset ring-white/15 shadow-[0_12px_30px_-8px_rgba(0,0,0,0.55)]`}
         style={{ backgroundColor: 'rgba(28,28,30,0.92)' }}
@@ -453,17 +447,66 @@ function CashbackNotification({ size, accent }: { size: Size; accent: string }) 
             background: `linear-gradient(135deg, ${accent}, ${darken(accent, 0.35)})`,
           }}
         >
-          <Sparkles
-            className="text-white"
-            style={{ width: size === 'sm' ? 7 : 9, height: size === 'sm' ? 7 : 9 }}
-          />
+          <Sparkles className="text-white" style={{ width: size === 'sm' ? 7 : 9, height: size === 'sm' ? 7 : 9 }} />
         </div>
         <div className="min-w-0 flex-1">
           <p className={`${s.tinyText} font-semibold text-white leading-none`}>Loyalink</p>
-          <p className={`${s.tinyText} text-white/75 leading-tight truncate mt-0.5`}>+50 kr earned</p>
+          <p className={`${s.tinyText} text-white/75 leading-tight truncate mt-0.5`}>
+            {earnedValue ? `${earnedValue} cashback earned` : 'Cashback earned'}
+          </p>
         </div>
       </div>
     </div>
+  )
+}
+
+// Static, dense QR likeness (not a scannable code) — ported from CardPreview
+// so the welcome card matches the real pass preview.
+function RealisticQR({ px }: { px: number }) {
+  return (
+    <svg viewBox="0 0 25 25" style={{ width: px, height: px }} shapeRendering="crispEdges" aria-hidden="true">
+      <rect width="25" height="25" fill="white" />
+      <path d="M0,0h7v1H0zM0,6h7v1H0zM0,1h1v5H0zM6,1h1v5H6zM2,2h3v3H2z" fill="black" />
+      <path d="M18,0h7v1H18zM18,6h7v1H18zM18,1h1v5H18zM24,1h1v5H24zM20,2h3v3H20z" fill="black" />
+      <path d="M0,18h7v1H0zM0,24h7v1H0zM0,19h1v5H0zM6,19h1v5H6zM2,20h3v3H2z" fill="black" />
+      <path d="M8,6h1v1H8zM10,6h1v1H10zM12,6h1v1H12zM14,6h1v1H14zM16,6h1v1H16z" fill="black" />
+      <path d="M6,8h1v1H6zM6,10h1v1H6zM6,12h1v1H6zM6,14h1v1H6zM6,16h1v1H6z" fill="black" />
+      <path d="M18,18h5v1H18zM18,22h5v1H18zM18,19h1v3H18zM22,19h1v3H22zM20,20h1v1H20z" fill="black" />
+      <path d="M8,0h1v1H8zM10,0h1v1H10zM11,0h1v1H11zM13,0h1v1H13zM15,0h1v1H15z" fill="black" />
+      <path d="M9,1h1v1H9zM11,1h1v1H11zM12,1h1v1H12zM14,1h1v1H14zM16,1h1v1H16z" fill="black" />
+      <path d="M8,2h1v1H8zM10,2h1v1H10zM13,2h1v1H13zM15,2h1v1H15zM16,2h1v1H16z" fill="black" />
+      <path d="M9,3h1v1H9zM10,3h1v1H10zM12,3h1v1H12zM14,3h1v1H14z" fill="black" />
+      <path d="M8,4h1v1H8zM11,4h1v1H11zM13,4h1v1H13zM15,4h1v1H15zM16,4h1v1H16z" fill="black" />
+      <path d="M9,5h1v1H9zM10,5h1v1H10zM12,5h1v1H12zM14,5h1v1H14z" fill="black" />
+      <path d="M8,8h1v1H8zM9,8h1v1H9zM11,8h1v1H11zM13,8h1v1H13zM15,8h1v1H15zM17,8h1v1H17zM19,8h1v1H19zM21,8h1v1H21zM23,8h1v1H23z" fill="black" />
+      <path d="M0,8h1v1H0zM2,8h1v1H2zM4,8h1v1H4z" fill="black" />
+      <path d="M8,9h1v1H8zM10,9h1v1H10zM12,9h1v1H12zM14,9h1v1H14zM16,9h1v1H16zM18,9h1v1H18zM20,9h1v1H20zM22,9h1v1H22z" fill="black" />
+      <path d="M1,9h1v1H1zM3,9h1v1H3zM5,9h1v1H5z" fill="black" />
+      <path d="M7,10h1v1H7zM9,10h1v1H9zM11,10h1v1H11zM13,10h1v1H13zM15,10h1v1H15zM17,10h1v1H17zM19,10h1v1H19zM21,10h1v1H21zM24,10h1v1H24z" fill="black" />
+      <path d="M0,10h1v1H0zM2,10h1v1H2zM4,10h1v1H4z" fill="black" />
+      <path d="M8,11h1v1H8zM10,11h1v1H10zM11,11h1v1H11zM14,11h1v1H14zM16,11h1v1H16zM18,11h1v1H18zM20,11h1v1H20zM23,11h1v1H23z" fill="black" />
+      <path d="M1,11h1v1H1zM3,11h1v1H3zM5,11h1v1H5z" fill="black" />
+      <path d="M7,12h1v1H7zM9,12h1v1H9zM11,12h1v1H11zM13,12h1v1H13zM15,12h1v1H15zM17,12h1v1H17zM20,12h1v1H20zM22,12h1v1H22zM24,12h1v1H24z" fill="black" />
+      <path d="M0,12h1v1H0zM2,12h1v1H2zM4,12h1v1H4z" fill="black" />
+      <path d="M8,13h1v1H8zM10,13h1v1H10zM12,13h1v1H12zM14,13h1v1H14zM17,13h1v1H17zM19,13h1v1H19zM21,13h1v1H21zM23,13h1v1H23z" fill="black" />
+      <path d="M1,13h1v1H1zM3,13h1v1H3z" fill="black" />
+      <path d="M7,14h1v1H7zM9,14h1v1H9zM11,14h1v1H11zM14,14h1v1H14zM16,14h1v1H16zM18,14h1v1H18zM20,14h1v1H20zM22,14h1v1H22zM24,14h1v1H24z" fill="black" />
+      <path d="M0,14h1v1H0zM2,14h1v1H2zM5,14h1v1H5z" fill="black" />
+      <path d="M8,15h1v1H8zM10,15h1v1H10zM12,15h1v1H12zM13,15h1v1H13zM15,15h1v1H15zM17,15h1v1H17zM19,15h1v1H19zM21,15h1v1H21zM24,15h1v1H24z" fill="black" />
+      <path d="M1,15h1v1H1zM4,15h1v1H4z" fill="black" />
+      <path d="M7,16h1v1H7zM9,16h1v1H9zM11,16h1v1H11zM13,16h1v1H13zM15,16h1v1H15zM17,16h1v1H17z" fill="black" />
+      <path d="M0,16h1v1H0zM3,16h1v1H3zM5,16h1v1H5z" fill="black" />
+      <path d="M8,17h1v1H8zM10,17h1v1H10zM12,17h1v1H12zM14,17h1v1H14zM16,17h1v1H16z" fill="black" />
+      <path d="M8,18h1v1H8zM10,18h1v1H10zM12,18h1v1H12zM14,18h1v1H14zM16,18h1v1H16z" fill="black" />
+      <path d="M9,19h1v1H9zM11,19h1v1H11zM13,19h1v1H13zM15,19h1v1H15zM17,19h1v1H17z" fill="black" />
+      <path d="M8,20h1v1H8zM10,20h1v1H10zM12,20h1v1H12zM14,20h1v1H14zM16,20h1v1H16z" fill="black" />
+      <path d="M9,21h1v1H9zM11,21h1v1H11zM13,21h1v1H13zM15,21h1v1H15zM17,21h1v1H17z" fill="black" />
+      <path d="M8,22h1v1H8zM10,22h1v1H10zM12,22h1v1H12zM15,22h1v1H15zM17,22h1v1H17z" fill="black" />
+      <path d="M9,23h1v1H9zM11,23h1v1H11zM13,23h1v1H13zM14,23h1v1H14zM16,23h1v1H16z" fill="black" />
+      <path d="M8,24h1v1H8zM10,24h1v1H10zM12,24h1v1H12zM15,24h1v1H15zM17,24h1v1H17z" fill="black" />
+      <path d="M24,18h1v1H24zM24,20h1v1H24zM24,22h1v1H24zM24,24h1v1H24z" fill="black" />
+      <path d="M23,19h1v1H23zM23,21h1v1H23zM23,23h1v1H23z" fill="black" />
+    </svg>
   )
 }
 
@@ -511,31 +554,14 @@ export function ScannerMockup({
         {/* Viewfinder centered */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="relative" style={{ width: viewfinderSize, height: viewfinderSize }}>
-            {/* Corner brackets */}
-            <Corner
-              corner="tl"
-              size={cornerSize}
-              thickness={cornerThickness}
-            />
-            <Corner
-              corner="tr"
-              size={cornerSize}
-              thickness={cornerThickness}
-            />
-            <Corner
-              corner="bl"
-              size={cornerSize}
-              thickness={cornerThickness}
-            />
-            <Corner
-              corner="br"
-              size={cornerSize}
-              thickness={cornerThickness}
-            />
+            <Corner corner="tl" size={cornerSize} thickness={cornerThickness} />
+            <Corner corner="tr" size={cornerSize} thickness={cornerThickness} />
+            <Corner corner="bl" size={cornerSize} thickness={cornerThickness} />
+            <Corner corner="br" size={cornerSize} thickness={cornerThickness} />
 
             {/* Faint QR placeholder inside */}
             <div className="absolute inset-3 opacity-25">
-              <QRGrid size={size === 'sm' ? 'sm' : 'md'} />
+              <RealisticQR px={viewfinderSize - 24} />
             </div>
 
             {/* Animated scan line */}
@@ -557,9 +583,7 @@ export function ScannerMockup({
         >
           <div
             className={`${s.bodyText} font-semibold rounded-full bg-white text-black shadow-lg`}
-            style={{
-              padding: size === 'sm' ? '4px 10px' : '6px 14px',
-            }}
+            style={{ padding: size === 'sm' ? '4px 10px' : '6px 14px' }}
           >
             Enter manually
           </div>
@@ -636,8 +660,14 @@ function darken(hex: string, amount: number): string {
   return toHex(r * (1 - amount), g * (1 - amount), b * (1 - amount))
 }
 
-function lighten(hex: string, amount: number): string {
+function hexToRgba(hex: string, alpha: number): string {
   const [r, g, b] = parseHex(hex)
-  return toHex(r + (255 - r) * amount, g + (255 - g) * amount, b + (255 - b) * amount)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
+// Pick black or white text for legibility on a given background colour.
+function readableText(hex: string): string {
+  const [r, g, b] = parseHex(hex)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.6 ? '#1a1a1a' : '#ffffff'
+}
