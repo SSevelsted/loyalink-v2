@@ -8,13 +8,16 @@ import {
   Check,
   Copy,
   Instagram,
+  Megaphone,
+  MessageCircle,
   MessageSquareQuote,
   QrCode,
+  Quote,
   ScanLine,
   Share2,
+  Smartphone,
   Sparkles,
   Users,
-  Wallet,
 } from 'lucide-react'
 import { AppleLogo } from '@/components/ui/apple-logo'
 import { Button } from '@/components/ui/button'
@@ -38,7 +41,7 @@ import {
 } from '@/components/welcome/mockups'
 import { toast } from 'sonner'
 
-const STEPS = ['loop', 'customer', 'scan', 'pitch', 'staff'] as const
+const STEPS = ['loop', 'scan', 'pitch', 'staff'] as const
 type StepId = (typeof STEPS)[number]
 
 // Fallback light theme (cream) for studios whose pass template has not been
@@ -189,9 +192,6 @@ export default function WelcomePage() {
               balanceFifty={fmt(50)}
               earned={`+${fmt(50)}`}
             />
-          )}
-          {stepId === 'customer' && (
-            <StepCustomer pass={pass} landing={landing} balanceZero={fmt(0)} />
           )}
           {stepId === 'scan' && (
             <StepScan
@@ -384,53 +384,6 @@ function StepLoop({
   )
 }
 
-function StepCustomer({
-  pass,
-  landing,
-  balanceZero,
-}: {
-  pass: PassMock
-  landing: LandingMock
-  balanceZero: string
-}) {
-  return (
-    <div>
-      <StepHeader
-        icon={Wallet}
-        eyebrow="The customer side"
-        title="What your customer experiences"
-        subtitle="Your customers do not download anything. The loyalty card lives in the wallet app they already use every day."
-      />
-
-      <div className="space-y-10 sm:space-y-12 mb-10">
-        <StepRow
-          index={1}
-          title="They open your signup page"
-          desc="From the QR code or your link. They enter name, email and phone — that is the whole signup, about 30 seconds."
-          mockup={<LandingPageMockup size="md" landing={landing} />}
-        />
-        <StepRow
-          index={2}
-          reverse
-          title="The pass appears instantly"
-          desc="An Apple Wallet or Google Wallet pass shows up on their phone right away — like a boarding pass or Starbucks card, but it is your card."
-          mockup={<WalletPassMockup size="md" pass={pass} balanceValue={balanceZero} />}
-        />
-      </div>
-
-      <Card variant="glass" className="rounded-2xl border-primary/15 bg-gradient-to-br from-primary/5 to-transparent">
-        <CardContent className="p-5">
-          <p className="text-sm font-semibold text-foreground">Why this matters</p>
-          <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-            The pass sits next to their plane tickets and credit cards. They see your studio every time they open
-            their wallet. That is what brings them back.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
 function StepScan({
   pass,
   balanceFifty,
@@ -451,7 +404,38 @@ function StepScan({
         subtitle="Download the Loyalink app on your phone — that is the scanner you will use at the chair or at the register."
       />
 
-      <div className="space-y-10 sm:space-y-12 mb-10">
+      <Card variant="glass" className="rounded-2xl border-primary/20 bg-gradient-to-br from-primary/[0.07] to-transparent mb-10">
+        <CardContent className="p-5">
+          <div className="flex items-start gap-3.5">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+              <Smartphone className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">First, download the app on your phone</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                Put it on the phone you keep at the front desk or in your pocket during sessions — that is your
+                scanner. Scanning a pass takes about 5 seconds.
+              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                <Button asChild variant="outline" size="sm" className="gap-2" onClick={onAppDownloadClick}>
+                  <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+                    <AppleLogo className="h-4 w-4" />
+                    App Store
+                  </a>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="gap-2" onClick={onAppDownloadClick}>
+                  <a href={GOOGLE_PLAY_URL} target="_blank" rel="noopener noreferrer">
+                    <PlayIcon className="h-4 w-4" />
+                    Google Play
+                  </a>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="space-y-10 sm:space-y-12">
         <StepRow
           index={1}
           title="Scan their pass"
@@ -474,30 +458,6 @@ function StepScan({
           }
         />
       </div>
-
-      <Card variant="glass" className="rounded-2xl border-primary/20 bg-gradient-to-r from-primary/8 to-transparent">
-        <CardContent className="p-5">
-          <p className="text-sm font-semibold text-foreground">Download the app on your phone</p>
-          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-            Put it on the phone you keep at the front desk or in your pocket during sessions. Scanning takes about 5
-            seconds.
-          </p>
-          <div className="flex flex-wrap items-center gap-2 mt-4">
-            <Button asChild variant="outline" size="sm" className="gap-2" onClick={onAppDownloadClick}>
-              <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
-                <AppleLogo className="h-4 w-4" />
-                App Store
-              </a>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="gap-2" onClick={onAppDownloadClick}>
-              <a href={GOOGLE_PLAY_URL} target="_blank" rel="noopener noreferrer">
-                <PlayIcon className="h-4 w-4" />
-                Google Play
-              </a>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }
@@ -549,111 +509,144 @@ function StepPitch({
         subtitle="Two channels do most of the work: the QR code in your studio, and your link on Instagram. Ask every customer, every time."
       />
 
-      <div className="grid gap-3">
-        <Card variant="glass" className="rounded-2xl">
+      <div className="grid gap-4">
+        {/* The in-person ask */}
+        <Card variant="glass" className="rounded-2xl border-primary/15 bg-gradient-to-br from-primary/[0.06] to-transparent">
           <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <MessageSquareQuote className="h-4 w-4 text-primary" />
-              <p className="text-sm font-semibold text-foreground">Say this during the consultation</p>
-            </div>
-            <blockquote className="text-sm text-foreground/90 italic leading-relaxed border-l-2 border-primary/40 pl-4 my-3">
-              &ldquo;{PITCH_SCRIPT}&rdquo;
-            </blockquote>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Tip: bring it up during the consultation, not at checkout. It feels like a gift, not an upsell — and you
-              get the signup before they leave.
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-4 gap-1.5"
-              onClick={() => copy('script', PITCH_SCRIPT)}
-            >
-              {copied === 'script' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              {copied === 'script' ? 'Copied!' : 'Copy script'}
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card variant="glass" className="rounded-2xl">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <Instagram className="h-4 w-4 text-primary" />
-              <p className="text-sm font-semibold text-foreground">For existing customers</p>
-            </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Drop your link in your Instagram bio, post it to stories with a swipe-up sticker, and DM your regulars.
-              They sign up from their couch — the pass shows up on their phone instantly.
-            </p>
-            <div className="flex flex-wrap items-center gap-2 mt-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                  <Quote className="h-4 w-4 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-wider text-primary/80">In person</p>
+                  <p className="text-sm font-semibold text-foreground truncate">Say this during the consultation</p>
+                </div>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-1.5"
-                onClick={() => copy('link', joinUrl)}
-                disabled={!joinUrl}
+                className="gap-1.5 shrink-0"
+                onClick={() => copy('script', PITCH_SCRIPT)}
               >
-                {copied === 'link' ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
-                {copied === 'link' ? 'Copied!' : 'Copy your link'}
-              </Button>
-              <Button asChild variant="ghost" size="sm" className="gap-1.5">
-                <a href="/stories">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Open Stories generator
-                </a>
+                {copied === 'script' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied === 'script' ? 'Copied' : 'Copy'}
               </Button>
             </div>
+            <div className="mt-4 rounded-xl border border-border/60 bg-foreground/[0.03] p-4">
+              <p className="text-sm text-foreground/90 italic leading-relaxed">&ldquo;{PITCH_SCRIPT}&rdquo;</p>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed mt-3">
+              Bring it up during the consultation, not at checkout. It feels like a gift, not an upsell — and you get
+              the signup before they leave.
+            </p>
           </CardContent>
         </Card>
 
-        <Card variant="glass" className="rounded-2xl">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <QrCode className="h-4 w-4 text-primary" />
-              <p className="text-sm font-semibold text-foreground">Print your QR code</p>
-            </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Put it on the chair, the consultation table, and the reception desk. Customers scan with their phone
-              camera — no link to type.
-            </p>
-            {joinUrl && (
-              <div className="mt-4">
+        {/* Two channels that do most of the work */}
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Card variant="glass" className="rounded-2xl">
+            <CardContent className="p-5 flex flex-col h-full">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                  <Instagram className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-primary/80">Online</p>
+                  <p className="text-sm font-semibold text-foreground">Share your link</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed mt-3 flex-1">
+                Drop your link in your Instagram bio, post it to stories, and DM your regulars. They sign up from their
+                couch — the pass shows up on their phone instantly.
+              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-4">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setQrOpen((v) => !v)
-                    if (!qrOpen) onQrSaved()
-                  }}
                   className="gap-1.5"
+                  onClick={() => copy('link', joinUrl)}
+                  disabled={!joinUrl}
                 >
-                  <QrCode className="h-3.5 w-3.5" />
-                  {qrOpen ? 'Hide QR code' : 'Show & download QR'}
+                  {copied === 'link' ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
+                  {copied === 'link' ? 'Copied!' : 'Copy link'}
                 </Button>
-                {qrOpen && (
-                  <div className="mt-4 flex flex-col items-center gap-3">
-                    <SignupQR url={joinUrl} studioName={studioName} size={160} className="w-48" />
-                    <p className="text-[11px] text-muted-foreground">Use the download icon to save it as a PNG.</p>
-                  </div>
-                )}
+                <Button asChild variant="ghost" size="sm" className="gap-1.5">
+                  <a href="/stories">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Stories
+                  </a>
+                </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          <Card variant="glass" className="rounded-2xl">
+            <CardContent className="p-5 flex flex-col h-full">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                  <QrCode className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-primary/80">In studio</p>
+                  <p className="text-sm font-semibold text-foreground">Print your QR code</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed mt-3 flex-1">
+                Put it on the chair, the consultation table, and the reception desk. Customers scan with their phone
+                camera — no link to type.
+              </p>
+              {joinUrl && (
+                <div className="mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setQrOpen((v) => !v)
+                      if (!qrOpen) onQrSaved()
+                    }}
+                    className="gap-1.5"
+                  >
+                    <QrCode className="h-3.5 w-3.5" />
+                    {qrOpen ? 'Hide QR' : 'Show & download'}
+                  </Button>
+                  {qrOpen && (
+                    <div className="mt-4 flex flex-col items-center gap-3">
+                      <SignupQR url={joinUrl} studioName={studioName} size={160} className="w-48" />
+                      <p className="text-[11px] text-muted-foreground">Use the download icon to save it as a PNG.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )
 }
 
-const STAFF_BRIEF = `We just launched a loyalty program. Here is what I need from every artist and front-desk person:
+const STAFF_INTRO =
+  'We just launched a loyalty program. Here is what I need from every artist and front-desk person:'
 
-1. We have a loyalty program — every customer gets cashback on every tattoo, automatically.
-2. Ask every customer, every time — not just new ones. Existing customers can sign up too.
-3. Bring it up during the consultation, not at checkout. It feels like a gift, not an upsell.
-4. The signup takes 30 seconds. They scan our QR code, fill in name + email + phone, and a wallet pass lands on their phone.
-5. When they come in to pay, they show us the wallet pass. We scan it with the Loyalink app and enter the amount. They earn cashback automatically.
+const STAFF_POINTS = [
+  'We have a loyalty program — every customer gets cashback on every tattoo, automatically.',
+  'Ask every customer, every time — not just new ones. Existing customers can sign up too.',
+  'Bring it up during the consultation, not at checkout. It feels like a gift, not an upsell.',
+  'The signup takes 30 seconds. They scan our QR code, fill in name + email + phone, and a wallet pass lands on their phone.',
+  'When they come in to pay, they show us the wallet pass. We scan it with the Loyalink app and enter the amount. They earn cashback automatically.',
+]
 
-If a customer hesitates: "It's free, it's automatic, and the card lives in your phone wallet — you don't have to install anything." That is usually enough.`
+const STAFF_HESITATION = `"It's free, it's automatic, and the card lives in your phone wallet — you don't have to install anything." That is usually enough.`
+
+// Plain-text version assembled from the structured brief for clipboard copy.
+const STAFF_BRIEF = [
+  STAFF_INTRO,
+  '',
+  ...STAFF_POINTS.map((p, i) => `${i + 1}. ${p}`),
+  '',
+  `If a customer hesitates: ${STAFF_HESITATION}`,
+].join('\n')
 
 function StepStaff({
   studioName,
@@ -693,19 +686,47 @@ function StepStaff({
       />
 
       <div className="grid gap-3">
-        <Card variant="glass" className="rounded-2xl">
-          <CardContent className="p-5">
-            <p className="text-sm font-semibold text-foreground">
-              {studioName ? `For the ${studioName} team` : 'For your team'}
-            </p>
-            <pre className="mt-3 whitespace-pre-wrap text-xs text-muted-foreground leading-relaxed font-sans">
-{STAFF_BRIEF}
-            </pre>
-            <div className="flex flex-wrap items-center gap-2 mt-4">
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={handleCopy}>
+        <Card variant="glass" className="rounded-2xl overflow-hidden">
+          <CardContent className="p-0">
+            <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border/50">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                  <Megaphone className="h-4 w-4 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-wider text-primary/80">Paste into your team chat</p>
+                  <p className="text-sm font-semibold text-foreground truncate">
+                    {studioName ? `For the ${studioName} team` : 'For your team'}
+                  </p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" className="gap-1.5 shrink-0" onClick={handleCopy}>
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                {copied ? 'Copied!' : 'Copy staff brief'}
+                {copied ? 'Copied' : 'Copy brief'}
               </Button>
+            </div>
+
+            <div className="p-5">
+              <p className="text-sm text-muted-foreground leading-relaxed">{STAFF_INTRO}</p>
+              <ol className="mt-4 space-y-3">
+                {STAFF_POINTS.map((point, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary text-[11px] font-bold tabular-nums">
+                      {i + 1}
+                    </span>
+                    <span className="text-sm text-foreground/90 leading-relaxed">{point}</span>
+                  </li>
+                ))}
+              </ol>
+              <div className="mt-4 flex gap-3 rounded-xl border border-primary/15 bg-primary/[0.05] p-3.5">
+                <MessageCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  <span className="font-medium text-foreground">If a customer hesitates:</span> {STAFF_HESITATION}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end px-5 pb-5">
               <Button variant="ghost" size="sm" className="gap-1.5" onClick={handleMark} disabled={marked}>
                 {marked ? <Check className="h-3.5 w-3.5" /> : null}
                 {marked ? 'Marked as briefed' : "I've briefed my team"}
