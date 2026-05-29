@@ -42,6 +42,12 @@ const embedHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Pin the workspace root to this project. A stray lockfile in the home
+  // directory otherwise makes Turbopack infer ~/ as the root and try to watch
+  // the entire home tree, which hangs dev startup at "Starting...".
+  turbopack: {
+    root: __dirname,
+  },
   experimental: {
     viewTransition: true,
   },
