@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
@@ -34,6 +34,7 @@ import { DEFAULT_CARD_FIELDS } from '@/types/database'
 import type { TierTheme, CardField } from '@/types/database'
 import {
   LandingPageMockup,
+  RecordTransactionMockup,
   ScannerMockup,
   WalletPassMockup,
   type LandingMock,
@@ -75,7 +76,21 @@ export default function WelcomePage() {
     () => ((currentStudio?.settings as Record<string, unknown> | undefined)?.currency as string) ?? 'kr',
     [currentStudio],
   )
-  const fmt = useCallback((n: number) => formatAmount(n, getCurrencyConfig(currency)), [currency])
+  // Representative numbers for the demo flow: a typical tattoo spend for the
+  // studio's currency and the cashback it earns at the base rate — kept
+  // internally consistent across the record + cashback steps.
+  const demo = useMemo(() => {
+    const cfg = getCurrencyConfig(currency)
+    const rate = rewardsConfig?.tiers?.[0]?.cashback_rate ?? 7.5
+    const spend = cfg.exampleAmount
+    const earned = Math.round((spend * rate) / 100)
+    return {
+      zero: formatAmount(0, cfg),
+      spend: formatAmount(spend, cfg),
+      earned: formatAmount(earned, cfg),
+      earnedPlus: `+${formatAmount(earned, cfg)}`,
+    }
+  }, [currency, rewardsConfig])
 
   // The studio's REAL wallet card — actual colours, logo, strip image, field
   // labels (in their language) and base cashback rate.
@@ -188,16 +203,17 @@ export default function WelcomePage() {
             <StepLoop
               pass={pass}
               landing={landing}
-              balanceZero={fmt(0)}
-              balanceFifty={fmt(50)}
-              earned={`+${fmt(50)}`}
+              balanceZero={demo.zero}
+              balanceEarned={demo.earned}
+              earned={demo.earnedPlus}
             />
           )}
           {stepId === 'scan' && (
             <StepScan
               pass={pass}
-              balanceFifty={fmt(50)}
-              earned={`+${fmt(50)}`}
+              spend={demo.spend}
+              balanceEarned={demo.earned}
+              earned={demo.earnedPlus}
               onAppDownloadClick={() => markStep('appDownloaded').catch(() => {})}
             />
           )}
@@ -326,13 +342,13 @@ function StepLoop({
   pass,
   landing,
   balanceZero,
-  balanceFifty,
+  balanceEarned,
   earned,
 }: {
   pass: PassMock
   landing: LandingMock
   balanceZero: string
-  balanceFifty: string
+  balanceEarned: string
   earned: string
 }) {
   return (
@@ -373,7 +389,7 @@ function StepLoop({
             <WalletPassMockup
               size="md"
               pass={pass}
-              balanceValue={balanceFifty}
+              balanceValue={balanceEarned}
               earnedValue={earned}
               showCashbackBurst
             />
@@ -386,12 +402,14 @@ function StepLoop({
 
 function StepScan({
   pass,
-  balanceFifty,
+  spend,
+  balanceEarned,
   earned,
   onAppDownloadClick,
 }: {
   pass: PassMock
-  balanceFifty: string
+  spend: string
+  balanceEarned: string
   earned: string
   onAppDownloadClick: () => void
 }) {
@@ -445,13 +463,19 @@ function StepScan({
         <StepRow
           index={2}
           reverse
+          title="Record the amount"
+          desc="Type in what they paid for the tattoo and tap Record. Loyalink works out their cashback for you — you never have to calculate anything."
+          mockup={<RecordTransactionMockup size="md" pass={pass} amountValue={spend} cashbackEarned={earned} />}
+        />
+        <StepRow
+          index={3}
           title="Cashback gets added"
-          desc={`Enter the amount they paid and cashback lands on their balance automatically at ${pass.cashbackValue}. Next visit, they can spend it — the flywheel starts.`}
+          desc={`The moment you tap Record, their balance updates on the pass — ${earned} at your ${pass.cashbackValue} rate. Next visit, they can spend it. The flywheel starts.`}
           mockup={
             <WalletPassMockup
               size="md"
               pass={pass}
-              balanceValue={balanceFifty}
+              balanceValue={balanceEarned}
               earnedValue={earned}
               showCashbackBurst
             />

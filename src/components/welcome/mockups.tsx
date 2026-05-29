@@ -1,6 +1,6 @@
 'use client'
 
-import { QrCode, ScanLine, Sparkles, Wallet, X } from 'lucide-react'
+import { ChevronLeft, QrCode, ScanLine, Sparkles, Wallet, X } from 'lucide-react'
 
 type Size = 'sm' | 'md' | 'lg'
 
@@ -507,6 +507,96 @@ function RealisticQR({ px }: { px: number }) {
       <path d="M24,18h1v1H24zM24,20h1v1H24zM24,22h1v1H24zM24,24h1v1H24z" fill="black" />
       <path d="M23,19h1v1H23zM23,21h1v1H23zM23,23h1v1H23z" fill="black" />
     </svg>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Record transaction — mirrors the real /customers/[id]/transaction screen:
+// a "Record transaction" header, the customer, a big hero amount with the
+// cashback rate, and a prominent Record button.
+// ──────────────────────────────────────────────────────────────────────────────
+
+export function RecordTransactionMockup({
+  size = 'md',
+  pass,
+  amountValue,
+  cashbackEarned,
+}: {
+  size?: Size
+  pass: PassMock
+  /** Formatted transaction amount, e.g. "5.000 kr". */
+  amountValue: string
+  /** Formatted cashback earned, e.g. "+375 kr". */
+  cashbackEarned: string
+}) {
+  const s = SIZE[size]
+  const accent = pass.accent
+  const initial = pass.memberValue.trim().charAt(0).toUpperCase() || 'A'
+  const amountFont = size === 'sm' ? 22 : size === 'md' ? 30 : 38
+  const avatar = size === 'sm' ? 14 : 18
+  const ctaH = size === 'sm' ? 20 : 26
+
+  return (
+    <PhoneFrame
+      size={size}
+      screenStyle={{
+        background:
+          'radial-gradient(120% 80% at 50% 0%, rgba(255,255,255,0.05), transparent 60%), #0b0b0d',
+      }}
+    >
+      <ScreenContent size={size} className={`${s.sidePad} flex flex-col`}>
+        {/* Header */}
+        <div className="flex items-center justify-between text-white/85">
+          <ChevronLeft style={{ width: size === 'sm' ? 10 : 13, height: size === 'sm' ? 10 : 13 }} />
+          <span className={`${s.tinyText} font-semibold`}>Record transaction</span>
+          <span style={{ width: size === 'sm' ? 10 : 13 }} />
+        </div>
+
+        {/* Customer */}
+        <div className="flex items-center gap-1.5 mt-2.5">
+          <div
+            className="rounded-full bg-white/10 ring-1 ring-white/15 flex items-center justify-center text-white font-semibold shrink-0"
+            style={{ width: avatar, height: avatar, fontSize: avatar * 0.5 }}
+          >
+            {initial}
+          </div>
+          <div className="min-w-0">
+            <p className={`${s.tinyText} font-semibold text-white leading-none truncate`}>{pass.memberValue}</p>
+            <p className="text-[6px] text-white/45 leading-none mt-0.5 uppercase tracking-wider">Member</p>
+          </div>
+        </div>
+
+        {/* Hero amount */}
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <p
+            className="font-bold tracking-tight text-white tabular-nums leading-none"
+            style={{ fontSize: amountFont }}
+          >
+            {amountValue}
+          </p>
+          <p className={`${s.tinyText} text-white/50 mt-1`}>{pass.cashbackValue} cashback</p>
+        </div>
+
+        {/* Cashback breakdown */}
+        <div
+          className="rounded-lg px-2 py-1.5 flex items-center justify-between"
+          style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
+        >
+          <span className={`${s.tinyText} text-white/55`}>Cashback</span>
+          <span className={`${s.tinyText} font-semibold`} style={{ color: '#34d399' }}>
+            {cashbackEarned}
+          </span>
+        </div>
+
+        {/* Record button */}
+        <div
+          className={`mt-2 mb-1 ${s.cardRadius} flex items-center justify-center font-semibold ${s.bodyText}`}
+          style={{ height: ctaH, backgroundColor: accent, color: readableText(accent) }}
+        >
+          Record {amountValue}
+        </div>
+      </ScreenContent>
+    </PhoneFrame>
   )
 }
 
