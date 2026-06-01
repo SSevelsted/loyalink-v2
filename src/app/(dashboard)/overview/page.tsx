@@ -18,6 +18,7 @@ import { MARKETING_URL } from '@/lib/constants'
 import { TRANSACTION_META, groupRelatedTransactions } from '@/lib/format'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { DownloadAppCard } from '@/components/layout/download-app-card'
+import { ActivationChecklist } from '../_components/activation-checklist'
 
 function ScanButton() {
   const [open, setOpen] = useState(false)
@@ -69,10 +70,13 @@ export default function DashboardPage() {
   const { data: txCount } = useQuery({
     queryKey: ['tx_count', currentStudio?.id],
     queryFn: async () => {
+      // Count only purchase rows — auto-generated cashback/balance-used rows
+      // are accounting side-effects of a single recorded transaction.
       const { count } = await supabase
         .from('transactions')
         .select('*', { count: 'exact', head: true })
         .eq('studio_id', currentStudio!.id)
+        .eq('type', 'credit')
       return count ?? 0
     },
     enabled: !!currentStudio,
@@ -81,12 +85,13 @@ export default function DashboardPage() {
   const { data: passCount } = useQuery({
     queryKey: ['pass_count', currentStudio?.id],
     queryFn: async () => {
-      const { count } = await supabase
+      const { data } = await supabase
         .from('wallet_passes')
-        .select('*', { count: 'exact', head: true })
+        .select('customer_id')
         .eq('studio_id', currentStudio!.id)
         .in('status', ['active', 'installed'])
-      return count ?? 0
+      if (!data) return 0
+      return new Set(data.map((row) => row.customer_id)).size
     },
     enabled: !!currentStudio,
   })
@@ -112,6 +117,8 @@ export default function DashboardPage() {
           Welcome back to {currentStudio?.name}
         </p>
       </div>
+
+      <ActivationChecklist />
 
       {/* Scan + Stats */}
       <div className="grid gap-4 xl:grid-cols-5">
@@ -267,13 +274,13 @@ export default function DashboardPage() {
                             {group.cashback && (
                               <span className="flex items-center gap-1 text-xs text-amber-400">
                                 <Sparkles className="h-3 w-3 shrink-0" />
-                                +{Math.abs(Number(group.cashback.amount)).toFixed(2)} kr
+                                +{formatAmount(Math.abs(Number(group.cashback.amount)), currencyCfg)}
                               </span>
                             )}
                             {group.balanceUsed && (
                               <span className="flex items-center gap-1 text-xs text-red-400">
                                 <Wallet className="h-3 w-3 shrink-0" />
-                                −{Math.abs(Number(group.balanceUsed.amount)).toFixed(2)} kr balance
+                                −{formatAmount(Math.abs(Number(group.balanceUsed.amount)), currencyCfg)} balance
                               </span>
                             )}
                           </div>
@@ -282,7 +289,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="text-right">
                       <span className={`text-sm font-semibold ${meta.amount}`}>
-                        {meta.sign}{Math.abs(Number(tx.amount)).toFixed(2)} kr
+                        {meta.sign}{formatAmount(Math.abs(Number(tx.amount)), currencyCfg)}
                       </span>
                       <p className="text-xs text-muted-foreground">
                         {new Date(tx.created_at).toLocaleDateString()}

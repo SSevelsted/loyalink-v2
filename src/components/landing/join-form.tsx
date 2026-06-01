@@ -88,6 +88,7 @@ export function JoinForm({
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [passUrl, setPassUrl] = useState<string | null>(null)
   const [altPassUrl, setAltPassUrl] = useState<string | null>(null)
+  const [altLoading, setAltLoading] = useState(false)
   const [customerId, setCustomerId] = useState<string | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -193,49 +194,54 @@ export function JoinForm({
         setPassUrl('failed')
       }
 
-      // Fetch alternate platform URL for fallback link
-      if (data.passUrl && data.customerId) {
-        try {
-          if (!data.customerAccessToken) return
-          const altPlatform = platform === 'apple' ? 'google' : 'apple'
-          const altRes = await fetch('/api/pass/generate', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${data.customerAccessToken}`,
-            },
-            body: JSON.stringify({
-              customerId: data.customerId,
-              platform: altPlatform,
-            }),
-          })
-          if (altRes.ok) {
-            const altData = await altRes.json()
-            if (altPlatform === 'google' && altData.saveUrl) {
-              const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
-              const saveUrl = altData.saveUrl.startsWith('http')
-                ? altData.saveUrl
-                : `${PASS_SERVICE}${altData.saveUrl}`
-              const saveRes = await fetch(saveUrl)
-              if (saveRes.ok) {
-                const saveData = await saveRes.json()
-                if (saveData.saveUrl) setAltPassUrl(saveData.saveUrl)
-              }
-            } else if (altPlatform === 'apple' && altData.passUrl) {
-              const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
-              const url = altData.passUrl.startsWith('http')
-                ? altData.passUrl
-                : `${PASS_SERVICE}${altData.passUrl}`
-              setAltPassUrl(url)
-            }
-          }
-        } catch {
-          // Non-critical — fallback link just won't appear
-        }
-      }
+      // Alt-platform pass is generated lazily — see ensureAltPass below.
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t.somethingWentWrong)
       setStatus('error')
+    }
+  }
+
+  const ensureAltPass = async (): Promise<string | null> => {
+    if (altPassUrl) return altPassUrl
+    if (altLoading) return null
+    if (!customerId || !accessToken) return null
+    setAltLoading(true)
+    try {
+      const altPlatform = platform === 'apple' ? 'google' : 'apple'
+      const altRes = await fetch('/api/pass/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ customerId, platform: altPlatform }),
+      })
+      if (!altRes.ok) return null
+      const altData = await altRes.json()
+      const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
+      if (altPlatform === 'google' && altData.saveUrl) {
+        const saveUrl = altData.saveUrl.startsWith('http')
+          ? altData.saveUrl
+          : `${PASS_SERVICE}${altData.saveUrl}`
+        const saveRes = await fetch(saveUrl)
+        if (!saveRes.ok) return null
+        const saveData = await saveRes.json()
+        if (saveData.saveUrl) {
+          setAltPassUrl(saveData.saveUrl)
+          return saveData.saveUrl as string
+        }
+      } else if (altPlatform === 'apple' && altData.passUrl) {
+        const url = altData.passUrl.startsWith('http')
+          ? altData.passUrl
+          : `${PASS_SERVICE}${altData.passUrl}`
+        setAltPassUrl(url)
+        return url
+      }
+      return null
+    } catch {
+      return null
+    } finally {
+      setAltLoading(false)
     }
   }
 
@@ -313,14 +319,16 @@ export function JoinForm({
                     {t.scanWithPhone}
                   </p>
 
-                  {/* Platform toggle — only show when both URLs are ready */}
-                  {altPassUrl && (
-                    <div className="flex justify-center">
-                      <div className="inline-flex rounded-full p-1 gap-1" style={{ backgroundColor: `${textColor || '#000'}15` }}>
-                        {(['apple', 'google'] as const).map((p) => (
+                  {/* Platform toggle — alt URL is fetched on demand */}
+                  <div className="flex justify-center">
+                    <div className="inline-flex rounded-full p-1 gap-1" style={{ backgroundColor: `${textColor || '#000'}15` }}>
+                      {(['apple', 'google'] as const).map((p) => (
                           <button
                             key={p}
-                            onClick={() => setQrPlatform(p)}
+                            onClick={() => {
+                              setQrPlatform(p)
+                              if (p !== platform) ensureAltPass()
+                            }}
                             className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium transition-all"
                             style={qrPlatform === p
                               ? { backgroundColor: accent, color: '#fff' }
@@ -344,7 +352,6 @@ export function JoinForm({
                         ))}
                       </div>
                     </div>
-                  )}
 
                   <div className="flex justify-center">
                     <div className="rounded-2xl bg-white p-4 shadow-md inline-block">
@@ -398,17 +405,23 @@ export function JoinForm({
                       {t.addToGoogleWallet}
                     </a>
                   )}
-                  {altPassUrl && (
-                    <a
-                      href={altPassUrl}
-                      target={platform === 'apple' ? '_blank' : undefined}
-                      rel={platform === 'apple' ? 'noopener noreferrer' : undefined}
-                      className="block text-center text-xs underline transition-opacity hover:opacity-80"
-                      style={textColor ? { color: textColor, opacity: 0.5 } : { color: 'var(--muted-foreground)' }}
-                    >
-                      {platform === 'apple' ? t.addToGoogleWallet : t.addToAppleWallet}
-                    </a>
-                  )}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const url = altPassUrl ?? (await ensureAltPass())
+                      if (!url) return
+                      if (platform === 'apple') {
+                        window.open(url, '_blank', 'noopener,noreferrer')
+                      } else {
+                        window.location.href = url
+                      }
+                    }}
+                    disabled={altLoading}
+                    className="block w-full text-center text-xs underline transition-opacity hover:opacity-80 disabled:opacity-40"
+                    style={textColor ? { color: textColor, opacity: 0.5 } : { color: 'var(--muted-foreground)' }}
+                  >
+                    {altLoading ? '…' : (platform === 'apple' ? t.addToGoogleWallet : t.addToAppleWallet)}
+                  </button>
                 </div>
               )
             ) : null}

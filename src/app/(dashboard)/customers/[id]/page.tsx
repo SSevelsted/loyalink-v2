@@ -159,10 +159,18 @@ export default function CustomerDetailPage() {
     }
   }, [referrals])
 
+  const displayPass = useMemo(() => {
+    if (!passes?.length) return null
+    const active = passes
+      .filter((p) => p.status === 'active' || p.status === 'installed')
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    return active[0] ?? passes[0]
+  }, [passes])
+
   const passTimeline = useMemo(() => {
     const events: Array<{ date: string; label: string; icon: 'created' | 'installed' | 'uninstalled' | 'updated' }> = []
-    if (passes?.length) {
-      const pass = passes[0]
+    if (displayPass) {
+      const pass = displayPass
       events.push({ date: pass.created_at, label: `${pass.platform === 'apple' ? 'Apple' : 'Google'} Wallet pass generated`, icon: 'created' })
       if (pass.updated_at !== pass.created_at) {
         events.push({ date: pass.updated_at, label: 'Pass last updated', icon: 'updated' })
@@ -179,7 +187,7 @@ export default function CustomerDetailPage() {
     }
     events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     return events
-  }, [passes, deviceRegs])
+  }, [displayPass, deviceRegs])
 
   const tierHistory = useMemo(() => {
     if (!customerEvents) return []
@@ -654,13 +662,13 @@ export default function CustomerDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {passes?.length ? (() => {
-              const passUrl = `/pass/${passes[0].serial_number}`
+            {displayPass ? (() => {
+              const passUrl = `/pass/${displayPass.serial_number}`
               return (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                      {passes[0].platform === 'apple' ? 'Apple' : 'Google'} Wallet &middot; {passes[0].status}
+                      {displayPass.platform === 'apple' ? 'Apple' : 'Google'} Wallet &middot; {displayPass.status}
                     </Badge>
                     <div className="flex items-center gap-2">
                       <Dialog open={shareOpen} onOpenChange={(open) => {

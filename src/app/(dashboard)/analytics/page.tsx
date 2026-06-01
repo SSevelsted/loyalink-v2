@@ -25,7 +25,7 @@ export default function AnalyticsPage() {
   const [tierFilter, setTierFilter] = useState<string | null>(null)
   const [customRange, setCustomRange] = useState<{ from: string; to: string } | undefined>()
 
-  const { data, isLoading } = useAnalyticsDashboard(preset, { tierFilter, customRange })
+  const { data, isLoading, error } = useAnalyticsDashboard(preset, { tierFilter, customRange })
   const { data: rewardsConfig } = useRewardsConfig()
 
   const showTrend = preset !== 'all'
@@ -68,8 +68,17 @@ export default function AnalyticsPage() {
         </>
       )}
 
+      {/* Error State */}
+      {error && !isLoading && (
+        <div className="py-20 text-center">
+          <BarChart3 className="h-10 w-10 text-red-400/40 mx-auto mb-4" />
+          <p className="text-sm text-foreground">Couldn&apos;t load analytics</p>
+          <p className="text-xs text-muted-foreground mt-1">{error.message}</p>
+        </div>
+      )}
+
       {/* Empty State */}
-      {isEmpty && !isLoading && (
+      {isEmpty && !isLoading && !error && (
         <div className="py-20 text-center">
           <BarChart3 className="h-10 w-10 text-muted-foreground/20 mx-auto mb-4" />
           <p className="text-sm text-muted-foreground">No data yet</p>
@@ -80,7 +89,7 @@ export default function AnalyticsPage() {
       )}
 
       {/* Data */}
-      {data && !isEmpty && (
+      {data && !isEmpty && !error && (
         <>
           {/* Row 1: KPI Cards */}
           <KpiCards data={data} showTrend={showTrend} />

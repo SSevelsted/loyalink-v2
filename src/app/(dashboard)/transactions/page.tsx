@@ -157,21 +157,26 @@ export default function TransactionsPage() {
     return result
   }, [transactions, datePreset, typeFilter, search, sortKey])
 
-  // Summary stats based on filtered results
-  const stats = useMemo(() => {
-    const count = filtered.length
-    const volume = filtered.reduce((sum, tx) => sum + Math.abs(Number(tx.amount)), 0)
-    const net = filtered.reduce((sum, tx) => {
-      const amt = Math.abs(Number(tx.amount))
-      return sum + (isPositive(tx.type) ? amt : -amt)
-    }, 0)
-    const avg = count > 0 ? volume / count : 0
-    return { count, volume, net, avg }
-  }, [filtered])
-
   const hasActiveFilters = typeFilter !== 'all' || datePreset !== 'all' || search.trim() !== ''
 
   const txGroups = useMemo(() => groupRelatedTransactions(filtered), [filtered])
+  const totalGroupCount = useMemo(
+    () => groupRelatedTransactions(transactions ?? []).length,
+    [transactions],
+  )
+
+  // Summary stats based on grouped results — a purchase + its auto-cashback
+  // + balance-used rows should count as one transaction, not three.
+  const stats = useMemo(() => {
+    const count = txGroups.length
+    const volume = txGroups.reduce((sum, g) => sum + Math.abs(Number(g.primary.amount)), 0)
+    const net = txGroups.reduce((sum, g) => {
+      const amt = Math.abs(Number(g.primary.amount))
+      return sum + (isPositive(g.primary.type) ? amt : -amt)
+    }, 0)
+    const avg = count > 0 ? volume / count : 0
+    return { count, volume, net, avg }
+  }, [txGroups])
   const grouped = useMemo(
     () => groupByDateLabel(txGroups.map((g) => ({ ...g, created_at: g.primary.created_at }))),
     [txGroups],
@@ -191,7 +196,7 @@ export default function TransactionsPage() {
           Transactions
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {transactions?.length ?? 0} total transactions
+          {totalGroupCount} total transactions
         </p>
       </div>
 

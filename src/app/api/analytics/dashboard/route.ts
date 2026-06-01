@@ -12,14 +12,13 @@ async function verifyStudioMember(studioId: string) {
   const { data: { user } } = await userClient.auth.getUser()
   if (!user) return { authorized: false as const, error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
 
-  const { data: membership } = await supabase
+  const { data: memberships } = await supabase
     .from('studio_members')
-    .select('id')
-    .eq('studio_id', studioId)
+    .select('studio_id, role')
     .eq('user_id', user.id)
-    .single()
 
-  if (!membership) return { authorized: false as const, error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+  const canAccess = (memberships ?? []).some((m) => m.studio_id === studioId || m.role === 'super_admin')
+  if (!canAccess) return { authorized: false as const, error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
   return { authorized: true as const, userId: user.id }
 }
 
