@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig } from '@/types/database'
 import type { RewardsConfig } from '@/types/database'
+import { verifyStudioAccess } from '@/lib/studio-access'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,24 +10,8 @@ const supabase = createAdminClient(
 )
 
 async function verifyStudioMember(studioId: string): Promise<{ authorized: boolean; error?: NextResponse }> {
-  const userClient = await createClient()
-  const { data: { user } } = await userClient.auth.getUser()
-
-  if (!user) {
-    return { authorized: false, error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-  }
-
-  const { data: membership } = await supabase
-    .from('studio_members')
-    .select('id')
-    .eq('studio_id', studioId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership) {
-    return { authorized: false, error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
-  }
-
+  const result = await verifyStudioAccess(studioId)
+  if (!result.authorized) return { authorized: false, error: result.error }
   return { authorized: true }
 }
 

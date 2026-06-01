@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { adminSupabase } from '@/lib/studio-access'
+import { adminSupabase, verifyStudioAccess } from '@/lib/studio-access'
 
 export async function GET(
   request: NextRequest,
@@ -8,12 +7,11 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const userClient = await createClient()
-    const { data: { user } } = await userClient.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
     const studioId = request.nextUrl.searchParams.get('studioId')
     if (!studioId) return NextResponse.json({ error: 'studioId required' }, { status: 400 })
+
+    const auth = await verifyStudioAccess(studioId, { requireAdmin: true })
+    if (!auth.authorized) return auth.error
 
     // Verify ownership
     const { data: webhook } = await adminSupabase
@@ -24,17 +22,6 @@ export async function GET(
       .single()
 
     if (!webhook) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-
-    const { data: membership } = await adminSupabase
-      .from('studio_members')
-      .select('role')
-      .eq('studio_id', studioId)
-      .eq('user_id', user.id)
-      .single()
-
-    if (!membership || !['owner', 'admin'].includes(membership.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
 
     const { data, error } = await adminSupabase
       .from('webhook_deliveries')

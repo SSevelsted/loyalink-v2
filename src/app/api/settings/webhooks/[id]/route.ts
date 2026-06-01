@@ -1,28 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { adminSupabase } from '@/lib/studio-access'
+import { adminSupabase, verifyStudioAccess } from '@/lib/studio-access'
 import { auditLog } from '@/lib/audit-log'
 
 async function getAuthedStudioId(request: NextRequest): Promise<{ studioId: string; userId: string; error?: never } | { studioId?: never; userId?: never; error: NextResponse }> {
-  const userClient = await createClient()
-  const { data: { user } } = await userClient.auth.getUser()
-  if (!user) return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-
   const studioId = request.nextUrl.searchParams.get('studioId')
   if (!studioId) return { error: NextResponse.json({ error: 'studioId required' }, { status: 400 }) }
 
-  const { data: membership } = await adminSupabase
-    .from('studio_members')
-    .select('role')
-    .eq('studio_id', studioId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership || !['owner', 'admin'].includes(membership.role)) {
-    return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
-  }
-
-  return { studioId, userId: user.id }
+  const result = await verifyStudioAccess(studioId, { requireAdmin: true })
+  if (!result.authorized) return { error: result.error }
+  return { studioId, userId: result.userId }
 }
 
 export async function PATCH(

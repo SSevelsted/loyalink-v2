@@ -1,26 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { adminSupabase } from '@/lib/studio-access'
+import { adminSupabase, verifyStudioAccess } from '@/lib/studio-access'
 import { applyPromotion, PromotionError } from '@/lib/services/promotion-service'
 
 type Params = { params: Promise<{ id: string }> }
 
 async function verifyAdmin(studioId: string) {
-  const userClient = await createClient()
-  const { data: { user } } = await userClient.auth.getUser()
-  if (!user) return { authorized: false as const, error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }), userId: '' }
-
-  const { data: membership } = await adminSupabase
-    .from('studio_members')
-    .select('role')
-    .eq('studio_id', studioId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership || !['owner', 'admin'].includes(membership.role)) {
-    return { authorized: false as const, error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }), userId: '' }
-  }
-  return { authorized: true as const, userId: user.id, error: undefined }
+  const result = await verifyStudioAccess(studioId, { requireAdmin: true })
+  if (!result.authorized) return { authorized: false as const, error: result.error, userId: '' }
+  return { authorized: true as const, userId: result.userId, error: undefined }
 }
 
 export async function GET(request: NextRequest, { params }: Params) {

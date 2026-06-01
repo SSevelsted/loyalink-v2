@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { migrateRewardsConfig } from '@/types/database'
 import { MARKETING_URL } from '@/lib/constants'
+import { verifyStudioAccess } from '@/lib/studio-access'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -145,13 +145,6 @@ For refinements: output the complete updated HTML document.`
 }
 
 export async function POST(request: NextRequest) {
-  // Auth
-  const userClient = await createClient()
-  const { data: { user } } = await userClient.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   const body = await request.json()
   const { studioId, messages } = body as { studioId: string; messages: StoryMessage[] }
 
@@ -159,17 +152,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'studioId and messages are required' }, { status: 400 })
   }
 
-  // Verify membership
-  const { data: membership } = await supabase
-    .from('studio_members')
-    .select('id')
-    .eq('studio_id', studioId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const auth = await verifyStudioAccess(studioId)
+  if (!auth.authorized) return auth.error
 
   // Turn limit
   const assistantTurns = messages.filter((m) => m.role === 'assistant').length
