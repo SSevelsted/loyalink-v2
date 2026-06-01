@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { verifyStudioAccess } from '@/lib/studio-access'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,19 +8,9 @@ const supabase = createAdminClient(
 )
 
 async function verifyStudioMember(studioId: string) {
-  const userClient = await createClient()
-  const { data: { user } } = await userClient.auth.getUser()
-  if (!user) return { authorized: false as const, error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-
-  const { data: membership } = await supabase
-    .from('studio_members')
-    .select('id')
-    .eq('studio_id', studioId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership) return { authorized: false as const, error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
-  return { authorized: true as const, userId: user.id }
+  const result = await verifyStudioAccess(studioId)
+  if (!result.authorized) return { authorized: false as const, error: result.error }
+  return { authorized: true as const, userId: result.userId }
 }
 
 export async function GET(

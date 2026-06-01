@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { adminSupabase } from '@/lib/studio-access'
+import { adminSupabase, verifyStudioAccess } from '@/lib/studio-access'
 import { auditLog } from '@/lib/audit-log'
 
 export async function DELETE(
@@ -12,20 +11,8 @@ export async function DELETE(
     const studioId = request.nextUrl.searchParams.get('studioId')
     if (!studioId) return NextResponse.json({ error: 'studioId required' }, { status: 400 })
 
-    const userClient = await createClient()
-    const { data: { user } } = await userClient.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const { data: membership } = await adminSupabase
-      .from('studio_members')
-      .select('role')
-      .eq('studio_id', studioId)
-      .eq('user_id', user.id)
-      .single()
-
-    if (!membership || !['owner', 'admin'].includes(membership.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const auth = await verifyStudioAccess(studioId, { requireAdmin: true })
+    if (!auth.authorized) return auth.error
 
     const { error } = await adminSupabase
       .from('api_keys')
@@ -38,7 +25,7 @@ export async function DELETE(
     void auditLog({
       action: 'api_key.revoked',
       studioId,
-      actorId: user.id,
+      actorId: auth.userId,
       actorType: 'user',
       targetType: 'api_key',
       targetId: id,

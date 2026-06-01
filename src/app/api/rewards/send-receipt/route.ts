@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { sendTransactionReceipt, type ReceiptData } from '@/lib/email/send'
-
-const supabase = createAdminClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { verifyStudioAccess } from '@/lib/studio-access'
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,23 +26,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'customerId and studioId are required' }, { status: 400 })
     }
 
-    // Auth check
-    const userClient = await createClient()
-    const { data: { user } } = await userClient.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: membership } = await supabase
-      .from('studio_members')
-      .select('id')
-      .eq('studio_id', studioId)
-      .eq('user_id', user.id)
-      .single()
-
-    if (!membership) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const auth = await verifyStudioAccess(studioId)
+    if (!auth.authorized) return auth.error
 
     const txData: ReceiptData = {
       amount,
