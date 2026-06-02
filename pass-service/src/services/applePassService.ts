@@ -505,7 +505,6 @@ export class ApplePassService {
         format: 'PKBarcodeFormatQR',
         message: `${appUrl}/refer/${data.memberId}`,
         messageEncoding: 'iso-8859-1',
-        altText: data.memberId,
       },
       // Modern field (iOS 9+)
       barcodes: [
@@ -513,7 +512,6 @@ export class ApplePassService {
           format: 'PKBarcodeFormatQR',
           message: `${appUrl}/refer/${data.memberId}`,
           messageEncoding: 'iso-8859-1',
-          altText: data.memberId,
         },
       ],
     };

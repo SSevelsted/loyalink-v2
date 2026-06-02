@@ -196,7 +196,6 @@ export class GoogleWalletService {
       barcode: {
         type: 'QR_CODE',
         value: `${appUrl}/refer/${data.memberId}`,
-        alternateText: data.memberId,
       },
     };
 
@@ -303,7 +302,6 @@ export class GoogleWalletService {
               barcode: {
                 type: 'QR_CODE',
                 value: `${appUrl}/refer/${objectData.memberId}`,
-                alternateText: objectData.memberId,
               },
             },
           ],

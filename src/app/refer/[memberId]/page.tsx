@@ -1,5 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
+import { adminSupabase } from '@/lib/studio-access'
+import { customAlphabet } from 'nanoid'
 import { notFound } from 'next/navigation'
+
+const generateReferralCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 8)
 import { JoinForm } from '@/components/landing/join-form'
 import { Badge } from '@/components/ui/badge'
 import { Clock, Shield, Smartphone, Users } from 'lucide-react'
@@ -35,7 +39,15 @@ export default async function ReferralLandingPage({ params }: Props) {
     customer = byId
   }
 
-  if (!customer || !customer.referral_code) notFound()
+  if (!customer) notFound()
+
+  // Some legacy/edge creation paths never assigned a referral_code. Generate one
+  // lazily (and persist it) so a customer's referral QR never dead-ends on a 404.
+  let referralCode = customer.referral_code as string | null
+  if (!referralCode) {
+    referralCode = generateReferralCode()
+    await adminSupabase.from('customers').update({ referral_code: referralCode }).eq('id', customer.id)
+  }
 
   const studio = customer.studios as unknown as { id: string; name: string; slug: string; settings: Record<string, unknown> } | null
   if (!studio) notFound()
@@ -159,7 +171,7 @@ export default async function ReferralLandingPage({ params }: Props) {
           buttonText={settings.buttonText || t.joinAndGetBonus}
           showEmail={settings.showEmail ?? true}
           showPhone={settings.showPhone ?? true}
-          referralCode={customer.referral_code}
+          referralCode={referralCode}
           language={language}
           defaultCountry={(studioSettings.address_country as string) ?? undefined}
         />
