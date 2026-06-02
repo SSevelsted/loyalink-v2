@@ -48,7 +48,19 @@ export function ScanDialog({
   }, [open])
 
   const lookupCustomer = async (value: string) => {
-    const raw = value.trim()
+    let raw = value.trim()
+
+    // The loyalty card QR is multi-purpose: it encodes the referral URL
+    // (…/refer/<memberId>) so a customer's phone camera opens the referral page.
+    // When the studio scans it in-app, pull the member id back out of the URL so
+    // the lookup below can identify the customer. Bare ids — older passes that
+    // still encode the raw id, manual entry, and legacy cards — fall through
+    // unchanged.
+    const referMatch = raw.match(/\/refer\/([^/?#\s]+)/i)
+    if (referMatch) {
+      raw = decodeURIComponent(referMatch[1])
+    }
+
     const stripped = raw.replace(/\s+/g, '')
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)
 
