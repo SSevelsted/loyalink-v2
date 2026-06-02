@@ -32,9 +32,11 @@ import {
   CreditCard,
   DollarSign,
   Download,
+  Minus,
   Pencil,
   Percent,
   Plus,
+  SlidersHorizontal,
   Share2,
   ShoppingBag,
   Smartphone,
@@ -103,6 +105,11 @@ export default function CustomerDetailPage() {
   const [editTierOpen, setEditTierOpen] = useState(false)
   const [editBalanceOpen, setEditBalanceOpen] = useState(false)
   const [editBalanceValue, setEditBalanceValue] = useState('')
+  const [adjustOpen, setAdjustOpen] = useState(false)
+  const [adjustAmount, setAdjustAmount] = useState('')
+  const [adjustDirection, setAdjustDirection] = useState<'add' | 'subtract'>('add')
+  const [adjustReason, setAdjustReason] = useState('')
+  const [adjustSubmitting, setAdjustSubmitting] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
   const [promoOpen, setPromoOpen] = useState(false)
@@ -235,18 +242,78 @@ export default function CustomerDetailPage() {
   }
 
   const handleSetBalance = async () => {
+    if (!customer || !currentStudio) return
     const value = parseFloat(editBalanceValue)
     if (isNaN(value)) return
+    const delta = value - Number(customer.balance)
+    if (delta !== 0) {
+      const { error: txErr } = await supabase.from('transactions').insert({
+        customer_id: customer.id,
+        studio_id: currentStudio.id,
+        type: 'adjustment',
+        amount: delta,
+        description: `Balance override (set to ${formatAmount(value, currencyConfig)})`,
+      })
+      if (txErr) {
+        toast.error(txErr.message)
+        return
+      }
+    }
     await updateCustomer.mutateAsync({ id: customer.id, balance: value })
+    queryClient.invalidateQueries({ queryKey: ['transactions', customer.id] })
+    queryClient.invalidateQueries({ queryKey: ['all_transactions'] })
+    queryClient.invalidateQueries({ queryKey: ['customer_events', customer.id] })
     toast.success('Balance updated')
     setEditBalanceOpen(false)
     setEditBalanceValue('')
-    if (currentStudio) {
+    fetch('/api/pass/push/customer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerId: customer.id }),
+    }).catch(() => {})
+  }
+
+  const handleAdjustBalance = async () => {
+    if (!customer || !currentStudio) return
+    const raw = parseFloat(adjustAmount.replace(',', '.'))
+    if (isNaN(raw) || raw <= 0) {
+      toast.error('Enter a positive amount')
+      return
+    }
+    const delta = adjustDirection === 'add' ? raw : -raw
+    const newBalance = Number(customer.balance) + delta
+    if (newBalance < 0) {
+      toast.error('Resulting balance cannot be negative')
+      return
+    }
+    setAdjustSubmitting(true)
+    try {
+      const { error: txErr } = await supabase.from('transactions').insert({
+        customer_id: customer.id,
+        studio_id: currentStudio.id,
+        type: 'adjustment',
+        amount: delta,
+        description: adjustReason.trim() || `Manual ${adjustDirection === 'add' ? 'credit' : 'debit'}`,
+      })
+      if (txErr) throw new Error(txErr.message)
+      await updateCustomer.mutateAsync({ id: customer.id, balance: newBalance })
+      queryClient.invalidateQueries({ queryKey: ['transactions', customer.id] })
+      queryClient.invalidateQueries({ queryKey: ['all_transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['customer_events', customer.id] })
+      toast.success(`Balance ${adjustDirection === 'add' ? 'increased' : 'decreased'} by ${formatAmount(raw, currencyConfig)}`)
+      setAdjustOpen(false)
+      setAdjustAmount('')
+      setAdjustReason('')
+      setAdjustDirection('add')
       fetch('/api/pass/push/customer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customerId: customer.id }),
       }).catch(() => {})
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to adjust balance')
+    } finally {
+      setAdjustSubmitting(false)
     }
   }
 
@@ -345,6 +412,17 @@ export default function CustomerDetailPage() {
                 Record Transaction
               </Link>
             </Button>
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-muted-foreground hover:text-foreground"
+                onClick={() => setAdjustOpen(true)}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5 mr-1.5" />
+                Adjust Balance
+              </Button>
+            )}
             {isAdmin && !activePromo && activeTemplates.length > 0 && (
               <Button size="sm" variant="outline" onClick={() => setPromoOpen(true)}>
                 <Gift className="h-3.5 w-3.5 mr-1.5" />
@@ -465,6 +543,99 @@ export default function CustomerDetailPage() {
               }}
             >
               Apply Promotion
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Adjust Balance Dialog */}
+      <Dialog open={adjustOpen} onOpenChange={(open) => {
+        setAdjustOpen(open)
+        if (!open) {
+          setAdjustAmount('')
+          setAdjustReason('')
+          setAdjustDirection('add')
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adjust Balance</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Manually add or subtract from this customer&apos;s balance. The change is recorded as an adjustment transaction.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setAdjustDirection('add')}
+                className={`rounded-lg border p-3 flex items-center justify-center gap-2 text-sm font-medium transition-colors ${
+                  adjustDirection === 'add'
+                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                    : 'border-border text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Plus className="h-4 w-4" />
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdjustDirection('subtract')}
+                className={`rounded-lg border p-3 flex items-center justify-center gap-2 text-sm font-medium transition-colors ${
+                  adjustDirection === 'subtract'
+                    ? 'border-red-500/40 bg-red-500/10 text-red-400'
+                    : 'border-border text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Minus className="h-4 w-4" />
+                Subtract
+              </button>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider">Amount</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                value={adjustAmount}
+                onChange={(e) => setAdjustAmount(e.target.value)}
+                placeholder="0.00"
+                className="bg-secondary/50"
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                Current balance: {formatAmount(Number(customer.balance), currencyConfig)}
+                {adjustAmount && !isNaN(parseFloat(adjustAmount.replace(',', '.'))) && (
+                  <>
+                    {' → '}
+                    {formatAmount(
+                      Number(customer.balance) +
+                        (adjustDirection === 'add' ? 1 : -1) * parseFloat(adjustAmount.replace(',', '.')),
+                      currencyConfig
+                    )}
+                  </>
+                )}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider">Reason (optional)</Label>
+              <Input
+                type="text"
+                value={adjustReason}
+                onChange={(e) => setAdjustReason(e.target.value)}
+                placeholder="e.g. Goodwill credit, refund correction"
+                className="bg-secondary/50"
+              />
+            </div>
+            <Button
+              onClick={handleAdjustBalance}
+              className="w-full"
+              disabled={!adjustAmount || adjustSubmitting}
+            >
+              {adjustSubmitting
+                ? 'Saving...'
+                : `${adjustDirection === 'add' ? 'Add to' : 'Subtract from'} balance`}
             </Button>
           </div>
         </DialogContent>
