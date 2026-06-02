@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { PassTemplate, WalletPass, WalletPushLog, WalletDeviceRegistration } from '@/types/database'
 import { DEFAULT_TIER_THEMES, DEFAULT_CARD_FIELDS, DEFAULT_STATIC_TEXTS } from '@/types/database'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { useStudio } from './use-studio'
 
 export function usePassTemplates() {
@@ -73,11 +74,18 @@ export function useGeneratePass() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customerId: params.customerId }),
       })
-      if (!res.ok) throw new Error('Failed to generate pass')
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || 'Failed to generate pass')
+      }
       return res.json()
     },
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['wallet_passes', vars.customerId] })
+      toast.success('Wallet pass generated')
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to generate pass')
     },
   })
 }
