@@ -194,6 +194,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
           successMessage={settings.successMessage}
           termsUrl={settings.termsUrl || `${MARKETING_URL}/join/${slug}/terms`}
           language={language}
+          defaultCountry={(pageSettings.address_country as string) ?? (studioSettings.address_country as string) ?? undefined}
         />
 
         <WalletTrustBadge textColor={txtColor} />

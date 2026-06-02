@@ -161,6 +161,7 @@ export default async function ReferralLandingPage({ params }: Props) {
           showPhone={settings.showPhone ?? true}
           referralCode={customer.referral_code}
           language={language}
+          defaultCountry={(studioSettings.address_country as string) ?? undefined}
         />
       </div>
     </div>

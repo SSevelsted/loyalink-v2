@@ -65,6 +65,7 @@ export function JoinForm({
   successMessage,
   termsUrl,
   language,
+  defaultCountry,
 }: {
   studioId: string
   landingPageId: string
@@ -80,11 +81,16 @@ export function JoinForm({
   successMessage?: string
   termsUrl?: string
   language?: string
+  defaultCountry?: string
 }) {
   const t = getSignupTranslations(language)
   const [form, setForm] = useState({ name: '', email: '', phone: '' })
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
-  const [countryCode, setCountryCode] = useState('+45')
+  const initialCountryCode =
+    COUNTRY_CODES.find(
+      (c) => c.country === (defaultCountry ?? '').toUpperCase(),
+    )?.code ?? '+45'
+  const [countryCode, setCountryCode] = useState(initialCountryCode)
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [passUrl, setPassUrl] = useState<string | null>(null)
   const [altPassUrl, setAltPassUrl] = useState<string | null>(null)
