@@ -7,6 +7,9 @@ const config: CapacitorConfig = {
     url: 'https://my.loyalink.ai/login',
     cleartext: false,
     allowNavigation: ['my.loyalink.ai', '*.loyalink.ai', '*.supabase.co', '*.stripe.com'],
+    // Branded retry page loaded from the local server when the main frame
+    // fails to load (e.g. transient ERR_NAME_NOT_RESOLVED on Android WebView).
+    errorPath: 'error.html',
   },
   ios: {
     scheme: 'Loyalink',

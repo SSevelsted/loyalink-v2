@@ -7,7 +7,8 @@
     "build": "next build",
     "analyze": "ANALYZE=true next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "mobile:sync": "cap sync && node scripts/copy-mobile-assets.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

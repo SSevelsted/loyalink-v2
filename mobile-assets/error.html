@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Loyalink</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    height: 100%;
+    background: #09090b;
+    color: #fafafa;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+  }
+  body {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 24px;
+    text-align: center;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  .mark {
+    width: 56px; height: 56px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+    margin-bottom: 28px;
+    box-shadow: 0 12px 32px rgba(139, 92, 246, 0.25);
+  }
+  .spinner {
+    width: 26px; height: 26px;
+    border: 2px solid rgba(255,255,255,0.12);
+    border-top-color: #8b5cf6;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+    margin-bottom: 20px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  h1 {
+    font-size: 17px; font-weight: 600;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  p {
+    font-size: 14px;
+    color: rgba(255,255,255,0.5);
+    margin: 0 0 28px;
+    max-width: 280px;
+    line-height: 1.5;
+  }
+  button {
+    appearance: none;
+    background: #8b5cf6;
+    color: white;
+    border: none;
+    padding: 13px 26px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    display: none;
+  }
+  button:active { opacity: 0.8; transform: scale(0.98); }
+  .hint {
+    display: none;
+    margin-top: 16px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.35);
+    max-width: 260px;
+    line-height: 1.5;
+  }
+  .show { display: block; }
+</style>
+</head>
+<body>
+  <div class="mark" aria-hidden="true"></div>
+  <div class="spinner" id="spinner" aria-hidden="true"></div>
+  <h1 id="title">Connecting…</h1>
+  <p id="subtitle">Just a moment.</p>
+  <button id="retry" type="button">Try again</button>
+  <div class="hint" id="hint">If this keeps happening, switch between Wi-Fi and mobile data once.</div>
+  <script>
+    (function () {
+      var TARGET = 'https://my.loyalink.ai/login';
+
+      // Reset the attempt counter if the last failure was a while ago — that
+      // means the previous session recovered and this is a fresh problem.
+      var now = Date.now();
+      var lastAt = parseInt(sessionStorage.getItem('ll_last_at') || '0', 10) || 0;
+      var prior = parseInt(sessionStorage.getItem('ll_attempts') || '0', 10) || 0;
+      if (now - lastAt > 30000) prior = 0;
+
+      var attempts = prior + 1;
+      sessionStorage.setItem('ll_attempts', String(attempts));
+      sessionStorage.setItem('ll_last_at', String(now));
+
+      // Quiet auto-retries with backoff. After three, surface a manual button.
+      var backoffMs = attempts === 1 ? 1500
+                    : attempts === 2 ? 3000
+                    : attempts === 3 ? 6000
+                    : null;
+
+      function go() { window.location.href = TARGET; }
+
+      var spinner = document.getElementById('spinner');
+      var title   = document.getElementById('title');
+      var sub     = document.getElementById('subtitle');
+      var retry   = document.getElementById('retry');
+      var hint    = document.getElementById('hint');
+
+      retry.addEventListener('click', function () {
+        sessionStorage.setItem('ll_attempts', '0');
+        spinner.style.display = 'block';
+        retry.classList.remove('show');
+        hint.classList.remove('show');
+        title.textContent = 'Connecting…';
+        sub.textContent = 'Just a moment.';
+        setTimeout(go, 350);
+      });
+
+      if (backoffMs !== null) {
+        setTimeout(go, backoffMs);
+      } else {
+        spinner.style.display = 'none';
+        title.textContent = 'Can’t reach Loyalink';
+        sub.textContent = 'Check your connection and try again.';
+        retry.classList.add('show');
+        hint.classList.add('show');
+      }
+    })();
+  </script>
+</body>
+</html>
