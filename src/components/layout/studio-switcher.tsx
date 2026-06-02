@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import Image from 'next/image'
 import { useStudio } from '@/hooks/use-studio'
 import { usePassTemplates } from '@/hooks/use-wallet'
@@ -13,31 +13,21 @@ import {
   SelectSeparator,
   SelectTrigger,
 } from '@/components/ui/select'
-import { ChevronsUpDown, Shield, Search } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { ChevronsUpDown, Shield } from 'lucide-react'
 
 export function StudioSwitcher() {
   const { studios, currentStudio, setCurrentStudioId, isSuperAdmin, ownStudioIds } = useStudio()
   const { data: templates } = usePassTemplates()
-  const [search, setSearch] = useState('')
 
   const studioLogo = templates?.[0]?.icon_url ?? templates?.[0]?.logo_url
 
-  const showSearch = studios.length > 5
-
-  const filteredStudios = useMemo(() => {
-    if (!search) return studios
-    const q = search.toLowerCase()
-    return studios.filter((s) => s.name.toLowerCase().includes(q) || s.slug.toLowerCase().includes(q))
-  }, [studios, search])
-
   const ownStudios = useMemo(
-    () => filteredStudios.filter((s) => ownStudioIds.has(s.id)),
-    [filteredStudios, ownStudioIds]
+    () => studios.filter((s) => ownStudioIds.has(s.id)),
+    [studios, ownStudioIds]
   )
   const otherStudios = useMemo(
-    () => filteredStudios.filter((s) => !ownStudioIds.has(s.id)),
-    [filteredStudios, ownStudioIds]
+    () => studios.filter((s) => !ownStudioIds.has(s.id)),
+    [studios, ownStudioIds]
   )
 
   if (!isSuperAdmin && studios.length <= 1) return null
@@ -68,22 +58,7 @@ export function StudioSwitcher() {
         </div>
         <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
       </SelectTrigger>
-      <SelectContent>
-        {showSearch && (
-          <div className="px-2 pb-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search studios..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-8 pl-8 text-xs"
-                onKeyDown={(e) => e.stopPropagation()}
-              />
-            </div>
-          </div>
-        )}
-
+      <SelectContent position="popper">
         {isSuperAdmin ? (
           <>
             {ownStudios.length > 0 && (
@@ -110,12 +85,12 @@ export function StudioSwitcher() {
                 ))}
               </SelectGroup>
             )}
-            {filteredStudios.length === 0 && (
+            {studios.length === 0 && (
               <div className="py-4 text-center text-xs text-muted-foreground">No studios found</div>
             )}
           </>
         ) : (
-          filteredStudios.map((studio) => (
+          studios.map((studio) => (
             <SelectItem key={studio.id} value={studio.id}>
               {studio.name}
             </SelectItem>
