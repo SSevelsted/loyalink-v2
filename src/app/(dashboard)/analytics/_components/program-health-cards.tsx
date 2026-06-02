@@ -53,7 +53,7 @@ export function ProgramHealthCards({ data }: ProgramHealthCardsProps) {
   return (
     <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
       {metrics.map((metric) => (
-        <Card key={metric.label} variant="glass" className="rounded-2xl">
+        <Card key={metric.label} variant="glass-hover" className="rounded-2xl">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground mb-2">{metric.label}</p>
             <p className="text-2xl font-bold text-foreground">{metric.value}</p>

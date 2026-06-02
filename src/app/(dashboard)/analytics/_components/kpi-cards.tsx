@@ -113,7 +113,7 @@ export function KpiCards({ data, showTrend }: KpiCardsProps) {
       {/* Secondary KPIs — compact row */}
       <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
         {secondaryKpis.map((kpi) => (
-          <Card key={kpi.label} variant="glass" className="rounded-2xl">
+          <Card key={kpi.label} variant="glass-hover" className="rounded-2xl">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className={`h-6 w-6 rounded-lg ${kpi.iconBg} flex items-center justify-center`}>
