@@ -101,7 +101,7 @@ export function InsightsCards({ data }: InsightsCardsProps) {
   return (
     <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
       {cards.map((card) => (
-        <Card key={card.label} variant="glass" className="rounded-2xl">
+        <Card key={card.label} variant="glass-hover" className="rounded-2xl">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-3">
               <div className={`h-7 w-7 rounded-lg ${card.iconBg} flex items-center justify-center`}>
