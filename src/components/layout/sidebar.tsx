@@ -51,10 +51,13 @@ const navItems = [
 export function AppSidebar() {
   const pathname = usePathname()
   const { setOpenMobile, isMobile } = useSidebar()
-  const { currentStudio, membership, studios, isSuperAdmin, ownStudioIds } = useStudio()
+  const { currentStudio, studios, isSuperAdmin, ownStudioIds } = useStudio()
   const { data: templates } = usePassTemplates()
 
-  const showAdmin = membership?.role === 'super_admin'
+  // Super admin is a global capability — show the Admin tab on every studio,
+  // not just ones where the user has no real membership. (On studios they also
+  // own, membership.role is 'owner', which previously hid the tab.)
+  const showAdmin = isSuperAdmin
   const showSwitcher = isSuperAdmin || studios.length > 1
   const isViewingOtherStudio = isSuperAdmin && currentStudio && !ownStudioIds.has(currentStudio.id)
   const studioLogo = templates?.[0]?.icon_url ?? templates?.[0]?.logo_url
