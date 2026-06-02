@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getBearerToken, verifyCustomerAccessToken } from '@/lib/customer-access'
 import { passServiceFetch } from '@/lib/pass-service'
-import { adminSupabase, getSessionUser, isStudioMember } from '@/lib/studio-access'
+import { adminSupabase, verifyStudioAccess } from '@/lib/studio-access'
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,19 +26,14 @@ export async function POST(request: NextRequest) {
     const bearer = getBearerToken(request.headers.get('authorization'))
     const customerAccess = verifyCustomerAccessToken(bearer)
 
-    let authorized = customerAccess?.customerId === customer.id
-
-    if (!authorized) {
-      const user = await getSessionUser()
-      if (!user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Customer self-service authenticates with an access token; staff use their
+    // session. verifyStudioAccess honors super_admin (access to any studio),
+    // matching the rest of the studio-scoped API routes (see PR #6).
+    if (customerAccess?.customerId !== customer.id) {
+      const access = await verifyStudioAccess(customer.studio_id)
+      if (!access.authorized) {
+        return access.error
       }
-
-      authorized = await isStudioMember(user.id, customer.studio_id)
-    }
-
-    if (!authorized) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const passResponse = await passServiceFetch('/api/passes/generate', {
