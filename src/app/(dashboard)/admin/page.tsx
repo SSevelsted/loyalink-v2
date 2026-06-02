@@ -22,10 +22,12 @@ const SECTIONS = [
 type SectionId = (typeof SECTIONS)[number]['id']
 
 export default function AdminPage() {
-  const { membership } = useStudio()
+  const { isSuperAdmin } = useStudio()
   const [activeSection, setActiveSection] = useState<SectionId>('overview')
 
-  if (membership?.role !== 'super_admin') {
+  // Super admin is a global capability — don't gate on the current studio's
+  // membership role (which is 'owner' on studios the super_admin also owns).
+  if (!isSuperAdmin) {
     return (
       <div className="flex items-center justify-center py-20">
         <p className="text-muted-foreground">Access denied</p>
