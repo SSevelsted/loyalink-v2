@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { GoogleAuth } from 'google-auth-library';
-import { googleConfig } from '../config.js';
+import { googleConfig, appUrl } from '../config.js';
 
 /**
  * Customer-facing labels rendered on the Google Wallet pass surface. Mirrors
@@ -191,9 +191,12 @@ export class GoogleWalletService {
           body: `${data.cashbackRate}%`,
         },
       ],
+      // Multi-purpose QR: encodes the referral URL (phone camera → referral page);
+      // the in-app studio scanner extracts the member id from the trailing segment.
       barcode: {
         type: 'QR_CODE',
-        value: data.memberId,
+        value: `${appUrl}/refer/${data.memberId}`,
+        alternateText: data.memberId,
       },
     };
 
@@ -299,7 +302,8 @@ export class GoogleWalletService {
               ],
               barcode: {
                 type: 'QR_CODE',
-                value: objectData.memberId,
+                value: `${appUrl}/refer/${objectData.memberId}`,
+                alternateText: objectData.memberId,
               },
             },
           ],

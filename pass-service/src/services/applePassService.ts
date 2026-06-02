@@ -255,8 +255,8 @@ interface PassJson {
     secondaryFields: Array<{ key: string; label: string; value: string }>;
     backFields: Array<{ key: string; label: string; value: string }>;
   };
-  barcode: { format: string; message: string; messageEncoding: string };
-  barcodes: Array<{ format: string; message: string; messageEncoding: string }>;
+  barcode: { format: string; message: string; messageEncoding: string; altText?: string };
+  barcodes: Array<{ format: string; message: string; messageEncoding: string; altText?: string }>;
 }
 
 export class ApplePassService {
@@ -497,18 +497,23 @@ export class ApplePassService {
             : []),
         ],
       },
+      // Multi-purpose QR: encodes the referral URL so a phone camera opens the
+      // referral page, while the in-app studio scanner extracts the member id
+      // from the trailing path segment to identify the customer at checkout.
       // Legacy field for iOS < 9 compatibility
       barcode: {
         format: 'PKBarcodeFormatQR',
-        message: data.memberId,
+        message: `${appUrl}/refer/${data.memberId}`,
         messageEncoding: 'iso-8859-1',
+        altText: data.memberId,
       },
       // Modern field (iOS 9+)
       barcodes: [
         {
           format: 'PKBarcodeFormatQR',
-          message: data.memberId,
+          message: `${appUrl}/refer/${data.memberId}`,
           messageEncoding: 'iso-8859-1',
+          altText: data.memberId,
         },
       ],
     };
