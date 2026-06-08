@@ -49,17 +49,21 @@ googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) 
     const tierThemes = template?.tier_themes as Record<string, { stripImage?: string | null; logoOverride?: string | null }> || {};
     const tierTheme = tierThemes[loyaltyTier] || tierThemes['base'] || {};
 
+    const studioName = studio?.name || 'Studio';
+    const logoUrl = tierTheme.logoOverride || template?.logo_url || undefined;
+    const heroImageUrl = tierTheme.stripImage || undefined;
+
     await googleWalletService.createOrUpdateClass({
       classId,
-      studioName: studio?.name || 'Studio',
-      logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
-      heroImageUrl: tierTheme.stripImage || undefined,
+      studioName,
+      logoUrl,
+      heroImageUrl,
     });
 
     // Create object ID from serial number
     const objectId = serialNumber.replace(/-/g, '_');
 
-    // Create save JWT
+    // Create save JWT (class + object inlined, so Google provisions both on save)
     const jwt = await googleWalletService.createSaveJwt({
       objectId,
       classId,
@@ -71,22 +75,24 @@ googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) 
       loyaltyTier: customer.loyalty_stage || 'base',
       currency: customer.currency || 'DKK',
       language: customer.language || studioLanguage,
+      studioName,
+      logoUrl,
+      heroImageUrl,
     });
 
-    if (jwt) {
-      res.json({
-        success: true,
-        saveUrl: `https://pay.google.com/gp/v/save/${jwt}`,
-      });
-    } else {
-      // Fallback to basic save URL
-      const saveUrl = googleWalletService.generateSaveUrl(objectId);
-      res.json({
-        success: true,
-        saveUrl,
-        note: 'Using basic save URL - JWT signing not configured',
-      });
+    if (!jwt) {
+      // Without a signed JWT there is no valid save URL. Returning a broken
+      // pay.google.com link just opens the wallet home and bounces the user
+      // back with no card and no explanation — fail loudly instead so the
+      // client can show a real error.
+      console.error('Google save URL: JWT signing unavailable (GOOGLE_SERVICE_ACCOUNT_BASE64 missing or invalid)');
+      return res.status(500).json({ error: 'Google Wallet is not configured for this studio' });
     }
+
+    res.json({
+      success: true,
+      saveUrl: `https://pay.google.com/gp/v/save/${jwt}`,
+    });
   } catch (error) {
     console.error('Error generating Google save URL:', error);
     res.status(500).json({ error: 'Failed to generate save URL' });
