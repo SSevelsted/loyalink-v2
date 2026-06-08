@@ -49,6 +49,10 @@ interface LoyaltyObjectData {
   loyaltyTier: string;
   currency: string;
   language?: string;
+  // Studio branding for the inline class definition carried in the save JWT.
+  studioName?: string;
+  logoUrl?: string;
+  heroImageUrl?: string;
 }
 
 export class GoogleWalletService {
@@ -236,18 +240,6 @@ export class GoogleWalletService {
     }
   }
 
-  generateSaveUrl(objectId: string): string {
-    // Create JWT for save URL
-    // In production, this would be a properly signed JWT
-    // For now, return a placeholder
-    const fullObjectId = `${googleConfig.issuerId}.${objectId}`;
-
-    // The actual implementation would sign a JWT with the service account
-    // and create a URL like: https://pay.google.com/gp/v/save/{JWT}
-
-    return `https://pay.google.com/gp/v/save/${fullObjectId}`;
-  }
-
   async createSaveJwt(objectData: LoyaltyObjectData): Promise<string | null> {
     if (!googleConfig.serviceAccountBase64) return null;
 
@@ -258,27 +250,43 @@ export class GoogleWalletService {
       ).toString('utf-8');
       const credentials = JSON.parse(serviceAccountJson);
 
-      // Create the class first (ignore errors - may already exist)
-      await this.createOrUpdateClass({
-        classId: objectData.classId,
-        studioName: 'Loyalty Program',
-      });
+      const studioName = objectData.studioName || 'Loyalty Program';
 
-      // Include full object inline in JWT so Google creates it on save
+      // Inline class definition. Google creates the class from this on save if
+      // it doesn't already exist, so we don't depend on a prior REST class
+      // write succeeding (some studios were missing a class entirely).
+      const inlineClass: Record<string, unknown> = {
+        id: `${googleConfig.issuerId}.${objectData.classId}`,
+        issuerName: studioName,
+        reviewStatus: 'UNDER_REVIEW',
+        programName: `${studioName} Loyalty`,
+      };
+      if (objectData.logoUrl) {
+        inlineClass.programLogo = {
+          sourceUri: { uri: objectData.logoUrl },
+          contentDescription: { defaultValue: { language: 'en-US', value: 'Logo' } },
+        };
+      }
+      if (objectData.heroImageUrl) {
+        inlineClass.heroImage = {
+          sourceUri: { uri: objectData.heroImageUrl },
+          contentDescription: { defaultValue: { language: 'en-US', value: 'Hero' } },
+        };
+      }
+
+      // Save-to-wallet JWT. NOTE: no `origins` claim — this pass is added via a
+      // full-page redirect to pay.google.com, during which the browser commonly
+      // strips the Referer header (default Referrer-Policy). Google then fails
+      // its origins check and silently bounces the user to the wallet home
+      // without adding the card. `origins` is only needed for the JS button
+      // flow, so it is intentionally omitted here.
       const claims = {
         iss: credentials.client_email,
         aud: 'google',
-        origins: ['https://loyalink.ai', 'https://my.loyalink.ai'],
         typ: 'savetowallet',
+        iat: Math.floor(Date.now() / 1000),
         payload: {
-          loyaltyClasses: [
-            {
-              id: `${googleConfig.issuerId}.${objectData.classId}`,
-              issuerName: 'Loyalty Program',
-              reviewStatus: 'UNDER_REVIEW',
-              programName: 'Loyalty',
-            },
-          ],
+          loyaltyClasses: [inlineClass],
           loyaltyObjects: [
             {
               id: `${googleConfig.issuerId}.${objectData.objectId}`,

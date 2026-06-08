@@ -229,6 +229,7 @@ function AddToWalletCard({ customerId, customerAccessToken, brandColor, autoAdd,
 }) {
   const [loading, setLoading] = useState(false)
   const [added, setAdded] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [isDesktop, setIsDesktop] = useState<boolean | null>(null)
   const triggeredRef = useRef(false)
   const platform = detectPlatform()
@@ -244,6 +245,7 @@ function AddToWalletCard({ customerId, customerAccessToken, brandColor, autoAdd,
 
   const handleAdd = useCallback(async (targetPlatform: 'apple' | 'google') => {
     setLoading(true)
+    setError(null)
     try {
       const res = await fetch('/api/pass/generate', {
         method: 'POST',
@@ -253,30 +255,38 @@ function AddToWalletCard({ customerId, customerAccessToken, brandColor, autoAdd,
         },
         body: JSON.stringify({ customerId, platform: targetPlatform }),
       })
-      if (!res.ok) throw new Error('Failed')
+      if (!res.ok) throw new Error('generate failed')
       const data = await res.json()
 
-      if (targetPlatform === 'google' && data.saveUrl) {
+      if (targetPlatform === 'google') {
+        // Resolve the final pay.google.com save URL. Any failure here must
+        // surface — silently returning leaves the user on "Generating pass…"
+        // with no card and no explanation (the original bug).
+        if (!data.saveUrl) throw new Error('no saveUrl returned')
         const saveEndpoint = data.saveUrl.startsWith('http') ? data.saveUrl : `${PASS_SERVICE}${data.saveUrl}`
-        if (saveEndpoint.includes('pay.google.com')) {
-          window.location.href = saveEndpoint
-        } else {
+        let target = saveEndpoint
+        if (!saveEndpoint.includes('pay.google.com')) {
           const saveRes = await fetch(saveEndpoint)
-          if (saveRes.ok) {
-            const saveData = await saveRes.json()
-            if (saveData.saveUrl) window.location.href = saveData.saveUrl
-          }
+          if (!saveRes.ok) throw new Error('save-url failed')
+          const saveData = await saveRes.json()
+          if (!saveData.saveUrl) throw new Error('no google save url')
+          target = saveData.saveUrl
         }
-      } else {
-        const dl = data.downloadUrl ?? `/api/passes/${data.serialNumber}/download`
-        const url = dl.startsWith('http') ? dl : `${PASS_SERVICE}${dl}`
-        const sep = url.includes('?') ? '&' : '?'
-        window.location.href = `${url}${sep}token=${encodeURIComponent(token)}`
+        // Full-page redirect to Google — the component unmounts here.
+        window.location.href = target
+        return
       }
+
+      // Apple: trigger the .pkpass download (opens the Add-to-Wallet sheet).
+      const dl = data.downloadUrl ?? `/api/passes/${data.serialNumber}/download`
+      const url = dl.startsWith('http') ? dl : `${PASS_SERVICE}${dl}`
+      const sep = url.includes('?') ? '&' : '?'
+      window.location.href = `${url}${sep}token=${encodeURIComponent(token)}`
       setAdded(true)
     } catch {
-      // ignore — buttons remain visible so user can retry
-    } finally {
+      // Keep the buttons visible and tell the user, instead of silently
+      // reverting to the same screen.
+      setError("We couldn't add your card. Please try again.")
       setLoading(false)
     }
   }, [customerId, token, PASS_SERVICE])
@@ -353,6 +363,9 @@ function AddToWalletCard({ customerId, customerAccessToken, brandColor, autoAdd,
         )}
         {loading && (
           <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+        )}
+        {error && !loading && (
+          <p className="text-xs text-red-500">{error}</p>
         )}
       </CardContent>
     </Card>
