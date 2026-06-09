@@ -229,8 +229,10 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
       URL.revokeObjectURL(rawImage)
       setRawImage(null)
       setCropOpen(false)
+      // Hand off to the parent's upload handler. Success is shown by the
+      // cropped image appearing in the box; failures surface their own error
+      // toast (see useImageUpload), so don't claim success prematurely here.
       onUpload(file)
-      toast.success('Image cropped')
     } finally {
       setApplying(false)
     }
