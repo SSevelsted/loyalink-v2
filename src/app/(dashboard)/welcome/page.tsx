@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
@@ -62,6 +62,7 @@ export default function WelcomePage() {
   const { markStep, markWalkthroughSeen } = useActivation()
   const [stepIndex, setStepIndex] = useState(0)
   const [finishing, setFinishing] = useState(false)
+  const pageRef = useRef<HTMLDivElement>(null)
 
   const total = STEPS.length
   const stepId: StepId = STEPS[stepIndex]
@@ -142,8 +143,28 @@ export default function WelcomePage() {
     }
   }, [currentStudio, landingPage])
 
-  const handleNext = () => setStepIndex((i) => Math.min(total - 1, i + 1))
-  const handleBack = () => setStepIndex((i) => Math.max(0, i - 1))
+  const scrollToStepTop = useCallback(() => {
+    requestAnimationFrame(() => {
+      const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+      const dashboardScroller = pageRef.current?.closest('main')
+      dashboardScroller?.scrollTo({ top: 0, behavior })
+      window.scrollTo({ top: 0, behavior })
+    })
+  }, [])
+
+  const handleNext = () => {
+    const next = Math.min(total - 1, stepIndex + 1)
+    if (next === stepIndex) return
+    setStepIndex(next)
+    scrollToStepTop()
+  }
+
+  const handleBack = () => {
+    const prev = Math.max(0, stepIndex - 1)
+    if (prev === stepIndex) return
+    setStepIndex(prev)
+    scrollToStepTop()
+  }
 
   const handleFinish = async () => {
     if (finishing) return
@@ -168,7 +189,7 @@ export default function WelcomePage() {
   }
 
   return (
-    <div className="relative -mx-4 md:-mx-8 -my-4 md:-my-8 min-h-[calc(100dvh-2rem)]">
+    <div ref={pageRef} className="relative -mx-4 md:-mx-8 -my-4 md:-my-8 min-h-[calc(100dvh-2rem)]">
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full bg-primary/8 blur-[160px]" />
       </div>
