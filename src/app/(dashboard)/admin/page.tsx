@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useStudio } from '@/hooks/use-studio'
-import { BarChart3, Building2, Users, Activity, LifeBuoy } from 'lucide-react'
+import Link from 'next/link'
+import { BarChart3, Building2, Users, Activity, LifeBuoy, Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import { OverviewSection } from './_components/overview-section'
@@ -37,13 +38,22 @@ export default function AdminPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-display-lg text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
-          Super Admin
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Platform overview and management
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-display-lg text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
+            Super Admin
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Platform overview and management
+          </p>
+        </div>
+        <Link
+          href="/admin/emails"
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary transition-colors"
+        >
+          <Mail className="h-3.5 w-3.5" />
+          Email previews
+        </Link>
       </div>
 
       {/* Pill navigation */}
