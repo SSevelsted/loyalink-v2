@@ -52,7 +52,7 @@ export function CardPreview({
               <img
                 src={activeLogo}
                 alt="Logo"
-                className="h-8 max-w-[120px] object-contain"
+                className="h-12 max-w-[160px] object-contain"
               />
             ) : (
               <span
