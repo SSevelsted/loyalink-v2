@@ -34,6 +34,17 @@ function canSend(): boolean {
   return !!process.env.RESEND_API_KEY
 }
 
+// Agency-managed studios are run by partner agencies; Loyalink does not market
+// to them or their customers directly.
+async function isAgencyStudio(studioId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('studios')
+    .select('is_agency')
+    .eq('id', studioId)
+    .single()
+  return !!data?.is_agency
+}
+
 async function send(to: string, email: { subject: string; html: string }): Promise<void> {
   await getResend().emails.send({ from: FROM, to, subject: email.subject, html: email.html })
 }
@@ -74,6 +85,7 @@ export async function sendTrialWarning(
   studioId: string, daysLeft: 5 | 1,
 ): Promise<{ status: string }> {
   if (!canSend()) return { status: 'skipped' }
+  if (await isAgencyStudio(studioId)) return { status: 'skipped_agency' }
 
   const owner = await getStudioOwner(studioId)
   if (!owner) return { status: 'no_owner' }
@@ -116,6 +128,7 @@ export async function sendTrialWarning(
 /** 1.4 Trial expired — sent day after trial ends */
 export async function sendTrialExpired(studioId: string): Promise<{ status: string }> {
   if (!canSend()) return { status: 'skipped' }
+  if (await isAgencyStudio(studioId)) return { status: 'skipped_agency' }
 
   const owner = await getStudioOwner(studioId)
   if (!owner) return { status: 'no_owner' }
@@ -198,6 +211,7 @@ export async function sendCustomerWelcome(customerId: string, studioId: string):
 /** 2.2 Pass reminder — 24-48h after signup, pass not installed */
 export async function sendPassReminder(customerId: string, studioId: string): Promise<void> {
   if (!canSend()) return
+  if (await isAgencyStudio(studioId)) return
 
   const [{ data: customer }, { data: studio }] = await Promise.all([
     supabase.from('customers').select('name, email, cashback_rate, member_id, id, currency, language').eq('id', customerId).single(),
@@ -402,6 +416,7 @@ export async function sendReferralReward(
 /** 2.9 Win-back email for inactive customers */
 export async function sendWinBack(customerId: string, studioId: string): Promise<void> {
   if (!canSend()) return
+  if (await isAgencyStudio(studioId)) return
 
   const [{ data: customer }, { data: studio }] = await Promise.all([
     supabase.from('customers').select('name, email, balance, cashback_rate, metadata, member_id, id, currency, language').eq('id', customerId).single(),
