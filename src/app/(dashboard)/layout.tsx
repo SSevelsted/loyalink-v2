@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/layout/sidebar'
 import { BottomNav } from '@/components/layout/bottom-nav'
+import { StudioSwitcher } from '@/components/layout/studio-switcher'
 import { useStudio } from '@/hooks/use-studio'
 import { useAuth } from '@/hooks/use-auth'
 import { usePassTemplates } from '@/hooks/use-wallet'
@@ -175,7 +176,12 @@ function DashboardShell({
             </Link>
           </div>
         )}
-        <div className="px-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] pb-[calc(7rem+env(safe-area-inset-bottom,0px))] md:px-8 md:py-8 max-w-7xl">
+        {isNative() && (
+          <div className="glass-card border-0 border-b border-white/[0.08] px-4 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-2 md:hidden">
+            <StudioSwitcher />
+          </div>
+        )}
+        <div className={`px-4 ${isNative() ? 'pt-4' : 'pt-[calc(env(safe-area-inset-top,0px)+1rem)]'} pb-[calc(7rem+env(safe-area-inset-bottom,0px))] md:px-8 md:py-8 max-w-7xl`}>
           {children}
         </div>
       </main>
