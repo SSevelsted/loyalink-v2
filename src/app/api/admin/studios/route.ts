@@ -54,14 +54,27 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
-  const { name, ownerEmail, type } = body as {
+  const { name, ownerEmail, type, legacyLoyalty } = body as {
     name: string
     ownerEmail: string
     type: 'trial' | 'agency'
+    legacyLoyalty?: {
+      enabled?: boolean
+      legacyStudioId?: string
+    }
   }
 
   if (!name?.trim() || !ownerEmail?.trim() || !type) {
     return NextResponse.json({ error: 'name, ownerEmail, and type are required' }, { status: 400 })
+  }
+
+  if (legacyLoyalty?.enabled && type !== 'agency') {
+    return NextResponse.json({ error: 'Legacy loyalty can only be enabled for agency studios' }, { status: 400 })
+  }
+
+  const legacyStudioId = legacyLoyalty?.legacyStudioId?.trim()
+  if (legacyLoyalty?.enabled && !legacyStudioId) {
+    return NextResponse.json({ error: 'legacyStudioId is required when legacy loyalty is enabled' }, { status: 400 })
   }
 
   // Generate slug from name
@@ -88,6 +101,18 @@ export async function POST(request: NextRequest) {
     type === 'trial'
       ? new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString()
       : null
+  const settings = legacyLoyalty?.enabled
+    ? {
+        legacy_loyalty: {
+          enabled: true,
+          provider: 'passkit_lovable',
+          legacy_studio_id: legacyStudioId,
+          resolve_on_scan: true,
+          create_shadow_on_resolve: true,
+          passkit_update_enabled: true,
+        },
+      }
+    : {}
 
   // 1. Create studio
   const { data: studio, error: studioError } = await supabase
@@ -98,7 +123,7 @@ export async function POST(request: NextRequest) {
       subscription_status: type === 'agency' ? 'agency' : 'trial',
       trial_ends_at: trialEndsAt,
       is_agency: type === 'agency',
-      settings: {},
+      settings,
     })
     .select()
     .single()

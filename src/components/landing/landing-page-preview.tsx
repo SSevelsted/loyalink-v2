@@ -4,7 +4,7 @@ import { useState } from 'react'
 import type { LandingPageSettings } from '@/hooks/use-landing-page'
 import type { RewardsConfig } from '@/types/database'
 import { Star } from 'lucide-react'
-import { generateDefaultBenefits, BENEFIT_ICON_MAP } from '@/components/landing/value-stack'
+import { generateDefaultBenefits, BENEFIT_ICON_MAP, syncGeneratedBenefitTexts } from '@/components/landing/value-stack'
 import { getTriggerDisplayText } from '@/lib/format'
 import { getSignupTranslations } from '@/lib/i18n/signup'
 
@@ -32,8 +32,10 @@ export function LandingPagePreview({ headline, description, settings, rewardsCon
   const t = getSignupTranslations(language)
 
   // Resolve benefits: use saved ones, or generate defaults
+  const generatedBenefits = rewardsConfig ? generateDefaultBenefits(rewardsConfig, currency ?? 'dkk', language) : []
   const benefits = settings.benefits
-    ?? (rewardsConfig ? generateDefaultBenefits(rewardsConfig, currency ?? 'dkk', language) : [])
+    ? syncGeneratedBenefitTexts(settings.benefits, generatedBenefits)
+    : generatedBenefits
 
   const visibleBenefits = benefits.filter((b) => b.text)
 

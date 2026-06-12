@@ -3,13 +3,16 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { JoinForm } from '@/components/landing/join-form'
 import { TrustBar } from '@/components/landing/trust-bar'
-import { ValueStack, generateDefaultBenefits } from '@/components/landing/value-stack'
+import { ValueStack, generateDefaultBenefits, syncGeneratedBenefitTexts } from '@/components/landing/value-stack'
 import { TierProgression } from '@/components/landing/tier-progression'
 import { ReferralBanner } from '@/components/landing/referral-banner'
 import { migrateRewardsConfig } from '@/types/database'
 import { WalletTrustBadge } from '@/components/landing/wallet-trust-badge'
 import { MARKETING_URL } from '@/lib/constants'
-import { getSignupTranslations } from '@/lib/i18n/signup'
+import {
+  localizeLandingPageSettingsDefaults,
+  resolveLandingPageCopy,
+} from '@/lib/landing-page-defaults'
 
 type Props = {
   params: Promise<{ slug: string }>
@@ -22,19 +25,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const { data: page } = await supabase
     .from('studio_landing_pages')
-    .select('headline, description, studios(settings)')
+    .select('headline, description, settings, studios(name, settings)')
     .eq('slug', slug)
     .single()
 
   if (!page) return { title: 'Not Found' }
 
-  const studio = page.studios as unknown as { settings: Record<string, unknown> } | null
-  const language = (studio?.settings?.language as string) ?? 'en'
-  const t = getSignupTranslations(language)
+  const studio = page.studios as unknown as { name: string; settings: Record<string, unknown> } | null
+  const pageSettings = (page.settings ?? {}) as Record<string, unknown>
+  const language = (pageSettings.language as string) ?? (studio?.settings?.language as string) ?? 'en'
 
   return {
-    title: page.headline ?? t.fallbackJoinTitle,
-    description: page.description ?? undefined,
+    title: resolveLandingPageCopy(page.headline, 'headline', studio?.name, language),
+    description: resolveLandingPageCopy(page.description, 'description', studio?.name, language) || undefined,
   }
 }
 
@@ -81,8 +84,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
   const rewardsConfig = migrateRewardsConfig(studioSettings.rewards_config)
   const currency = (pageSettings.currency as string) ?? (studioSettings.currency as string) ?? 'dkk'
   const language = (pageSettings.language as string) ?? (studioSettings.language as string) ?? 'en'
-  const t = getSignupTranslations(language)
-  const baseTier = rewardsConfig.tiers[0]
+  const localizedSettings = localizeLandingPageSettingsDefaults(settings, page.studios?.name, language)
 
   // Check referral code
   let referrerName: string | null = null
@@ -98,7 +100,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
 
   // Fetch studio logo from pass template as fallback
   let studioLogo: string | null = null
-  if (!settings.logoUrl && !page.hero_image_url) {
+  if (!localizedSettings.logoUrl && !page.hero_image_url) {
     const { data: template } = await supabase
       .from('pass_templates')
       .select('icon_url, logo_url')
@@ -108,24 +110,21 @@ export default async function JoinPage({ params, searchParams }: Props) {
     studioLogo = template?.icon_url ?? template?.logo_url ?? null
   }
 
-  const bgColor = settings.backgroundColor || undefined
-  const txtColor = settings.textColor || '#1a1a1a'
-  const brandColor = settings.brandColor || '#6366f1'
-  const logoSrc = settings.logoUrl || page.hero_image_url || studioLogo
+  const bgColor = localizedSettings.backgroundColor || undefined
+  const txtColor = localizedSettings.textColor || '#1a1a1a'
+  const brandColor = localizedSettings.brandColor || '#6366f1'
+  const logoSrc = localizedSettings.logoUrl || page.hero_image_url || studioLogo
 
   // Dynamic headline fallback — translated to studio language when no custom headline.
-  const headline = page.headline ?? t.fallbackHeadline(baseTier.cashback_rate)
+  const headline = resolveLandingPageCopy(page.headline, 'headline', page.studios?.name, language)
+  const description = resolveLandingPageCopy(page.description, 'description', page.studios?.name, language)
 
   // Benefits: use stored list if customised, but always keep rate-derived rows in sync
   // with the live rewards config so they don't show a stale % after a config change.
-  const maxTier = rewardsConfig.tiers[rewardsConfig.tiers.length - 1]
+  const generatedBenefits = generateDefaultBenefits(rewardsConfig, currency, language)
   const benefits = settings.benefits
-    ? settings.benefits.map((b) => {
-        if (b.id === 'base_cashback') return { ...b, text: t.benefitBaseCashback(baseTier.cashback_rate) }
-        if (b.id === 'max_cashback') return { ...b, text: t.benefitMaxCashback(maxTier.cashback_rate) }
-        return b
-      })
-    : generateDefaultBenefits(rewardsConfig, currency, language)
+    ? syncGeneratedBenefitTexts(settings.benefits, generatedBenefits)
+    : generatedBenefits
 
   // Referral bonus details
   const showReferralBanner =
@@ -153,9 +152,9 @@ export default async function JoinPage({ params, searchParams }: Props) {
           <h1 className="text-3xl font-bold" style={{ color: txtColor }}>
             {headline}
           </h1>
-          {page.description && (
+          {description && (
             <p className="text-base" style={{ color: txtColor, opacity: 0.7 }}>
-              {page.description}
+              {description}
             </p>
           )}
         </div>
@@ -182,17 +181,17 @@ export default async function JoinPage({ params, searchParams }: Props) {
         <JoinForm
           studioId={page.studio_id}
           landingPageId={page.id}
-          brandColor={settings.brandColor}
+          brandColor={localizedSettings.brandColor}
           backgroundColor={bgColor}
           textColor={txtColor}
-          buttonText={settings.buttonText}
-          showEmail={settings.showEmail ?? true}
-          showPhone={settings.showPhone ?? true}
+          buttonText={localizedSettings.buttonText}
+          showEmail={localizedSettings.showEmail ?? true}
+          showPhone={localizedSettings.showPhone ?? true}
           referralCode={referralCode}
-          customFields={settings.customFields}
-          successHeading={settings.successHeading}
-          successMessage={settings.successMessage}
-          termsUrl={settings.termsUrl || `${MARKETING_URL}/join/${slug}/terms`}
+          customFields={localizedSettings.customFields}
+          successHeading={localizedSettings.successHeading}
+          successMessage={localizedSettings.successMessage}
+          termsUrl={localizedSettings.termsUrl || `${MARKETING_URL}/join/${slug}/terms`}
           language={language}
           defaultCountry={(pageSettings.address_country as string) ?? (studioSettings.address_country as string) ?? undefined}
         />
@@ -206,7 +205,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
           language={language}
         />
 
-        {(settings.showTierProgression ?? true) && (
+        {(localizedSettings.showTierProgression ?? true) && (
           <TierProgression
             tiers={rewardsConfig.tiers}
             currency={currency}

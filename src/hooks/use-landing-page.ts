@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { StudioLandingPage } from '@/types/database'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useStudio } from './use-studio'
+import { getDefaultLandingPageCopy } from '@/lib/landing-page-defaults'
 
 export type CustomField = {
   id: string
@@ -50,6 +51,16 @@ export const DEFAULT_LANDING_SETTINGS: LandingPageSettings = {
   successHeading: "You're in!",
   successMessage: 'Welcome, {name}. Your loyalty card is ready.',
   termsUrl: '',
+}
+
+export function resolveLandingPageSettings(
+  settings: LandingPageSettings | null | undefined,
+  options: { defaultLogoUrl?: string | null; termsUrl?: string } = {}
+): LandingPageSettings {
+  const merged = { ...DEFAULT_LANDING_SETTINGS, ...(settings ?? {}) }
+  if (!merged.logoUrl && options.defaultLogoUrl) merged.logoUrl = options.defaultLogoUrl
+  if (options.termsUrl) merged.termsUrl = merged.termsUrl || options.termsUrl
+  return merged
 }
 
 export function useLandingPage() {
@@ -114,15 +125,26 @@ export function useEnsureLandingPage() {
       if (existing) return existing
 
       const slug = currentStudio.slug || currentStudio.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      const studioSettings = (currentStudio.settings ?? {}) as Record<string, unknown>
+      const language = (studioSettings.language as string | undefined) ?? 'en'
+      const currency = (studioSettings.currency as string | undefined) ?? undefined
+      const defaults = getDefaultLandingPageCopy(currentStudio.name, language)
 
       const { data, error } = await supabase
         .from('studio_landing_pages')
         .insert({
           studio_id: currentStudio.id,
           slug,
-          headline: `Welcome to ${currentStudio.name}`,
-          description: 'Sign up and get your digital loyalty card instantly.',
-          settings: DEFAULT_LANDING_SETTINGS as Record<string, unknown>,
+          headline: defaults.headline,
+          description: defaults.description,
+          settings: {
+            ...DEFAULT_LANDING_SETTINGS,
+            buttonText: defaults.buttonText,
+            successHeading: defaults.successHeading,
+            successMessage: defaults.successMessage,
+            ...(currency ? { currency } : {}),
+            language,
+          } as Record<string, unknown>,
         })
         .select()
         .single()
@@ -183,17 +205,25 @@ export function useCreateLandingPage() {
       while (taken.has(`${baseSlug}-${n}`)) n++
       const slug = `${baseSlug}-${n}`
 
-      const settings = { ...DEFAULT_LANDING_SETTINGS } as Record<string, unknown>
+      const studioSettings = (currentStudio.settings ?? {}) as Record<string, unknown>
+      const language = init?.language ?? (studioSettings.language as string | undefined) ?? 'en'
+      const defaults = getDefaultLandingPageCopy(currentStudio.name, language)
+      const settings = {
+        ...DEFAULT_LANDING_SETTINGS,
+        buttonText: defaults.buttonText,
+        successHeading: defaults.successHeading,
+        successMessage: defaults.successMessage,
+      } as Record<string, unknown>
       if (init?.currency) settings.currency = init.currency
-      if (init?.language) settings.language = init.language
+      if (language) settings.language = language
 
       const { data, error } = await supabase
         .from('studio_landing_pages')
         .insert({
           studio_id: currentStudio.id,
           slug,
-          headline: `Welcome to ${currentStudio.name}`,
-          description: 'Sign up and get your digital loyalty card instantly.',
+          headline: defaults.headline,
+          description: defaults.description,
           settings,
         })
         .select()

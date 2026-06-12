@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -16,15 +16,21 @@ import {
 } from '@/components/ui/select'
 import { ImageUpload } from '@/components/wallet/image-upload'
 import { LandingPagePreview } from '@/components/landing/landing-page-preview'
-import { useLandingPages, useCreateLandingPage, useUpdateLandingPage, DEFAULT_LANDING_SETTINGS } from '@/hooks/use-landing-page'
+import { useLandingPages, useCreateLandingPage, useUpdateLandingPage, DEFAULT_LANDING_SETTINGS, resolveLandingPageSettings } from '@/hooks/use-landing-page'
 import type { LandingPageSettings, CustomField, Benefit } from '@/hooks/use-landing-page'
 import { useImageUpload } from '@/hooks/use-image-upload'
 import { useStudio } from '@/hooks/use-studio'
+import { usePassTemplates } from '@/hooks/use-wallet'
 import { toast } from 'sonner'
 import { FileText, Palette, ListChecks, FormInput, PartyPopper, Scale, Plus, Trash2, ExternalLink, RotateCcw, TrendingUp, Paintbrush, RefreshCw, Globe } from 'lucide-react'
 import { MARKETING_URL } from '@/lib/constants'
 import { CURRENCY_OPTIONS, LANGUAGE_OPTIONS } from '@/lib/locale-options'
 import { cn } from '@/lib/utils'
+import {
+  localizeLandingPageDefaults,
+  localizeLandingPageSettingsDefaults,
+  resolveLandingPageCopy,
+} from '@/lib/landing-page-defaults'
 
 const LANDING_PRESETS = [
   { name: 'Dark', bg: '#0A0A0A', text: '#FFFFFF', brand: '#7C3AED' },
@@ -47,6 +53,7 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
   const { data: landingPages, isLoading } = useLandingPages()
   const updateLandingPage = useUpdateLandingPage()
   const createLandingPage = useCreateLandingPage()
+  const { data: templates } = usePassTemplates()
   const { upload, uploading } = useImageUpload()
 
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null)
@@ -54,29 +61,54 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
   const [description, setDescription] = useState('')
   const [settings, setSettings] = useState<LandingPageSettings>(DEFAULT_LANDING_SETTINGS)
   const [saving, setSaving] = useState(false)
+  const landingLogoTouchedRef = useRef(false)
 
   // The market currently being edited — the selected page, else the first/oldest.
   const landingPage = landingPages?.find((p) => p.id === selectedPageId) ?? landingPages?.[0] ?? null
+  const cardIconUrl = templates?.[0]?.icon_url ?? null
+  const studioSettings = (currentStudio?.settings ?? {}) as Record<string, unknown>
+  const rewardsConfig = migrateRewardsConfig(studioSettings.rewards_config) as RewardsConfig
+  const currency = settings.currency ?? (studioSettings.currency as string) ?? 'dkk'
+  const language = settings.language ?? (studioSettings.language as string) ?? 'en'
 
   // Load data
   useEffect(() => {
     if (landingPage) {
-      setHeadline(landingPage.headline ?? '')
-      setDescription(landingPage.description ?? '')
       const s = landingPage.settings as LandingPageSettings | null
       const generatedTermsUrl = `${MARKETING_URL}/join/${landingPage.slug}/terms`
-      if (s) setSettings({ ...DEFAULT_LANDING_SETTINGS, ...s, termsUrl: s.termsUrl || generatedTermsUrl })
-      else setSettings({ ...DEFAULT_LANDING_SETTINGS, termsUrl: generatedTermsUrl })
+      const loadedSettings = resolveLandingPageSettings(s, {
+        defaultLogoUrl: landingPage.hero_image_url,
+        termsUrl: generatedTermsUrl,
+      })
+      const loadedLanguage = loadedSettings.language ?? (studioSettings.language as string | undefined) ?? 'en'
+      const localized = localizeLandingPageDefaults({
+        studioName: currentStudio?.name,
+        language: loadedLanguage,
+        headline: landingPage.headline ?? '',
+        description: landingPage.description ?? '',
+        settings: loadedSettings,
+      })
+      setHeadline(localized.headline)
+      setDescription(localized.description)
+      setSettings(localized.settings)
     }
   }, [landingPage?.id])
 
-  const studioSettings = (currentStudio?.settings ?? {}) as Record<string, unknown>
-  const rewardsConfig = migrateRewardsConfig(studioSettings.rewards_config) as RewardsConfig
-  const currency = settings.currency ?? (studioSettings.currency as string) ?? 'dkk'
+  useEffect(() => {
+    setHeadline((prev) => resolveLandingPageCopy(prev, 'headline', currentStudio?.name, language))
+    setDescription((prev) => resolveLandingPageCopy(prev, 'description', currentStudio?.name, language))
+    setSettings((prev) => localizeLandingPageSettingsDefaults(prev, currentStudio?.name, language))
+  }, [currentStudio?.name, language])
 
   const updateSetting = (key: keyof LandingPageSettings, value: unknown) => {
+    if (key === 'logoUrl') landingLogoTouchedRef.current = true
     setSettings((prev) => ({ ...prev, [key]: value }))
   }
+
+  useEffect(() => {
+    if (!cardIconUrl || settings.logoUrl || landingLogoTouchedRef.current) return
+    setSettings((prev) => prev.logoUrl ? prev : { ...prev, logoUrl: cardIconUrl })
+  }, [cardIconUrl, settings.logoUrl])
 
   const handleLogoUpload = async (file: File) => {
     const url = await upload(file, 'landing_logo.png')
@@ -91,7 +123,7 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
         id: landingPage.id,
         headline,
         description,
-        settings: settings as unknown as Record<string, unknown>,
+        settings: { ...settings, currency, language } as unknown as Record<string, unknown>,
         hero_image_url: settings.logoUrl,
       })
       toast.success('Landing page saved')
@@ -860,6 +892,7 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
             settings={settings}
             rewardsConfig={rewardsConfig}
             currency={currency}
+            language={language}
           />
         </div>
       </div>

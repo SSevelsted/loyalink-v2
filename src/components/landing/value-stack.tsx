@@ -4,7 +4,7 @@ import {
 } from 'lucide-react'
 import type { RewardsConfig } from '@/types/database'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
-import { getSignupTranslations } from '@/lib/i18n/signup'
+import { getSignupTranslations, type SignupTranslations } from '@/lib/i18n/signup'
 import type { LucideIcon } from 'lucide-react'
 import type { Benefit } from '@/hooks/use-landing-page'
 
@@ -29,6 +29,37 @@ export const BENEFIT_ICON_MAP: Record<string, LucideIcon> = {
 }
 
 export const BENEFIT_ICON_OPTIONS = Object.keys(BENEFIT_ICON_MAP)
+
+const RATE_DERIVED_BENEFIT_IDS = new Set(['base_cashback', 'max_cashback', 'referral_commission', 'welcome_bonus'])
+
+function getReferralBenefitText(
+  referrals: RewardsConfig['referrals'],
+  cfg: ReturnType<typeof getCurrencyConfig>,
+  t: SignupTranslations,
+) {
+  if (referrals.referrer_commission_rate > 0) {
+    if (referrals.referrer_commission_type === 'fixed') {
+      return t.benefitReferralFixedCommission(formatAmount(referrals.referrer_commission_rate, cfg))
+    }
+
+    return t.benefitReferralCommission(referrals.referrer_commission_rate)
+  }
+
+  if (referrals.referrer_cashback_bonus_per_ref > 0) {
+    return t.benefitReferralCashbackBoost(referrals.referrer_cashback_bonus_per_ref)
+  }
+
+  return t.benefitReferralInvite
+}
+
+export function syncGeneratedBenefitTexts(benefits: Benefit[], generatedBenefits: Benefit[]): Benefit[] {
+  return benefits.map((benefit) => {
+    if (!RATE_DERIVED_BENEFIT_IDS.has(benefit.id)) return benefit
+
+    const generated = generatedBenefits.find((item) => item.id === benefit.id)
+    return generated ? { ...benefit, text: generated.text } : benefit
+  })
+}
 
 /**
  * Generate the default benefits list from a rewards config.
@@ -68,7 +99,7 @@ export function generateDefaultBenefits(
     benefits.push({
       id: 'referral_commission',
       icon: 'users',
-      text: t.benefitReferralCommission(referrals.referrer_commission_rate),
+      text: getReferralBenefitText(referrals, cfg, t),
     })
   }
 

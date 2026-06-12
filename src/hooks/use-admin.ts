@@ -150,11 +150,21 @@ export function useAdminTicketStats() {
   })
 }
 
+type CreateStudioInput = {
+  name: string
+  ownerEmail: string
+  type: 'trial' | 'agency'
+  legacyLoyalty?: {
+    enabled: boolean
+    legacyStudioId?: string
+  }
+}
+
 export function useCreateStudio() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (input: { name: string; ownerEmail: string; type: 'trial' | 'agency' }) => {
+    mutationFn: async (input: CreateStudioInput) => {
       const res = await fetch('/api/admin/studios', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

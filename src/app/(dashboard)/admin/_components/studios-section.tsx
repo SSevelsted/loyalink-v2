@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -43,10 +44,12 @@ type StudioWithCounts = Studio & {
 // ─── Status badge ────────────────────────────────────────────────────────────
 
 function SubscriptionBadge({ status, trialEndsAt }: { status: Studio['subscription_status']; trialEndsAt: string | null }) {
+  const [now] = useState(() => Date.now())
+
   if (!status) return null
 
   const daysLeft = trialEndsAt
-    ? Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    ? Math.ceil((new Date(trialEndsAt).getTime() - now) / (1000 * 60 * 60 * 24))
     : null
 
   const map: Record<string, { label: string; className: string }> = {
@@ -74,14 +77,31 @@ function NewStudioDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [type, setType] = useState<'trial' | 'agency'>('trial')
+  const [legacyEnabled, setLegacyEnabled] = useState(false)
+  const [legacyStudioId, setLegacyStudioId] = useState('')
   const [inviteUrl, setInviteUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const { mutateAsync, isPending } = useCreateStudio()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (type === 'agency' && legacyEnabled && !legacyStudioId.trim()) {
+      toast.error('Enter the old legacy studio ID')
+      return
+    }
+
     try {
-      const { inviteUrl: url } = await mutateAsync({ name, ownerEmail: email, type })
+      const { inviteUrl: url } = await mutateAsync({
+        name,
+        ownerEmail: email,
+        type,
+        legacyLoyalty: type === 'agency'
+          ? {
+              enabled: legacyEnabled,
+              legacyStudioId: legacyStudioId.trim() || undefined,
+            }
+          : undefined,
+      })
       setInviteUrl(url)
       toast.success(`Studio "${name}" created`)
     } catch (err) {
@@ -100,6 +120,8 @@ function NewStudioDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
     setName('')
     setEmail('')
     setType('trial')
+    setLegacyEnabled(false)
+    setLegacyStudioId('')
     setInviteUrl(null)
     onOpenChange(false)
   }
@@ -179,6 +201,41 @@ function NewStudioDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
                 </SelectContent>
               </Select>
             </div>
+
+            {type === 'agency' && (
+              <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="legacy-loyalty" className="text-sm">Enable legacy loyalty</Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Let this studio scan old PassKit cards and create linked Loyalink members.
+                    </p>
+                  </div>
+                  <Switch
+                    id="legacy-loyalty"
+                    checked={legacyEnabled}
+                    onCheckedChange={setLegacyEnabled}
+                  />
+                </div>
+
+                {legacyEnabled && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="legacy-studio-id">Legacy studio ID</Label>
+                    <Input
+                      id="legacy-studio-id"
+                      value={legacyStudioId}
+                      onChange={(e) => setLegacyStudioId(e.target.value)}
+                      placeholder="e.g. sailors-ink-esbjerg"
+                      required={legacyEnabled}
+                      autoComplete="off"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Use the old PassKit/Lovable studio ID from the legacy export.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>

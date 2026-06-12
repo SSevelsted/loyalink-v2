@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { passServiceFetch } from '@/lib/pass-service'
 import { adminSupabase, getSessionUser, isStudioMember } from '@/lib/studio-access'
+import { syncLegacyPasskitCustomer } from '@/lib/services/legacy-passkit-sync-service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +31,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const legacySync = await syncLegacyPasskitCustomer({ customerId: customer.id, studioId: customer.studio_id })
     const res = await passServiceFetch(`/api/push/customer/${customer.id}`, { method: 'POST' })
     const data = await res.json().catch(() => ({ error: 'Failed to send push' }))
 
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json({ ...data, legacySync })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

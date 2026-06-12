@@ -17,7 +17,7 @@ import { toast } from 'sonner'
 import type { TierTheme, CardField } from '@/types/database'
 import { DEFAULT_TIER_THEMES, DEFAULT_CARD_FIELDS, DEFAULT_REWARDS_CONFIG, getActiveTierSlugs, migrateRewardsConfig } from '@/types/database'
 import { useRewardsConfig } from '@/hooks/use-rewards'
-import { useLandingPage, useUpdateLandingPage, useEnsureLandingPage, DEFAULT_LANDING_SETTINGS } from '@/hooks/use-landing-page'
+import { useLandingPage, useUpdateLandingPage, useEnsureLandingPage, DEFAULT_LANDING_SETTINGS, resolveLandingPageSettings } from '@/hooks/use-landing-page'
 import type { LandingPageSettings, Benefit } from '@/hooks/use-landing-page'
 import { LandingPagePreview } from '@/components/landing/landing-page-preview'
 import { EmbedCode } from '@/components/landing/embed-code'
@@ -33,6 +33,11 @@ import {
 } from '@/components/ui/select'
 import { MARKETING_URL } from '@/lib/constants'
 import { generateDefaultBenefits, BENEFIT_ICON_MAP, BENEFIT_ICON_OPTIONS } from '@/components/landing/value-stack'
+import {
+  localizeLandingPageDefaults,
+  localizeLandingPageSettingsDefaults,
+  resolveLandingPageCopy,
+} from '@/lib/landing-page-defaults'
 
 // Only the first tier is protected from deletion; custom tiers can be removed
 const FIRST_TIER_SLUG = DEFAULT_REWARDS_CONFIG.tiers[0].slug
@@ -58,6 +63,7 @@ export default function WalletPage() {
   const logoUploadRef = useRef<ImageUploadHandle>(null)
   const stripUploadRef = useRef<ImageUploadHandle>(null)
   const iconUploadRef = useRef<ImageUploadHandle>(null)
+  const lpLogoTouchedRef = useRef(false)
 
   // Landing page state
   const { data: landingPage, isLoading: lpLoading } = useLandingPage()
@@ -69,6 +75,9 @@ export default function WalletPage() {
   const [lpDirty, setLpDirty] = useState(false)
 
   const template = templates?.[0]
+  const studioSettings = (currentStudio?.settings ?? {}) as Record<string, unknown>
+  const lpCurrency = lpSettings.currency ?? (studioSettings.currency as string) ?? 'dkk'
+  const lpLanguage = lpSettings.language ?? (studioSettings.language as string) ?? 'en'
 
   // Ensure landing page exists
   useEffect(() => {
@@ -80,18 +89,44 @@ export default function WalletPage() {
   // Load landing page data
   useEffect(() => {
     if (landingPage) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLpHeadline(landingPage.headline ?? '')
-      setLpDescription(landingPage.description ?? '')
       const s = landingPage.settings as LandingPageSettings | null
-      if (s) setLpSettings({ ...DEFAULT_LANDING_SETTINGS, ...s })
+      const loadedSettings = resolveLandingPageSettings(s, {
+        defaultLogoUrl: landingPage.hero_image_url,
+      })
+      const loadedLanguage = loadedSettings.language ?? (studioSettings.language as string | undefined) ?? 'en'
+      const localized = localizeLandingPageDefaults({
+        studioName: currentStudio?.name,
+        language: loadedLanguage,
+        headline: landingPage.headline ?? '',
+        description: landingPage.description ?? '',
+        settings: loadedSettings,
+      })
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLpHeadline(localized.headline)
+      setLpDescription(localized.description)
+      setLpSettings(localized.settings)
     }
   }, [landingPage?.id])
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLpHeadline((prev) => resolveLandingPageCopy(prev, 'headline', currentStudio?.name, lpLanguage))
+    setLpDescription((prev) => resolveLandingPageCopy(prev, 'description', currentStudio?.name, lpLanguage))
+    setLpSettings((prev) => localizeLandingPageSettingsDefaults(prev, currentStudio?.name, lpLanguage))
+  }, [currentStudio?.name, lpLanguage])
+
   const updateLpSetting = (key: keyof LandingPageSettings, value: unknown) => {
+    if (key === 'logoUrl') lpLogoTouchedRef.current = true
     setLpSettings((prev) => ({ ...prev, [key]: value }))
     setLpDirty(true)
   }
+
+  useEffect(() => {
+    if (!iconUrl || lpSettings.logoUrl || lpLogoTouchedRef.current) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLpSettings((prev) => prev.logoUrl ? prev : { ...prev, logoUrl: iconUrl })
+    setLpDirty(true)
+  }, [iconUrl, lpSettings.logoUrl])
 
   const handleLpLogoUpload = async (file: File) => {
     const url = await upload(file, 'landing_logo.png')
@@ -105,7 +140,7 @@ export default function WalletPage() {
         id: landingPage.id,
         headline: lpHeadline,
         description: lpDescription,
-        settings: lpSettings as unknown as Record<string, unknown>,
+        settings: { ...lpSettings, currency: lpCurrency, language: lpLanguage } as unknown as Record<string, unknown>,
         hero_image_url: lpSettings.logoUrl,
       })
       setLpDirty(false)
@@ -454,10 +489,8 @@ export default function WalletPage() {
         {/* ── Landing Page Tab ── */}
         <TabsContent value="landing" className="space-y-6 mt-4">
           {(() => {
-            const studioSettings = (currentStudio?.settings ?? {}) as Record<string, unknown>
             const lpRewardsConfig = migrateRewardsConfig(studioSettings.rewards_config)
-            const lpCurrency = (studioSettings.currency as string) ?? 'dkk'
-            const lpBenefits = lpSettings.benefits ?? generateDefaultBenefits(lpRewardsConfig, lpCurrency)
+            const lpBenefits = lpSettings.benefits ?? generateDefaultBenefits(lpRewardsConfig, lpCurrency, lpLanguage)
 
             return (
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
@@ -559,7 +592,7 @@ export default function WalletPage() {
                             size="sm"
                             className="gap-1.5 text-xs text-muted-foreground"
                             onClick={() => {
-                              updateLpSetting('benefits', generateDefaultBenefits(lpRewardsConfig, lpCurrency))
+                              updateLpSetting('benefits', generateDefaultBenefits(lpRewardsConfig, lpCurrency, lpLanguage))
                             }}
                           >
                             <RotateCcw className="h-3 w-3" />
@@ -697,6 +730,7 @@ export default function WalletPage() {
                     settings={{ ...lpSettings, benefits: lpBenefits }}
                     rewardsConfig={lpRewardsConfig}
                     currency={lpCurrency}
+                    language={lpLanguage}
                   />
                 </div>
               </div>

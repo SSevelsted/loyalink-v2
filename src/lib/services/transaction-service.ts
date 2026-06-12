@@ -6,6 +6,7 @@ import { expirePromotion } from '@/lib/services/promotion-service'
 import { fireWebhook } from '@/lib/services/webhook-service'
 import { sendTierUpgrade, sendReferralReward } from '@/lib/email/send'
 import { buildTransactionPushMessage } from '@/lib/pass-push-messages'
+import { syncLegacyPasskitCustomer } from '@/lib/services/legacy-passkit-sync-service'
 
 type ProcessTransactionInput = {
   customerId: string
@@ -293,6 +294,30 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
       .from('wallet_passes')
       .update({ push_message: pushMessage })
       .eq('customer_id', customerId)
+  }
+
+  const legacySync = await syncLegacyPasskitCustomer({
+    customerId,
+    studioId,
+    balance: Number(customer.balance ?? 0) + cashbackAmount,
+    totalSpend: newSpendTotal,
+    cashbackRate,
+    transaction: {
+      amount,
+      cashAmount: cashableAmount,
+      cashbackEarned: cashbackAmount,
+      isDeposit,
+      currency: (customer.currency as string | null | undefined) ?? (settings?.currency as string | null | undefined) ?? 'DKK',
+    },
+  })
+  if (legacySync.status === 'synced') {
+    results.push(
+      legacySync.passRowsUpdated > 0
+        ? `Legacy PassKit synced (${legacySync.passRowsUpdated} pass${legacySync.passRowsUpdated === 1 ? '' : 'es'} touched)`
+        : 'Legacy PassKit customer synced'
+    )
+  } else if (legacySync.status === 'failed') {
+    results.push(`Legacy PassKit sync failed: ${legacySync.error}`)
   }
 
   triggerPassUpdate(customerId)

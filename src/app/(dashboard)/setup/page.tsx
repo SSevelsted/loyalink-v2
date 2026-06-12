@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStudio } from '@/hooks/use-studio'
-import { useLandingPage, useUpdateLandingPage, useEnsureLandingPage, DEFAULT_LANDING_SETTINGS } from '@/hooks/use-landing-page'
+import { useLandingPage, useUpdateLandingPage, useEnsureLandingPage, DEFAULT_LANDING_SETTINGS, resolveLandingPageSettings } from '@/hooks/use-landing-page'
 import type { LandingPageSettings } from '@/hooks/use-landing-page'
 import { usePassTemplates, useEnsureDefaultTemplate, useUpdatePassTemplate } from '@/hooks/use-wallet'
 import { useImageUpload } from '@/hooks/use-image-upload'
@@ -44,6 +44,11 @@ import { toast } from 'sonner'
 import { MARKETING_URL } from '@/lib/constants'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { CURRENCY_OPTIONS, LANGUAGE_OPTIONS } from '@/lib/locale-options'
+import {
+  localizeLandingPageDefaults,
+  localizeLandingPageSettingsDefaults,
+  resolveLandingPageCopy,
+} from '@/lib/landing-page-defaults'
 import type { CustomField, Benefit } from '@/hooks/use-landing-page'
 import { generateDefaultBenefits, BENEFIT_ICON_MAP, BENEFIT_ICON_OPTIONS } from '@/components/landing/value-stack'
 import {
@@ -145,6 +150,7 @@ export default function SetupPage() {
   const logoUploadRef = useRef<ImageUploadHandle>(null)
   const stripUploadRef = useRef<ImageUploadHandle>(null)
   const iconUploadRef = useRef<ImageUploadHandle>(null)
+  const landingLogoTouchedRef = useRef(false)
 
   // Mirror of `currentStudio.settings` that we keep up-to-date with every
   // write we make from this page. `useStudio` does not refetch after writes,
@@ -165,17 +171,35 @@ export default function SetupPage() {
   // Load landing page data
   useEffect(() => {
     if (landingPage) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setHeadline(landingPage.headline ?? '')
-      setDescription(landingPage.description ?? '')
       const s = landingPage.settings as LandingPageSettings | null
       const generatedTermsUrl = `${MARKETING_URL}/join/${landingPage.slug}/terms`
+      const loadedSettings = resolveLandingPageSettings(s, {
+        defaultLogoUrl: landingPage.hero_image_url,
+        termsUrl: generatedTermsUrl,
+      })
+      const studioSettings = (currentStudio?.settings ?? {}) as Record<string, unknown>
+      const loadedLanguage = loadedSettings.language ?? (studioSettings.language as string | undefined) ?? selectedLanguage
+      const localized = localizeLandingPageDefaults({
+        studioName: currentStudio?.name ?? studioName,
+        language: loadedLanguage,
+        headline: landingPage.headline ?? '',
+        description: landingPage.description ?? '',
+        settings: loadedSettings,
+      })
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (s) setSettings({ ...DEFAULT_LANDING_SETTINGS, ...s, termsUrl: s.termsUrl || generatedTermsUrl })
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      else setSettings({ ...DEFAULT_LANDING_SETTINGS, termsUrl: generatedTermsUrl })
+      setHeadline(localized.headline)
+      setDescription(localized.description)
+      setSettings(localized.settings)
     }
   }, [landingPage?.id])
+
+  useEffect(() => {
+    const effectiveStudioName = currentStudio?.name ?? studioName
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHeadline((prev) => resolveLandingPageCopy(prev, 'headline', effectiveStudioName, selectedLanguage))
+    setDescription((prev) => resolveLandingPageCopy(prev, 'description', effectiveStudioName, selectedLanguage))
+    setSettings((prev) => localizeLandingPageSettingsDefaults(prev, effectiveStudioName, selectedLanguage))
+  }, [currentStudio?.name, selectedLanguage, studioName])
 
   // Ensure template exists
   useEffect(() => {
@@ -273,8 +297,15 @@ export default function SetupPage() {
   }, [rewardsConfig.tiers])
 
   const updateSetting = (key: keyof LandingPageSettings, value: unknown) => {
+    if (key === 'logoUrl') landingLogoTouchedRef.current = true
     setSettings((prev) => ({ ...prev, [key]: value }))
   }
+
+  useEffect(() => {
+    if (!iconUrl || settings.logoUrl || landingLogoTouchedRef.current) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSettings((prev) => prev.logoUrl ? prev : { ...prev, logoUrl: iconUrl })
+  }, [iconUrl, settings.logoUrl])
 
   const handleLogoUpload = async (file: File) => {
     const url = await upload(file, 'landing_logo.png')
@@ -396,12 +427,13 @@ export default function SetupPage() {
 
   const saveLandingPage = async () => {
     if (!landingPage) return
+    const settingsWithMarket = { ...settings, currency, language }
     await updateLandingPage.mutateAsync({
       id: landingPage.id,
       headline,
       description,
-      settings: settings as unknown as Record<string, unknown>,
-      hero_image_url: settings.logoUrl,
+      settings: settingsWithMarket as unknown as Record<string, unknown>,
+      hero_image_url: settingsWithMarket.logoUrl,
     })
   }
 

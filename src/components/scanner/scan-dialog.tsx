@@ -11,6 +11,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { X, Keyboard, Camera, Smartphone } from 'lucide-react'
 import { APP_URL } from '@/lib/constants'
 import { useStudio } from '@/hooks/use-studio'
+import type { Customer } from '@/types/database'
 
 type Mode = 'camera' | 'phone'
 type LegacyLoyaltySettings = { enabled?: boolean }
@@ -32,7 +33,7 @@ export function ScanDialog({
   const router = useRouter()
   const supabase = createClient()
   const queryClient = useQueryClient()
-  const { currentStudio } = useStudio()
+  const { currentStudio, studios, setCurrentStudioId } = useStudio()
 
   // Default to phone QR mode on desktop (no rear camera available)
   useEffect(() => {
@@ -48,81 +49,110 @@ export function ScanDialog({
   }, [open])
 
   const lookupCustomer = async (value: string) => {
-    let raw = value.trim()
+    try {
+      let raw = value.trim()
 
-    // The loyalty card QR is multi-purpose: it encodes the referral URL
-    // (…/refer/<memberId>) so a customer's phone camera opens the referral page.
-    // When the studio scans it in-app, pull the member id back out of the URL so
-    // the lookup below can identify the customer. Bare ids — older passes that
-    // still encode the raw id, manual entry, and legacy cards — fall through
-    // unchanged.
-    const referMatch = raw.match(/\/refer\/([^/?#\s]+)/i)
-    if (referMatch) {
-      raw = decodeURIComponent(referMatch[1])
-    }
+      // The loyalty card QR is multi-purpose: it encodes the referral URL
+      // (…/refer/<memberId>) so a customer's phone camera opens the referral page.
+      // When the studio scans it in-app, pull the member id back out of the URL so
+      // the lookup below can identify the customer. Bare ids — older passes that
+      // still encode the raw id, manual entry, and legacy cards — fall through
+      // unchanged.
+      const referMatch = raw.match(/\/refer\/([^/?#\s]+)/i)
+      if (referMatch) {
+        raw = decodeURIComponent(referMatch[1])
+      }
 
-    const stripped = raw.replace(/\s+/g, '')
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)
+      const stripped = raw.replace(/\s+/g, '')
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)
 
-    const conditions: string[] = []
-    if (isUuid) conditions.push(`id.eq.${raw}`)
-    conditions.push(`member_id.eq.${raw}`, `phone.eq.${raw}`)
-    if (stripped !== raw) {
-      conditions.push(`member_id.eq.${stripped}`, `phone.eq.${stripped}`)
-    }
+      const conditions: string[] = []
+      if (isUuid) conditions.push(`id.eq.${raw}`)
+      conditions.push(`member_id.eq.${raw}`, `phone.eq.${raw}`)
+      if (stripped !== raw) {
+        conditions.push(`member_id.eq.${stripped}`, `phone.eq.${stripped}`)
+      }
 
-    // Fetch full customer so we can pre-populate the React Query cache —
-    // the transaction page will find it already there and render immediately.
-    const { data } = await supabase
-      .from('customers')
-      .select('*')
-      .or(conditions.join(','))
-      .limit(1)
-      .single()
+      const orderedStudios = [
+        ...(currentStudio ? [currentStudio] : []),
+        ...studios.filter((studio) => studio.id !== currentStudio?.id),
+      ]
 
-    if (data) {
-      // Seed the cache so useCustomer() on the transaction page is instant
-      queryClient.setQueryData(['customer', data.id], data)
-      onOpenChange(false)
-      router.push(`/customers/${data.id}/transaction`)
-      // No router.refresh() — it invalidates the cache and adds an extra round-trip
-    } else if (await lookupLegacyCustomer(raw)) {
-      return
-    } else {
+      let data: Customer | null = null
+      for (const studio of orderedStudios) {
+        data = await lookupCustomerInStudio(studio.id, conditions)
+        if (data) break
+      }
+
+      if (data) {
+        openCustomerTransaction(data)
+      } else if (await lookupLegacyCustomer(raw, orderedStudios)) {
+        return
+      } else {
+        setIsLookingUp(false)
+        isLookingUpRef.current = false
+        setScanError(`No customer found for "${value}"`)
+      }
+    } catch (err) {
       setIsLookingUp(false)
       isLookingUpRef.current = false
-      setScanError(`No customer found for "${value}"`)
+      setScanError(err instanceof Error ? err.message : 'Customer lookup failed')
     }
   }
 
-  const lookupLegacyCustomer = async (scannedValue: string) => {
-    const legacySettings = currentStudio?.settings?.legacy_loyalty as LegacyLoyaltySettings | undefined
-    if (!currentStudio?.id || !legacySettings?.enabled) return false
+  const lookupCustomerInStudio = async (studioId: string, conditions: string[]) => {
+    const { data, error } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('studio_id', studioId)
+      .or(conditions.join(','))
+      .limit(1)
+      .maybeSingle()
 
-    const res = await fetch('/api/legacy-loyalty/resolve', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ studioId: currentStudio.id, scannedValue }),
-    })
+    if (error) throw new Error(error.message)
+    return data as Customer | null
+  }
 
-    if (res.ok) {
-      const data = await res.json() as { customerId?: string }
-      if (data.customerId) {
-        onOpenChange(false)
-        router.push(`/customers/${data.customerId}/transaction`)
+  const lookupLegacyCustomer = async (scannedValue: string, orderedStudios: typeof studios) => {
+    for (const studio of orderedStudios) {
+      const legacySettings = studio.settings?.legacy_loyalty as LegacyLoyaltySettings | undefined
+      if (!legacySettings?.enabled) continue
+
+      const res = await fetch('/api/legacy-loyalty/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studioId: studio.id, scannedValue }),
+      })
+
+      if (res.ok) {
+        const data = await res.json() as { customerId?: string }
+        if (data.customerId) {
+          setCurrentStudioId(studio.id)
+          onOpenChange(false)
+          router.push(`/customers/${data.customerId}/transaction`)
+          return true
+        }
+      }
+
+      if (res.status !== 404) {
+        const data = await res.json().catch(() => null) as { error?: string } | null
+        setScanError(data?.error ?? 'Legacy lookup failed')
+        setIsLookingUp(false)
+        isLookingUpRef.current = false
         return true
       }
     }
 
-    if (res.status !== 404) {
-      const data = await res.json().catch(() => null) as { error?: string } | null
-      setScanError(data?.error ?? 'Legacy lookup failed')
-      setIsLookingUp(false)
-      isLookingUpRef.current = false
-      return true
-    }
-
     return false
+  }
+
+  const openCustomerTransaction = (customer: Customer) => {
+    // Seed the cache so useCustomer() on the transaction page is instant.
+    queryClient.setQueryData(['customer', customer.id], customer)
+    setCurrentStudioId(customer.studio_id)
+    onOpenChange(false)
+    router.push(`/customers/${customer.id}/transaction`)
+    // No router.refresh() — it invalidates the cache and adds an extra round-trip.
   }
 
   const handleScan = useCallback((result: string) => {

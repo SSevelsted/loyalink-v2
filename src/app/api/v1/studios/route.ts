@@ -10,6 +10,7 @@ import {
   STREAMINK_TIER_THEMES,
   STREAMINK_PROMOTIONS,
 } from '@/lib/templates/streamink-template'
+import { getDefaultLandingPageCopy } from '@/lib/landing-page-defaults'
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,6 +28,8 @@ export async function POST(request: NextRequest) {
 
     const slug = await generateUniqueSlug(name)
     const studioCurrency = (currency || 'DKK').toUpperCase()
+    const studioLanguage = language || 'en'
+    const landingDefaults = getDefaultLandingPageCopy(name.trim(), studioLanguage)
 
     // Set welcome bonus based on currency
     const rewardsConfig = {
@@ -55,7 +58,7 @@ export async function POST(request: NextRequest) {
           phone: phone || null,
           address: address || null,
           currency: studioCurrency,
-          language: language || 'en',
+          language: studioLanguage,
           rewards_config: rewardsConfig,
         },
       })
@@ -89,18 +92,20 @@ export async function POST(request: NextRequest) {
       .insert({
         studio_id: studio.id,
         slug,
-        headline: `Welcome to ${name.trim()}`,
-        description: 'Sign up and get your digital loyalty card instantly.',
+        headline: landingDefaults.headline,
+        description: landingDefaults.description,
         settings: {
           brandColor: '#7C3AED',
           backgroundColor: '#0A0A0A',
           textColor: '#FFFFFF',
           logoUrl: null,
-          buttonText: 'Join & Get Your Pass',
+          buttonText: landingDefaults.buttonText,
           showPhone: true,
           showEmail: true,
-          successHeading: "You're in!",
-          successMessage: 'Welcome, {name}. Your loyalty card is ready.',
+          successHeading: landingDefaults.successHeading,
+          successMessage: landingDefaults.successMessage,
+          currency: studioCurrency,
+          language: studioLanguage,
           termsUrl: '',
         },
       })
