@@ -1,5 +1,9 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { adminSupabase } from '@/lib/studio-access'
+import {
+  syncPasskitMemberPoints,
+  type PasskitMemberSyncResult,
+} from '@/lib/services/passkit-rest-service'
 
 type LegacyLoyaltyMetadata = {
   legacy_studio_id?: string
@@ -24,7 +28,12 @@ type SyncInput = {
 
 type SyncResult =
   | { status: 'skipped'; reason: 'not_legacy' | 'missing_mapping' | 'not_configured' }
-  | { status: 'synced'; legacyCustomerId: string; passRowsUpdated: number }
+  | {
+      status: 'synced'
+      legacyCustomerId: string
+      passRowsUpdated: number
+      passkit: PasskitMemberSyncResult
+    }
   | { status: 'failed'; error: string }
 
 type LegacyClient = NonNullable<ReturnType<typeof createLegacyClient>>
@@ -68,7 +77,7 @@ export async function syncLegacyPasskitCustomer(input: SyncInput): Promise<SyncR
       })
       .eq('id', mapping.legacyCustomerId)
       .eq('studio_id', mapping.legacyStudioId)
-      .select('id, currency, contact_id, location, ghl_api')
+      .select('id, member_id, currency, contact_id, location, ghl_api')
       .maybeSingle()
 
     if (updateError) return { status: 'failed', error: updateError.message }
@@ -101,15 +110,22 @@ export async function syncLegacyPasskitCustomer(input: SyncInput): Promise<SyncR
       synced_at: now,
       source: 'loyalink_v2',
     })
+    const passkitMemberId = mapping.legacyMemberId ?? legacyCustomer.member_id
+    const passkit = await syncPasskitMemberPoints({
+      memberId: passkitMemberId,
+      points: nextBalance,
+    })
 
     await logLegacySync(input.studioId ?? customer.studio_id, customer.id, {
       status: 'synced',
       legacy_studio_id: mapping.legacyStudioId,
       legacy_customer_id: mapping.legacyCustomerId,
+      legacy_member_id: passkitMemberId,
       pass_rows_updated: passRowsUpdated,
+      passkit,
     })
 
-    return { status: 'synced', legacyCustomerId: mapping.legacyCustomerId, passRowsUpdated }
+    return { status: 'synced', legacyCustomerId: mapping.legacyCustomerId, passRowsUpdated, passkit }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Legacy sync failed'
     await logLegacySync(input.studioId ?? null, input.customerId, {

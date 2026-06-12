@@ -316,6 +316,15 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
         ? `Legacy PassKit synced (${legacySync.passRowsUpdated} pass${legacySync.passRowsUpdated === 1 ? '' : 'es'} touched)`
         : 'Legacy PassKit customer synced'
     )
+    if (legacySync.passkit.status === 'updated') {
+      results.push(`Old PassKit card updated (${legacySync.passkit.points} points)`)
+    } else if (legacySync.passkit.status === 'failed') {
+      results.push(`Old PassKit card update failed: ${legacySync.passkit.error}`)
+    } else if (legacySync.passkit.reason === 'not_configured') {
+      results.push('Old PassKit card update skipped: PassKit API is not configured')
+    } else if (legacySync.passkit.reason === 'missing_member_id') {
+      results.push('Old PassKit card update skipped: missing legacy member ID')
+    }
   } else if (legacySync.status === 'failed') {
     results.push(`Legacy PassKit sync failed: ${legacySync.error}`)
   }
