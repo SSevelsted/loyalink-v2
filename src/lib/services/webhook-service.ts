@@ -61,6 +61,11 @@ function signPayload(payload: string, secret: string, timestamp: number): string
   return createHmac('sha256', secret).update(`${timestamp}.${payload}`).digest('hex')
 }
 
+// Shared token sent to agency/legacy studios only, so a single n8n workflow can
+// authenticate deliveries from all of them with one value (per-studio `secret`
+// stays unique for SaaS self-serve studios). SaaS endpoints never receive this.
+const AGENCY_WEBHOOK_TOKEN = process.env.LOYALINK_AGENCY_WEBHOOK_TOKEN
+
 /**
  * Fire webhooks for a studio event. Non-blocking — errors are logged, never thrown.
  */
@@ -95,6 +100,15 @@ async function deliverWebhooks(
 
   if (!matching.length) return
 
+  // Agency + legacy studios are flagged with is_agency; their deliveries also
+  // carry the shared agency token so one n8n workflow can authenticate them all.
+  const { data: studio } = await adminSupabase
+    .from('studios')
+    .select('is_agency')
+    .eq('id', studioId)
+    .single()
+  const isAgency = !!studio?.is_agency
+
   const payload: WebhookPayload = {
     event,
     studio_id: studioId,
@@ -107,7 +121,7 @@ async function deliverWebhooks(
   const timestamp = Math.floor(Date.now() / 1000)
 
   await Promise.allSettled(
-    matching.map((webhook) => deliverToEndpoint(webhook.id, webhook.url, webhook.secret, body, timestamp)),
+    matching.map((webhook) => deliverToEndpoint(webhook.id, webhook.url, webhook.secret, body, timestamp, isAgency)),
   )
 }
 
@@ -117,6 +131,7 @@ async function deliverToEndpoint(
   secret: string,
   body: string,
   timestamp: number,
+  isAgency: boolean,
   attempt = 1,
 ) {
   // SSRF protection: block private/internal URLs
@@ -141,16 +156,22 @@ async function deliverToEndpoint(
   let responseBody: string | null = null
   let success = false
 
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Loyalink-Webhook-Secret': secret,
+    'X-Loyalink-Signature': signature,
+    'X-Loyalink-Timestamp': String(timestamp),
+    'X-Loyalink-Event': JSON.parse(body).event,
+  }
+  // Agency/legacy studios additionally get one shared token for the central workflow.
+  if (isAgency && AGENCY_WEBHOOK_TOKEN) {
+    headers['X-Loyalink-Agency-Token'] = AGENCY_WEBHOOK_TOKEN
+  }
+
   try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Loyalink-Webhook-Secret': secret,
-        'X-Loyalink-Signature': signature,
-        'X-Loyalink-Timestamp': String(timestamp),
-        'X-Loyalink-Event': JSON.parse(body).event,
-      },
+      headers,
       body,
       signal: AbortSignal.timeout(10_000),
     })
@@ -178,6 +199,6 @@ async function deliverToEndpoint(
   // Retry once on failure after 3s
   if (!success && attempt < 2) {
     await new Promise((r) => setTimeout(r, 3000))
-    return deliverToEndpoint(webhookId, url, secret, body, timestamp, attempt + 1)
+    return deliverToEndpoint(webhookId, url, secret, body, timestamp, isAgency, attempt + 1)
   }
 }
