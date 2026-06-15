@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminSupabase, verifyStudioAccess } from '@/lib/studio-access'
 import { auditLog } from '@/lib/audit-log'
-import { randomBytes } from 'node:crypto'
 
 async function getAuthedStudioId(request: NextRequest): Promise<{ studioId: string; userId: string; error?: never } | { studioId?: never; userId?: never; error: NextResponse }> {
   const studioId = request.nextUrl.searchParams.get('studioId')
@@ -34,9 +33,6 @@ export async function PATCH(
 
     if (body.events !== undefined) updates.events = body.events
     if (body.active !== undefined) updates.active = body.active
-    if (body.resetSecret === true) {
-      updates.secret = `whsec_${randomBytes(24).toString('hex')}`
-    }
 
     const { data, error } = await adminSupabase
       .from('studio_webhooks')
@@ -49,18 +45,7 @@ export async function PATCH(
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     if (!data) return NextResponse.json({ error: 'Webhook not found' }, { status: 404 })
 
-    if (body.resetSecret === true) {
-      void auditLog({
-        action: 'webhook.secret_reset',
-        studioId: auth.studioId,
-        actorId: auth.userId,
-        actorType: 'user',
-        targetType: 'webhook',
-        targetId: id,
-      })
-    }
-
-    return NextResponse.json(body.resetSecret === true ? { ...data, secret: updates.secret } : data)
+    return NextResponse.json(data)
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

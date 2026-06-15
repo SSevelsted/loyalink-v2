@@ -16,7 +16,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Webhook, Copy, Check, Trash2, Plus, AlertTriangle, Pause, Play, ChevronDown, ChevronRight, Pencil, RotateCcw } from 'lucide-react'
+import { Webhook, Trash2, Plus, Pause, Play, ChevronDown, ChevronRight, Pencil } from 'lucide-react'
 import { WEBHOOK_EVENTS, type WebhookEvent } from '@/lib/webhook-events'
 
 type WebhookRow = {
@@ -55,9 +55,6 @@ export function WebhooksSection() {
   const [editingWebhook, setEditingWebhook] = useState<WebhookRow | null>(null)
   const [newUrl, setNewUrl] = useState('')
   const [selectedEvents, setSelectedEvents] = useState<WebhookEvent[]>([])
-  const [createdSecret, setCreatedSecret] = useState<string | null>(null)
-  const [secretMode, setSecretMode] = useState<'created' | 'reset' | null>(null)
-  const [copied, setCopied] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const { data: webhooks = [], isLoading } = useQuery<WebhookRow[]>({
@@ -93,33 +90,9 @@ export function WebhooksSection() {
       }
       return res.json()
     },
-    onSuccess: (data) => {
-      setCreatedSecret(data.secret)
-      setSecretMode('created')
-      setNewUrl('')
-      setSelectedEvents([])
-      queryClient.invalidateQueries({ queryKey: ['webhooks'] })
-    },
-    onError: (err) => toast.error(err.message),
-  })
-
-  const resetWebhookSecret = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/settings/webhooks/${id}?studioId=${currentStudio!.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resetSecret: true }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed to reset signing secret')
-      }
-      return res.json()
-    },
-    onSuccess: (data) => {
-      setCreatedSecret(data.secret)
-      setSecretMode('reset')
-      setCopied(false)
+    onSuccess: () => {
+      toast.success('Webhook created')
+      handleCloseCreate()
       queryClient.invalidateQueries({ queryKey: ['webhooks'] })
     },
     onError: (err) => toast.error(err.message),
@@ -140,12 +113,7 @@ export function WebhooksSection() {
     },
     onSuccess: () => {
       toast.success('Webhook updated')
-      setCreateOpen(false)
-      setEditingWebhook(null)
-      setCreatedSecret(null)
-      setNewUrl('')
-      setSelectedEvents([])
-      setCopied(false)
+      handleCloseCreate()
       queryClient.invalidateQueries({ queryKey: ['webhooks'] })
     },
     onError: (err) => toast.error(err.message),
@@ -180,44 +148,28 @@ export function WebhooksSection() {
     onError: () => toast.error('Failed to delete webhook'),
   })
 
-  const handleCopy = async () => {
-    if (!createdSecret) return
-    await navigator.clipboard.writeText(createdSecret)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
   const handleCloseCreate = () => {
     setCreateOpen(false)
     setEditingWebhook(null)
-    setCreatedSecret(null)
-    setSecretMode(null)
     setNewUrl('')
     setSelectedEvents([])
-    setCopied(false)
   }
 
   const handleOpenCreate = () => {
     setEditingWebhook(null)
-    setCreatedSecret(null)
-    setSecretMode(null)
     setNewUrl('')
     setSelectedEvents([])
-    setCopied(false)
     setCreateOpen(true)
   }
 
   const handleOpenEdit = (webhook: WebhookRow) => {
     setEditingWebhook(webhook)
-    setCreatedSecret(null)
-    setSecretMode(null)
     setNewUrl(webhook.url)
     setSelectedEvents(
       webhook.events.filter((event): event is WebhookEvent =>
         WEBHOOK_EVENTS.some((option) => option.value === event),
       ),
     )
-    setCopied(false)
     setCreateOpen(true)
   }
 
@@ -234,19 +186,10 @@ export function WebhooksSection() {
     submitLabel = 'Creating...'
   }
 
-  let dialogTitle = 'Add Webhook'
-  if (createdSecret) {
-    dialogTitle = secretMode === 'reset' ? 'Signing Secret Reset' : 'Webhook Created'
-  } else if (editingWebhook) {
-    dialogTitle = 'Edit Webhook'
-  }
-
-  let dialogDescription = 'Enter a HTTPS endpoint URL. We\'ll sign each request so you can verify it\'s from Loyalink.'
-  if (createdSecret) {
-    dialogDescription = 'Copy this signing secret now. You will not be able to see it again.'
-  } else if (editingWebhook) {
-    dialogDescription = 'Update the endpoint URL or event filters for this webhook.'
-  }
+  const dialogTitle = editingWebhook ? 'Edit Webhook' : 'Add Webhook'
+  const dialogDescription = editingWebhook
+    ? 'Update the endpoint URL or event filters for this webhook.'
+    : 'Enter a HTTPS endpoint URL. We\'ll POST event data to it as it happens.'
 
   return (
     <div className="space-y-6">
@@ -375,97 +318,58 @@ export function WebhooksSection() {
             <DialogDescription>{dialogDescription}</DialogDescription>
           </DialogHeader>
 
-          {createdSecret ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary border border-border">
-                <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
-                <p className="text-xs text-muted-foreground">
-                  This is the only time the signing secret will be shown. For n8n Header Auth, use header name
-                  {' '}<span className="font-mono text-foreground">X-Loyalink-Webhook-Secret</span> and this value.
-                </p>
-              </div>
-
-              <div className="relative">
-                <code className="block w-full rounded-lg bg-secondary border border-border p-3 text-xs font-mono text-foreground break-all pr-10">
-                  {createdSecret}
-                </code>
-                <button
-                  onClick={handleCopy}
-                  className="absolute right-2 top-2 p-1.5 rounded-md hover:bg-secondary-foreground/10"
-                >
-                  {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4 text-muted-foreground" />}
-                </button>
-              </div>
-
-              <Button onClick={handleCloseCreate} className="w-full">Done</Button>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="webhook-url">Endpoint URL</Label>
+              <Input
+                id="webhook-url"
+                type="url"
+                placeholder="https://api.example.com/webhooks/loyalink"
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                autoFocus
+              />
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="webhook-url">Endpoint URL</Label>
-                <Input
-                  id="webhook-url"
-                  type="url"
-                  placeholder="https://api.example.com/webhooks/loyalink"
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                  autoFocus
-                />
+
+            <div>
+              <Label className="mb-2 block">Events</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Select which events to receive. Leave empty for all events.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {WEBHOOK_EVENTS.map((evt) => {
+                  const selected = selectedEvents.includes(evt.value)
+                  return (
+                    <button
+                      key={evt.value}
+                      onClick={() => toggleEvent(evt.value)}
+                      className={`text-left text-xs rounded-lg border px-3 py-2 transition-colors ${
+                        selected
+                          ? 'border-primary bg-primary/10 text-foreground'
+                          : 'border-border text-muted-foreground hover:text-foreground hover:border-border/80'
+                      }`}
+                    >
+                      {evt.label}
+                    </button>
+                  )
+                })}
               </div>
-
-              <div>
-                <Label className="mb-2 block">Events</Label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Select which events to receive. Leave empty for all events.
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {WEBHOOK_EVENTS.map((evt) => {
-                    const selected = selectedEvents.includes(evt.value)
-                    return (
-                      <button
-                        key={evt.value}
-                        onClick={() => toggleEvent(evt.value)}
-                        className={`text-left text-xs rounded-lg border px-3 py-2 transition-colors ${
-                          selected
-                            ? 'border-primary bg-primary/10 text-foreground'
-                            : 'border-border text-muted-foreground hover:text-foreground hover:border-border/80'
-                        }`}
-                      >
-                        {evt.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <Button
-                onClick={() => {
-                  if (editingWebhook) {
-                    updateWebhook.mutate({ id: editingWebhook.id, url: newUrl, events: selectedEvents })
-                    return
-                  }
-                  createWebhook.mutate({ url: newUrl, events: selectedEvents })
-                }}
-                disabled={createWebhook.isPending || updateWebhook.isPending || !newUrl.trim()}
-                className="w-full"
-              >
-                {submitLabel}
-              </Button>
-
-              {editingWebhook && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => resetWebhookSecret.mutate(editingWebhook.id)}
-                  disabled={resetWebhookSecret.isPending}
-                  className="w-full"
-                >
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  {resetWebhookSecret.isPending ? 'Resetting...' : 'Reset Signing Secret'}
-                </Button>
-              )}
             </div>
-          )}
+
+            <Button
+              onClick={() => {
+                if (editingWebhook) {
+                  updateWebhook.mutate({ id: editingWebhook.id, url: newUrl, events: selectedEvents })
+                  return
+                }
+                createWebhook.mutate({ url: newUrl, events: selectedEvents })
+              }}
+              disabled={createWebhook.isPending || updateWebhook.isPending || !newUrl.trim()}
+              className="w-full"
+            >
+              {submitLabel}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
