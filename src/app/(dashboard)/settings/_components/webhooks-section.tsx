@@ -16,7 +16,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Webhook, Copy, Check, Trash2, Plus, AlertTriangle, Pause, Play, ChevronDown, ChevronRight, Pencil } from 'lucide-react'
+import { Webhook, Copy, Check, Trash2, Plus, AlertTriangle, Pause, Play, ChevronDown, ChevronRight, Pencil, RotateCcw } from 'lucide-react'
 import { WEBHOOK_EVENTS, type WebhookEvent } from '@/lib/webhook-events'
 
 type WebhookRow = {
@@ -56,6 +56,7 @@ export function WebhooksSection() {
   const [newUrl, setNewUrl] = useState('')
   const [selectedEvents, setSelectedEvents] = useState<WebhookEvent[]>([])
   const [createdSecret, setCreatedSecret] = useState<string | null>(null)
+  const [secretMode, setSecretMode] = useState<'created' | 'reset' | null>(null)
   const [copied, setCopied] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -94,8 +95,31 @@ export function WebhooksSection() {
     },
     onSuccess: (data) => {
       setCreatedSecret(data.secret)
+      setSecretMode('created')
       setNewUrl('')
       setSelectedEvents([])
+      queryClient.invalidateQueries({ queryKey: ['webhooks'] })
+    },
+    onError: (err) => toast.error(err.message),
+  })
+
+  const resetWebhookSecret = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/settings/webhooks/${id}?studioId=${currentStudio!.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resetSecret: true }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to reset signing secret')
+      }
+      return res.json()
+    },
+    onSuccess: (data) => {
+      setCreatedSecret(data.secret)
+      setSecretMode('reset')
+      setCopied(false)
       queryClient.invalidateQueries({ queryKey: ['webhooks'] })
     },
     onError: (err) => toast.error(err.message),
@@ -167,6 +191,7 @@ export function WebhooksSection() {
     setCreateOpen(false)
     setEditingWebhook(null)
     setCreatedSecret(null)
+    setSecretMode(null)
     setNewUrl('')
     setSelectedEvents([])
     setCopied(false)
@@ -175,6 +200,7 @@ export function WebhooksSection() {
   const handleOpenCreate = () => {
     setEditingWebhook(null)
     setCreatedSecret(null)
+    setSecretMode(null)
     setNewUrl('')
     setSelectedEvents([])
     setCopied(false)
@@ -184,6 +210,7 @@ export function WebhooksSection() {
   const handleOpenEdit = (webhook: WebhookRow) => {
     setEditingWebhook(webhook)
     setCreatedSecret(null)
+    setSecretMode(null)
     setNewUrl(webhook.url)
     setSelectedEvents(
       webhook.events.filter((event): event is WebhookEvent =>
@@ -209,7 +236,7 @@ export function WebhooksSection() {
 
   let dialogTitle = 'Add Webhook'
   if (createdSecret) {
-    dialogTitle = 'Webhook Created'
+    dialogTitle = secretMode === 'reset' ? 'Signing Secret Reset' : 'Webhook Created'
   } else if (editingWebhook) {
     dialogTitle = 'Edit Webhook'
   }
@@ -424,6 +451,19 @@ export function WebhooksSection() {
               >
                 {submitLabel}
               </Button>
+
+              {editingWebhook && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => resetWebhookSecret.mutate(editingWebhook.id)}
+                  disabled={resetWebhookSecret.isPending}
+                  className="w-full"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  {resetWebhookSecret.isPending ? 'Resetting...' : 'Reset Signing Secret'}
+                </Button>
+              )}
             </div>
           )}
         </DialogContent>

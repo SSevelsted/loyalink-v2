@@ -151,6 +151,7 @@ async function deliverToEndpoint(
         'X-Loyalink-Timestamp': String(timestamp),
         'X-Loyalink-Event': JSON.parse(body).event,
       },
+      body,
       signal: AbortSignal.timeout(10_000),
     })
 

@@ -2,7 +2,7 @@ import { adminSupabase } from '@/lib/studio-access'
 
 type AuditAction =
   | 'api_key.created' | 'api_key.revoked' | 'api_key.rotated'
-  | 'webhook.created' | 'webhook.deleted'
+  | 'webhook.created' | 'webhook.deleted' | 'webhook.secret_reset'
   | 'invitation.sent' | 'invitation.accepted'
   | 'studio.created' | 'studio.cancelled'
   | 'member.role_changed'
