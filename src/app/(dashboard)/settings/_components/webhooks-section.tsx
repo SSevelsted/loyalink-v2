@@ -16,7 +16,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Webhook, Copy, Check, Trash2, Plus, AlertTriangle, Pause, Play, ChevronDown, ChevronRight } from 'lucide-react'
+import { Webhook, Copy, Check, Trash2, Plus, AlertTriangle, Pause, Play, ChevronDown, ChevronRight, Pencil } from 'lucide-react'
 import { WEBHOOK_EVENTS, type WebhookEvent } from '@/lib/webhook-events'
 
 type WebhookRow = {
@@ -52,6 +52,7 @@ export function WebhooksSection() {
   const { currentStudio } = useStudio()
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
+  const [editingWebhook, setEditingWebhook] = useState<WebhookRow | null>(null)
   const [newUrl, setNewUrl] = useState('')
   const [selectedEvents, setSelectedEvents] = useState<WebhookEvent[]>([])
   const [createdSecret, setCreatedSecret] = useState<string | null>(null)
@@ -100,6 +101,32 @@ export function WebhooksSection() {
     onError: (err) => toast.error(err.message),
   })
 
+  const updateWebhook = useMutation({
+    mutationFn: async ({ id, url, events }: { id: string; url: string; events: WebhookEvent[] }) => {
+      const res = await fetch(`/api/settings/webhooks/${id}?studioId=${currentStudio!.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, events }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to update')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      toast.success('Webhook updated')
+      setCreateOpen(false)
+      setEditingWebhook(null)
+      setCreatedSecret(null)
+      setNewUrl('')
+      setSelectedEvents([])
+      setCopied(false)
+      queryClient.invalidateQueries({ queryKey: ['webhooks'] })
+    },
+    onError: (err) => toast.error(err.message),
+  })
+
   const toggleWebhook = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
       const res = await fetch(`/api/settings/webhooks/${id}?studioId=${currentStudio!.id}`, {
@@ -138,16 +165,60 @@ export function WebhooksSection() {
 
   const handleCloseCreate = () => {
     setCreateOpen(false)
+    setEditingWebhook(null)
     setCreatedSecret(null)
     setNewUrl('')
     setSelectedEvents([])
     setCopied(false)
   }
 
+  const handleOpenCreate = () => {
+    setEditingWebhook(null)
+    setCreatedSecret(null)
+    setNewUrl('')
+    setSelectedEvents([])
+    setCopied(false)
+    setCreateOpen(true)
+  }
+
+  const handleOpenEdit = (webhook: WebhookRow) => {
+    setEditingWebhook(webhook)
+    setCreatedSecret(null)
+    setNewUrl(webhook.url)
+    setSelectedEvents(
+      webhook.events.filter((event): event is WebhookEvent =>
+        WEBHOOK_EVENTS.some((option) => option.value === event),
+      ),
+    )
+    setCopied(false)
+    setCreateOpen(true)
+  }
+
   const toggleEvent = (event: WebhookEvent) => {
     setSelectedEvents((prev) =>
       prev.includes(event) ? prev.filter((e) => e !== event) : [...prev, event],
     )
+  }
+
+  let submitLabel = 'Create Webhook'
+  if (editingWebhook) {
+    submitLabel = updateWebhook.isPending ? 'Saving...' : 'Save Changes'
+  } else if (createWebhook.isPending) {
+    submitLabel = 'Creating...'
+  }
+
+  let dialogTitle = 'Add Webhook'
+  if (createdSecret) {
+    dialogTitle = 'Webhook Created'
+  } else if (editingWebhook) {
+    dialogTitle = 'Edit Webhook'
+  }
+
+  let dialogDescription = 'Enter a HTTPS endpoint URL. We\'ll sign each request so you can verify it\'s from Loyalink.'
+  if (createdSecret) {
+    dialogDescription = 'Copy this signing secret now. You will not be able to see it again.'
+  } else if (editingWebhook) {
+    dialogDescription = 'Update the endpoint URL or event filters for this webhook.'
   }
 
   return (
@@ -158,7 +229,7 @@ export function WebhooksSection() {
             <Webhook className="h-5 w-5 text-muted-foreground" />
             <CardTitle className="text-base">Webhooks</CardTitle>
           </div>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <Button size="sm" onClick={handleOpenCreate}>
             <Plus className="h-4 w-4 mr-1" />
             Add Webhook
           </Button>
@@ -205,6 +276,14 @@ export function WebhooksSection() {
                       </div>
                     </button>
                     <div className="flex items-center gap-1 shrink-0 ml-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenEdit(webhook)}
+                        title="Edit"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -265,12 +344,8 @@ export function WebhooksSection() {
       <Dialog open={createOpen} onOpenChange={handleCloseCreate}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{createdSecret ? 'Webhook Created' : 'Add Webhook'}</DialogTitle>
-            <DialogDescription>
-              {createdSecret
-                ? 'Copy this signing secret now. You will not be able to see it again.'
-                : 'Enter a HTTPS endpoint URL. We\'ll sign each request so you can verify it\'s from Loyalink.'}
-            </DialogDescription>
+            <DialogTitle>{dialogTitle}</DialogTitle>
+            <DialogDescription>{dialogDescription}</DialogDescription>
           </DialogHeader>
 
           {createdSecret ? (
@@ -334,11 +409,17 @@ export function WebhooksSection() {
               </div>
 
               <Button
-                onClick={() => createWebhook.mutate({ url: newUrl, events: selectedEvents })}
-                disabled={createWebhook.isPending || !newUrl.trim()}
+                onClick={() => {
+                  if (editingWebhook) {
+                    updateWebhook.mutate({ id: editingWebhook.id, url: newUrl, events: selectedEvents })
+                    return
+                  }
+                  createWebhook.mutate({ url: newUrl, events: selectedEvents })
+                }}
+                disabled={createWebhook.isPending || updateWebhook.isPending || !newUrl.trim()}
                 className="w-full"
               >
-                {createWebhook.isPending ? 'Creating...' : 'Create Webhook'}
+                {submitLabel}
               </Button>
             </div>
           )}

@@ -39,8 +39,12 @@ const SECTIONS = [
 type SectionId = (typeof SECTIONS)[number]['id']
 
 export default function SettingsPage() {
-  const { currentStudio, membership } = useStudio()
-  const isAdmin = membership?.role === 'owner' || membership?.role === 'admin'
+  const { currentStudio, membership, isSuperAdmin } = useStudio()
+  const isAdmin =
+    isSuperAdmin ||
+    membership?.role === 'owner' ||
+    membership?.role === 'admin' ||
+    membership?.role === 'super_admin'
   const [activeSection, setActiveSection] = useState<SectionId>('account')
 
   // Rewards config (shared between Rewards + Referrals)
