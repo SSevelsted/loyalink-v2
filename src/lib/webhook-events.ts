@@ -5,6 +5,7 @@ export type WebhookEvent =
   | 'tier.upgraded'
   | 'referral.activated'
   | 'promotion.expired'
+  | 'card.issued'
   | 'card.installed'
   | 'card.uninstalled'
 
@@ -15,9 +16,11 @@ export const WEBHOOK_EVENTS: { value: WebhookEvent; label: string }[] = [
   { value: 'tier.upgraded', label: 'Tier Upgraded' },
   { value: 'referral.activated', label: 'Referral Activated' },
   { value: 'promotion.expired', label: 'Promotion Expired' },
-  // Wallet card lifecycle. Apple-only: Apple PassKit notifies us on add/remove,
-  // but Google Wallet provides no server-side "saved" callback, so Google passes
-  // never emit these events.
+  // Wallet card lifecycle. card.issued (a card was offered) fires for both Apple
+  // and Google. card.installed / card.uninstalled are Apple-only: Apple PassKit
+  // notifies us on add/remove, but Google Wallet provides no server-side "saved"
+  // callback, so Google passes never emit those two.
+  { value: 'card.issued', label: 'Card Issued' },
   { value: 'card.installed', label: 'Card Installed' },
   { value: 'card.uninstalled', label: 'Card Uninstalled' },
 ]

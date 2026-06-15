@@ -5,12 +5,13 @@ import { fireWebhook } from '@/lib/services/webhook-service'
 import type { WebhookEvent } from '@/lib/webhook-events'
 
 // Internal sink for wallet card lifecycle webhooks. Called fire-and-forget by the
-// pass-service (a separate Express app) when an Apple PassKit device registers or
-// unregisters a pass. Authenticated with the shared PASS_SERVICE_SECRET, the same
-// internal-secret scheme used by /api/emails/pass-lifecycle.
+// pass-service (a separate Express app) when a card is issued, or when an Apple
+// PassKit device registers/unregisters a pass. Authenticated with the shared
+// PASS_SERVICE_SECRET, the same internal-secret scheme used by /api/emails/pass-lifecycle.
 //
-// Apple-only: Google Wallet gives no server-side "saved"/"removed" callback, so the
-// pass-service never calls this for Google passes.
+// card.issued fires for both Apple and Google (the "offered" denominator).
+// card.installed / card.uninstalled are Apple-only: Google Wallet gives no
+// server-side "saved"/"removed" callback.
 
 function verifyInternalSecret(headerValue: string | null): boolean {
   const expected = process.env.PASS_SERVICE_SECRET
@@ -24,6 +25,7 @@ function verifyInternalSecret(headerValue: string | null): boolean {
 }
 
 const EVENT_FOR_TYPE: Record<string, WebhookEvent> = {
+  card_issued: 'card.issued',
   card_installed: 'card.installed',
   card_uninstalled: 'card.uninstalled',
 }

@@ -1,25 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { supabase, appUrl } from '../config.js';
+import { firePassLifecycle } from '../utils/lifecycle.js';
 
 export const appleWebServiceRoutes = Router();
-
-// Fire-and-forget notify the Next.js app to dispatch a card lifecycle webhook
-// (card.installed / card.uninstalled). Authenticated with the shared internal
-// secret, mirroring the /api/emails/pass-lifecycle call below.
-function firePassLifecycle(
-  type: 'card_installed' | 'card_uninstalled',
-  payload: { customerId: string; studioId: string; serialNumber: string },
-) {
-  const secret = process.env.PASS_SERVICE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
-  fetch(`${appUrl}/api/internal/pass-lifecycle`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-loyalink-internal-secret': secret || '',
-    },
-    body: JSON.stringify({ type, platform: 'apple', ...payload }),
-  }).catch((err: unknown) => console.error(`[${type}] Failed to dispatch lifecycle webhook:`, err));
-}
 
 // Middleware to verify authorization token
 const verifyAuthToken = async (
@@ -119,6 +102,7 @@ appleWebServiceRoutes.post(
           customerId: walletPass.customer_id,
           studioId: walletPass.studio_id,
           serialNumber,
+          platform: 'apple',
         });
       }
 
@@ -198,6 +182,7 @@ appleWebServiceRoutes.delete(
           customerId: walletPass.customer_id,
           studioId: walletPass.studio_id,
           serialNumber,
+          platform: 'apple',
         });
       }
 
