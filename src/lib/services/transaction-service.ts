@@ -265,6 +265,28 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
     currency: (customer.currency as string | null | undefined) ?? (settings?.currency as string | null | undefined) ?? 'DKK',
     transacted_at: transactedAt,
     total_spend: newSpendTotal,
+    customer: {
+      id: customer.id,
+      member_id: customer.member_id,
+      contact_id: customer.contact_id,
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone,
+      loyalty_stage: baseUpdates.loyalty_stage ?? customer.loyalty_stage,
+      balance: Number(customer.balance ?? 0) + cashbackAmount,
+      cashback_rate: baseUpdates.cashback_rate ?? customer.cashback_rate,
+      referral_code: customer.referral_code,
+      referral_count: customer.referral_count,
+      has_purchased: true,
+      total_real_spend: newSpendTotal,
+      currency: customer.currency,
+      language: customer.language,
+      tags: customer.tags,
+      pass_provider: customer.pass_provider,
+      landing_page_id: customer.landing_page_id,
+      created_at: customer.created_at,
+      updated_at: customer.updated_at,
+    },
   })
 
   const tierUpgradeForMessage = tierChanged && baseUpdates.loyalty_stage
