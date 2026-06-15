@@ -3,6 +3,24 @@ import { supabase, appUrl } from '../config.js';
 
 export const appleWebServiceRoutes = Router();
 
+// Fire-and-forget notify the Next.js app to dispatch a card lifecycle webhook
+// (card.installed / card.uninstalled). Authenticated with the shared internal
+// secret, mirroring the /api/emails/pass-lifecycle call below.
+function firePassLifecycle(
+  type: 'card_installed' | 'card_uninstalled',
+  payload: { customerId: string; studioId: string; serialNumber: string },
+) {
+  const secret = process.env.PASS_SERVICE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  fetch(`${appUrl}/api/internal/pass-lifecycle`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-loyalink-internal-secret': secret || '',
+    },
+    body: JSON.stringify({ type, platform: 'apple', ...payload }),
+  }).catch((err: unknown) => console.error(`[${type}] Failed to dispatch lifecycle webhook:`, err));
+}
+
 // Middleware to verify authorization token
 const verifyAuthToken = async (
   req: Request,
@@ -45,7 +63,7 @@ appleWebServiceRoutes.post(
       // Verify the pass exists and auth token matches
       const { data: walletPass, error: passError } = await supabase
         .from('wallet_passes')
-        .select('id, customer_id, authentication_token')
+        .select('id, customer_id, studio_id, status, authentication_token')
         .eq('serial_number', serialNumber)
         .single();
 
@@ -82,6 +100,11 @@ appleWebServiceRoutes.post(
         return res.status(500).send('Registration failed');
       }
 
+      // Fire card.installed only on the real transition into "installed" so a
+      // customer registering a second device (e.g. iPhone + Apple Watch) or
+      // re-registering the same device doesn't emit duplicate install events.
+      const wasInstalled = walletPass.status === 'installed';
+
       // Update pass status to installed
       await supabase
         .from('wallet_passes')
@@ -90,6 +113,14 @@ appleWebServiceRoutes.post(
           installed_at: new Date().toISOString(),
         })
         .eq('id', walletPass.id);
+
+      if (!wasInstalled) {
+        firePassLifecycle('card_installed', {
+          customerId: walletPass.customer_id,
+          studioId: walletPass.studio_id,
+          serialNumber,
+        });
+      }
 
       // Return 201 for new registration, 200 for update
       res.status(201).send();
@@ -130,26 +161,45 @@ appleWebServiceRoutes.delete(
         .eq('serial_number', serialNumber)
         .eq('platform', 'apple');
 
-      // Update pass status
-      await supabase
-        .from('wallet_passes')
-        .update({ status: 'uninstalled' })
-        .eq('id', walletPass.id);
+      // A pass can be installed on multiple devices (iPhone + Apple Watch + iPad).
+      // Only treat the card as truly uninstalled — and emit the email + webhook —
+      // once the last active device registration is gone.
+      const { count: remainingDevices } = await supabase
+        .from('wallet_device_registrations')
+        .select('id', { count: 'exact', head: true })
+        .eq('serial_number', serialNumber)
+        .eq('platform', 'apple')
+        .eq('is_active', true);
 
-      // Fire-and-forget: trigger uninstall email via the Next.js app
-      const emailSecret = process.env.PASS_SERVICE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
-      fetch(`${appUrl}/api/emails/pass-lifecycle`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-loyalink-internal-secret': emailSecret || '',
-        },
-        body: JSON.stringify({
-          type: 'pass_uninstalled',
+      if ((remainingDevices ?? 0) === 0) {
+        // Update pass status
+        await supabase
+          .from('wallet_passes')
+          .update({ status: 'uninstalled' })
+          .eq('id', walletPass.id);
+
+        // Fire-and-forget: trigger uninstall email via the Next.js app
+        const emailSecret = process.env.PASS_SERVICE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+        fetch(`${appUrl}/api/emails/pass-lifecycle`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-loyalink-internal-secret': emailSecret || '',
+          },
+          body: JSON.stringify({
+            type: 'pass_uninstalled',
+            customerId: walletPass.customer_id,
+            studioId: walletPass.studio_id,
+          }),
+        }).catch((err: unknown) => console.error('[unregister] Failed to trigger uninstall email:', err));
+
+        // Dispatch card.uninstalled webhook
+        firePassLifecycle('card_uninstalled', {
           customerId: walletPass.customer_id,
           studioId: walletPass.studio_id,
-        }),
-      }).catch((err: unknown) => console.error('[unregister] Failed to trigger uninstall email:', err));
+          serialNumber,
+        });
+      }
 
       res.status(200).send();
     } catch (error) {
