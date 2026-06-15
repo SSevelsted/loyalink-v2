@@ -352,7 +352,10 @@ export function WebhooksSection() {
             <div className="space-y-4">
               <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary border border-border">
                 <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
-                <p className="text-xs text-muted-foreground">This is the only time the signing secret will be shown</p>
+                <p className="text-xs text-muted-foreground">
+                  This is the only time the signing secret will be shown. For n8n Header Auth, use header name
+                  {' '}<span className="font-mono text-foreground">X-Loyalink-Webhook-Secret</span> and this value.
+                </p>
               </div>
 
               <div className="relative">

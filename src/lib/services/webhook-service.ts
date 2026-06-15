@@ -146,6 +146,7 @@ async function deliverToEndpoint(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Loyalink-Webhook-Secret': secret,
         'X-Loyalink-Signature': signature,
         'X-Loyalink-Timestamp': String(timestamp),
         'X-Loyalink-Event': JSON.parse(body).event,
