@@ -26,6 +26,10 @@ export const apnsConfig = {
 export const googleConfig = {
   issuerId: process.env.GOOGLE_ISSUER_ID || '',
   serviceAccountBase64: process.env.GOOGLE_SERVICE_ACCOUNT_BASE64 || '',
+  // Unguessable token appended to the Google Wallet save/delete callback URL.
+  // Google calls the exact URL we register on the class, so a secret in that URL
+  // authenticates the caller without verifying Google's ECv2 signature.
+  callbackToken: process.env.GOOGLE_CALLBACK_TOKEN || '',
 };
 
 // Public URL for web service callbacks

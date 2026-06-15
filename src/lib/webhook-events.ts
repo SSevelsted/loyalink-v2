@@ -16,10 +16,11 @@ export const WEBHOOK_EVENTS: { value: WebhookEvent; label: string }[] = [
   { value: 'tier.upgraded', label: 'Tier Upgraded' },
   { value: 'referral.activated', label: 'Referral Activated' },
   { value: 'promotion.expired', label: 'Promotion Expired' },
-  // Wallet card lifecycle. card.issued (a card was offered) fires for both Apple
-  // and Google. card.installed / card.uninstalled are Apple-only: Apple PassKit
-  // notifies us on add/remove, but Google Wallet provides no server-side "saved"
-  // callback, so Google passes never emit those two.
+  // Wallet card lifecycle — all three fire for both Apple and Google. Installs/
+  // uninstalls come from Apple PassKit register/unregister and Google Wallet
+  // save/delete callbacks. Note: Google's "save" callback is less reliable than
+  // Apple's (delivery can lag or be missed), so Apple installs are the stronger
+  // signal of the two.
   { value: 'card.issued', label: 'Card Issued' },
   { value: 'card.installed', label: 'Card Installed' },
   { value: 'card.uninstalled', label: 'Card Uninstalled' },
