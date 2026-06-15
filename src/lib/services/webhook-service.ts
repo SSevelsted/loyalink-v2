@@ -1,4 +1,3 @@
-import { createHmac } from 'crypto'
 import { lookup } from 'dns/promises'
 import { adminSupabase } from '@/lib/studio-access'
 import type { WebhookEvent } from '@/lib/webhook-events'
@@ -57,12 +56,11 @@ async function isPrivateUrl(url: string): Promise<boolean> {
   }
 }
 
-function signPayload(payload: string, secret: string, timestamp: number): string {
-  return createHmac('sha256', secret).update(`${timestamp}.${payload}`).digest('hex')
-}
-
 /**
  * Fire webhooks for a studio event. Non-blocking — errors are logged, never thrown.
+ *
+ * Deliveries are unsigned: the receiver just trusts POSTs to the URL it configured.
+ * The only protection retained is SSRF blocking of private/internal endpoints.
  */
 export function fireWebhook(
   studioId: string,
@@ -83,7 +81,7 @@ async function deliverWebhooks(
 ) {
   const { data: webhooks } = await adminSupabase
     .from('studio_webhooks')
-    .select('id, url, secret, events')
+    .select('id, url, events')
     .eq('studio_id', studioId)
     .eq('active', true)
 
@@ -104,19 +102,15 @@ async function deliverWebhooks(
   }
   const body = JSON.stringify(payload)
 
-  const timestamp = Math.floor(Date.now() / 1000)
-
   await Promise.allSettled(
-    matching.map((webhook) => deliverToEndpoint(webhook.id, webhook.url, webhook.secret, body, timestamp)),
+    matching.map((webhook) => deliverToEndpoint(webhook.id, webhook.url, body)),
   )
 }
 
 async function deliverToEndpoint(
   webhookId: string,
   url: string,
-  secret: string,
   body: string,
-  timestamp: number,
   attempt = 1,
 ) {
   // SSRF protection: block private/internal URLs
@@ -136,7 +130,6 @@ async function deliverToEndpoint(
     return
   }
 
-  const signature = signPayload(body, secret, timestamp)
   let statusCode: number | null = null
   let responseBody: string | null = null
   let success = false
@@ -146,9 +139,6 @@ async function deliverToEndpoint(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Loyalink-Webhook-Secret': secret,
-        'X-Loyalink-Signature': signature,
-        'X-Loyalink-Timestamp': String(timestamp),
         'X-Loyalink-Event': JSON.parse(body).event,
       },
       body,
@@ -178,6 +168,6 @@ async function deliverToEndpoint(
   // Retry once on failure after 3s
   if (!success && attempt < 2) {
     await new Promise((r) => setTimeout(r, 3000))
-    return deliverToEndpoint(webhookId, url, secret, body, timestamp, attempt + 1)
+    return deliverToEndpoint(webhookId, url, body, attempt + 1)
   }
 }

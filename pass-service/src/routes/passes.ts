@@ -4,6 +4,7 @@ import { supabase } from '../config.js';
 import { applePassService } from '../services/applePassService.js';
 import { requireInternalAuth } from '../middleware/internalAuth.js';
 import { verifyCustomerAccessToken } from '../utils/customerAccess.js';
+import { firePassLifecycle } from '../utils/lifecycle.js';
 
 export const passRoutes = Router();
 
@@ -70,6 +71,9 @@ passRoutes.post('/generate', requireInternalAuth, async (req: Request, res: Resp
     // update it (refreshes template_id + updated_at) instead of inserting.
     let walletPass: { id: string } | null = null;
     let passError: { message: string } | null = null;
+    // Tracks a genuinely new card issuance (fresh insert), as opposed to reusing
+    // an existing pass or recovering from the race fallback below.
+    let isNewlyIssued = false;
 
     if (existingPass) {
       const { data, error } = await supabase
@@ -99,6 +103,7 @@ passRoutes.post('/generate', requireInternalAuth, async (req: Request, res: Resp
         .single();
       walletPass = data;
       passError = error;
+      if (!error) isNewlyIssued = true;
 
       // Race: a concurrent generate hit the partial unique index. Fall back
       // to the existing row.
@@ -129,6 +134,18 @@ passRoutes.post('/generate', requireInternalAuth, async (req: Request, res: Resp
       .from('customers')
       .update({ pass_provider: 'self_hosted' })
       .eq('id', customerId);
+
+    // A card was offered to this customer — fires for both platforms so it can
+    // serve as the denominator for "offered vs. installed". Only on a genuinely
+    // new pass, not a reuse/re-download of an existing one.
+    if (isNewlyIssued) {
+      firePassLifecycle('card_issued', {
+        customerId,
+        studioId: customer.studio_id,
+        serialNumber,
+        platform,
+      });
+    }
 
     if (platform === 'apple') {
       // Generate Apple Wallet pass

@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server'
-import { randomBytes } from 'crypto'
 import { adminSupabase } from '@/lib/studio-access'
 import { validateApiKey } from '@/lib/api-keys'
 import { apiSuccess, apiError } from '@/lib/api-response'
@@ -50,14 +49,11 @@ export async function POST(request: NextRequest, { params }: Params) {
       return apiError('URL must use HTTPS', 400)
     }
 
-    const secret = `whsec_${randomBytes(24).toString('hex')}`
-
     const { data, error } = await adminSupabase
       .from('studio_webhooks')
       .insert({
         studio_id: id,
         url,
-        secret,
         events,
       })
       .select('id, url, events, active, created_at')
@@ -65,7 +61,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     if (error) return apiError(error.message, 500)
 
-    return apiSuccess({ ...data, secret }, 201)
+    return apiSuccess(data, 201)
   } catch {
     return apiError('Internal server error', 500)
   }

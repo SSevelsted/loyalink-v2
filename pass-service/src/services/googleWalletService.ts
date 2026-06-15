@@ -1,6 +1,13 @@
 import crypto from 'crypto';
 import { GoogleAuth } from 'google-auth-library';
-import { googleConfig, appUrl } from '../config.js';
+import { googleConfig, appUrl, publicUrl } from '../config.js';
+
+// Save/delete callback URL registered on every loyalty class. Google POSTs here
+// when a user adds or removes the pass; the optional token authenticates it.
+function googleCallbackUrl(): string {
+  const base = `${publicUrl}/api/google/callback`;
+  return googleConfig.callbackToken ? `${base}?token=${googleConfig.callbackToken}` : base;
+}
 
 /**
  * Customer-facing labels rendered on the Google Wallet pass surface. Mirrors
@@ -109,6 +116,8 @@ export class GoogleWalletService {
       issuerName: data.studioName,
       reviewStatus: 'UNDER_REVIEW',
       programName: `${data.studioName} Loyalty`,
+      // Notifies our pass-service when a user saves or removes this pass.
+      callbackOptions: { url: googleCallbackUrl() },
       programLogo: data.logoUrl
         ? {
             sourceUri: { uri: data.logoUrl },
@@ -260,6 +269,8 @@ export class GoogleWalletService {
         issuerName: studioName,
         reviewStatus: 'UNDER_REVIEW',
         programName: `${studioName} Loyalty`,
+        // Notifies our pass-service when a user saves or removes this pass.
+        callbackOptions: { url: googleCallbackUrl() },
       };
       if (objectData.logoUrl) {
         inlineClass.programLogo = {

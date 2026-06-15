@@ -1,9 +1,93 @@
 import { Router, Request, Response } from 'express';
-import { supabase } from '../config.js';
+import { supabase, googleConfig } from '../config.js';
 import { googleWalletService } from '../services/googleWalletService.js';
 import { requireInternalAuth } from '../middleware/internalAuth.js';
+import { firePassLifecycle } from '../utils/lifecycle.js';
 
 export const googleRoutes = Router();
+
+// Google Wallet save/delete callback. Google POSTs here when a user adds ('save')
+// or removes ('del') a pass, which is our only server-side install signal for
+// Google (the equivalent of Apple's PassKit register/unregister). Configured via
+// callbackOptions on the loyalty class.
+//
+// Auth: Google calls the exact URL we registered, so an unguessable token in that
+// URL authenticates it. Full ECv2 signature verification of req.body.signedMessage
+// could be layered on here later for defence-in-depth.
+googleRoutes.post('/callback', async (req: Request, res: Response) => {
+  try {
+    if (googleConfig.callbackToken && req.query.token !== googleConfig.callbackToken) {
+      return res.status(401).send('Unauthorized');
+    }
+
+    // The event lives in a signed envelope: signedMessage is a JSON string with
+    // { objectId, classId, eventType, expTimeMillis, nonce }.
+    let message: Record<string, unknown> = (req.body as Record<string, unknown>) ?? {};
+    const signed = (req.body as { signedMessage?: unknown })?.signedMessage;
+    if (typeof signed === 'string') {
+      try { message = JSON.parse(signed); } catch { /* fall back to req.body */ }
+    }
+
+    const eventType = typeof message.eventType === 'string' ? message.eventType : undefined;
+    const rawObjectId = typeof message.objectId === 'string' ? message.objectId : undefined;
+    if (!eventType || !rawObjectId) {
+      return res.status(400).send('Missing eventType or objectId');
+    }
+
+    // Resource id is `${issuerId}.${serial_with_underscores}`. Reverse it: strip
+    // the issuer prefix, then underscores back to hyphens. Serial numbers are
+    // `PASS-<uuid>` (hex + hyphens only), so the mapping is lossless.
+    const prefix = `${googleConfig.issuerId}.`;
+    const objectId = rawObjectId.startsWith(prefix) ? rawObjectId.slice(prefix.length) : rawObjectId;
+    const serialNumber = objectId.replace(/_/g, '-');
+
+    const { data: walletPass } = await supabase
+      .from('wallet_passes')
+      .select('id, customer_id, studio_id, status')
+      .eq('serial_number', serialNumber)
+      .eq('platform', 'google')
+      .single();
+
+    if (!walletPass) {
+      // Unknown object — ack so Google stops retrying.
+      console.warn(`[google callback] no google pass for serial ${serialNumber}`);
+      return res.status(200).send();
+    }
+
+    if (eventType === 'save') {
+      // Fire card.installed only on the real transition into installed.
+      const wasInstalled = walletPass.status === 'installed';
+      await supabase
+        .from('wallet_passes')
+        .update({ status: 'installed', installed_at: new Date().toISOString() })
+        .eq('id', walletPass.id);
+      if (!wasInstalled) {
+        firePassLifecycle('card_installed', {
+          customerId: walletPass.customer_id,
+          studioId: walletPass.studio_id,
+          serialNumber,
+          platform: 'google',
+        });
+      }
+    } else if (eventType === 'del') {
+      await supabase
+        .from('wallet_passes')
+        .update({ status: 'uninstalled' })
+        .eq('id', walletPass.id);
+      firePassLifecycle('card_uninstalled', {
+        customerId: walletPass.customer_id,
+        studioId: walletPass.studio_id,
+        serialNumber,
+        platform: 'google',
+      });
+    }
+
+    res.status(200).send();
+  } catch (error) {
+    console.error('Error handling Google callback:', error);
+    res.status(500).send('Internal error');
+  }
+});
 
 // Get Google Wallet save URL for a pass
 googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) => {

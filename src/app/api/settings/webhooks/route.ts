@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { adminSupabase, verifyStudioAccess } from '@/lib/studio-access'
-import { randomBytes } from 'crypto'
 import { auditLog } from '@/lib/audit-log'
 
 async function getAuthedStudioId(request: NextRequest): Promise<{ studioId: string; error?: never } | { studioId?: never; error: NextResponse }> {
@@ -56,14 +55,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'URL must use HTTPS' }, { status: 400 })
     }
 
-    const secret = `whsec_${randomBytes(24).toString('hex')}`
-
     const { data, error } = await adminSupabase
       .from('studio_webhooks')
       .insert({
         studio_id: auth.studioId,
         url,
-        secret,
         events,
       })
       .select('id, url, events, active, created_at')
@@ -83,8 +79,7 @@ export async function POST(request: NextRequest) {
       metadata: { url, events },
     })
 
-    // Return secret ONCE — it cannot be retrieved again
-    return NextResponse.json({ ...data, secret }, { status: 201 })
+    return NextResponse.json(data, { status: 201 })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
