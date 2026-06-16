@@ -9,6 +9,7 @@ type LegacyLoyaltyMetadata = {
   legacy_studio_id?: string
   legacy_customer_id?: string
   legacy_member_id?: string
+  legacy_passkit_id?: string | null
 }
 
 type SyncInput = {
@@ -114,6 +115,14 @@ export async function syncLegacyPasskitCustomer(input: SyncInput): Promise<SyncR
     const passkit = await syncPasskitMemberPoints({
       memberId: passkitMemberId,
       points: nextBalance,
+      metaData: {
+        balance: nextBalance,
+        total_spend: nextTotalSpend,
+        cashback_rate: nextCashbackRate,
+        cashback_rate_percent: roundMoney(nextCashbackRate * 100),
+        last_activity_at: now,
+        synced_from: 'loyalink_v2',
+      },
     })
 
     await logLegacySync(input.studioId ?? customer.studio_id, customer.id, {
@@ -121,6 +130,7 @@ export async function syncLegacyPasskitCustomer(input: SyncInput): Promise<SyncR
       legacy_studio_id: mapping.legacyStudioId,
       legacy_customer_id: mapping.legacyCustomerId,
       legacy_member_id: passkitMemberId,
+      legacy_passkit_id: mapping.legacyMemberId,
       pass_rows_updated: passRowsUpdated,
       passkit,
     })
@@ -146,7 +156,7 @@ function createLegacyClient() {
 async function resolveLegacyMapping(customerId: string, metadata: unknown) {
   const { data: link } = await adminSupabase
     .from('legacy_loyalty_links')
-    .select('legacy_studio_id, legacy_customer_id, legacy_member_id')
+    .select('legacy_studio_id, legacy_customer_id, legacy_member_id, legacy_passkit_id')
     .eq('customer_id', customerId)
     .eq('provider', PROVIDER)
     .maybeSingle()
@@ -155,7 +165,7 @@ async function resolveLegacyMapping(customerId: string, metadata: unknown) {
     return {
       legacyStudioId: link.legacy_studio_id as string,
       legacyCustomerId: link.legacy_customer_id as string,
-      legacyMemberId: link.legacy_member_id as string | null,
+      legacyMemberId: (link.legacy_passkit_id ?? link.legacy_member_id) as string | null,
     }
   }
 
@@ -163,7 +173,7 @@ async function resolveLegacyMapping(customerId: string, metadata: unknown) {
   return {
     legacyStudioId: legacyMetadata.legacy_studio_id,
     legacyCustomerId: legacyMetadata.legacy_customer_id,
-    legacyMemberId: legacyMetadata.legacy_member_id,
+    legacyMemberId: legacyMetadata.legacy_passkit_id ?? legacyMetadata.legacy_member_id,
   }
 }
 

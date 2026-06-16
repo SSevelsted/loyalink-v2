@@ -26,6 +26,7 @@ export type PasskitMemberSyncResult =
       programId: string | null
       previousPoints: number | null
       points: number
+      metadataSynced: boolean
       passStatus: string | null
     }
   | {
@@ -42,6 +43,7 @@ const DEFAULT_PASSKIT_API_PREFIX = 'https://api.pub1.passkit.io'
 export async function syncPasskitMemberPoints(input: {
   memberId: string | null | undefined
   points: number
+  metaData?: Record<string, unknown>
 }): Promise<PasskitMemberSyncResult> {
   const memberId = input.memberId?.trim()
   if (!memberId) return { status: 'skipped', reason: 'missing_member_id' }
@@ -52,12 +54,10 @@ export async function syncPasskitMemberPoints(input: {
   try {
     const nextPoints = roundPoints(input.points)
     const before = await getPasskitMember(config, memberId)
-    await passkitFetch(config, '/members/member', {
-      method: 'PUT',
-      body: JSON.stringify({
-        id: memberId,
-        points: nextPoints,
-      }),
+    const metadataSynced = await updatePasskitMember(config, {
+      id: memberId,
+      points: nextPoints,
+      metaData: input.metaData,
     })
 
     return {
@@ -66,6 +66,7 @@ export async function syncPasskitMemberPoints(input: {
       programId: before.programId ?? null,
       previousPoints: typeof before.points === 'number' ? before.points : null,
       points: nextPoints,
+      metadataSynced,
       passStatus: before.passMetaData?.status ?? null,
     }
   } catch (err) {
@@ -76,6 +77,31 @@ export async function syncPasskitMemberPoints(input: {
       error: error.message || 'PassKit update failed',
       httpStatus: error.status,
     }
+  }
+}
+
+async function updatePasskitMember(
+  config: PasskitConfig,
+  body: { id: string; points: number; metaData?: Record<string, unknown> },
+) {
+  const bodyWithMetadata = body.metaData && Object.keys(body.metaData).length > 0
+    ? body
+    : { id: body.id, points: body.points }
+
+  try {
+    await passkitFetch(config, '/members/member', {
+      method: 'PUT',
+      body: JSON.stringify(bodyWithMetadata),
+    })
+    return bodyWithMetadata === body
+  } catch (err) {
+    if (!body.metaData) throw err
+
+    await passkitFetch(config, '/members/member', {
+      method: 'PUT',
+      body: JSON.stringify({ id: body.id, points: body.points }),
+    })
+    return false
   }
 }
 

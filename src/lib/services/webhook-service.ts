@@ -57,7 +57,7 @@ async function isPrivateUrl(url: string): Promise<boolean> {
 }
 
 /**
- * Fire webhooks for a studio event. Non-blocking — errors are logged, never thrown.
+ * Fire webhooks for a studio event. Errors are logged, never thrown.
  *
  * Deliveries are unsigned: the receiver just trusts POSTs to the URL it configured.
  * The only protection retained is SSRF blocking of private/internal endpoints.
@@ -68,8 +68,13 @@ export function fireWebhook(
   customerId: string,
   data: Record<string, unknown>,
 ) {
-  void deliverWebhooks(studioId, event, customerId, data).catch((err) => {
-    console.error('[webhook] top-level delivery error:', err)
+  return deliverWebhooks(studioId, event, customerId, data).catch((err) => {
+    console.error('[webhook] top-level delivery error:', {
+      studioId,
+      event,
+      customerId,
+      error: err instanceof Error ? err.message : err,
+    })
   })
 }
 
@@ -87,9 +92,10 @@ async function deliverWebhooks(
 
   if (!webhooks?.length) return
 
-  const matching = webhooks.filter(
-    (w) => (w.events as string[]).length === 0 || (w.events as string[]).includes(event),
-  )
+  const matching = webhooks.filter((w) => {
+    const events = Array.isArray(w.events) ? w.events : []
+    return events.length === 0 || events.includes(event)
+  })
 
   if (!matching.length) return
 

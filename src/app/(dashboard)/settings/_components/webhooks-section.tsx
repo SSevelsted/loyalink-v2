@@ -32,6 +32,7 @@ type DeliveryRow = {
   id: string
   event: string
   status_code: number | null
+  response_body: string | null
   success: boolean
   attempt: number
   created_at: string
@@ -287,17 +288,22 @@ export function WebhooksSection() {
                       ) : (
                         <div className="space-y-1">
                           {deliveries.map((d) => (
-                            <div key={d.id} className="flex items-center justify-between text-xs py-1.5 px-2 rounded bg-secondary/30">
-                              <div className="flex items-center gap-2">
-                                <span className={d.success ? 'text-emerald-400' : 'text-red-400'}>
-                                  {d.status_code ?? 'ERR'}
-                                </span>
-                                <span className="text-foreground">{d.event}</span>
-                                {d.attempt > 1 && (
-                                  <span className="text-muted-foreground">(retry #{d.attempt})</span>
-                                )}
+                            <div key={d.id} className="space-y-1 text-xs py-1.5 px-2 rounded bg-secondary/30">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className={d.success ? 'text-emerald-400' : 'text-red-400'}>
+                                    {d.status_code ?? 'ERR'}
+                                  </span>
+                                  <span className="text-foreground truncate">{d.event}</span>
+                                  {d.attempt > 1 && (
+                                    <span className="text-muted-foreground shrink-0">(retry #{d.attempt})</span>
+                                  )}
+                                </div>
+                                <span className="text-muted-foreground shrink-0">{timeAgo(d.created_at)}</span>
                               </div>
-                              <span className="text-muted-foreground">{timeAgo(d.created_at)}</span>
+                              {!d.success && d.response_body && (
+                                <p className="line-clamp-2 break-words text-muted-foreground">{d.response_body}</p>
+                              )}
                             </div>
                           ))}
                         </div>

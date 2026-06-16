@@ -73,6 +73,10 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
   }
 
   const results: string[] = []
+  const webhookTasks: Promise<void>[] = []
+  const queueWebhook = (...args: Parameters<typeof fireWebhook>) => {
+    webhookTasks.push(fireWebhook(...args))
+  }
   const newSpendTotal = Number(customer.total_real_spend || 0) + amount
 
   // 1. Always update spend total and has_purchased
@@ -147,7 +151,7 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
 
       results.push(`Referral activated. Referrer now at ${newRate}% cashback`)
 
-      fireWebhook(studioId, 'referral.activated', customerId, {
+      queueWebhook(studioId, 'referral.activated', customerId, {
         referrer_customer_id: referralRow.referrer_customer_id,
         referrer_new_cashback_rate: newRate,
         referrer_referral_count: newCount,
@@ -187,7 +191,7 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
       },
     })
 
-    fireWebhook(studioId, 'tier.upgraded', customerId, {
+    queueWebhook(studioId, 'tier.upgraded', customerId, {
       from_tier: customer.loyalty_stage,
       to_tier: newTierSlug,
       to_tier_name: newTier?.name ?? newTierSlug,
@@ -211,7 +215,7 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
   if (promo && promo.expires_at && new Date(promo.expires_at) <= new Date()) {
     await expirePromotion(promo.id, customerId, promo.original_tier_slug, Number(promo.original_cashback_rate))
     results.push(`Promotion expired (time limit reached)`)
-    fireWebhook(studioId, 'promotion.expired', customerId, { reason: 'time_limit' })
+    queueWebhook(studioId, 'promotion.expired', customerId, { reason: 'time_limit' })
     promo = null
   }
 
@@ -248,7 +252,7 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
 
     results.push(`Cashback: ${cashbackAmount.toFixed(2)} kr (${cashbackRate}%${promoApplied ? ' — promotion' : ''})`)
 
-    fireWebhook(studioId, 'balance.updated', customerId, {
+    queueWebhook(studioId, 'balance.updated', customerId, {
       new_balance: newBalance,
       cashback_earned: cashbackAmount,
       cashback_rate: cashbackRate,
@@ -257,7 +261,7 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
   }
 
   const transactedAt = new Date().toISOString()
-  fireWebhook(studioId, 'transaction.created', customerId, {
+  queueWebhook(studioId, 'transaction.created', customerId, {
     transaction_id: sourceTransactionId ?? `loyalink-${customerId}-${Date.now()}`,
     amount,
     amount_cents: Math.round(amount * 100),
@@ -359,7 +363,7 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
     if (remaining <= 0) {
       await expirePromotion(promo.id, customerId, promo.original_tier_slug, Number(promo.original_cashback_rate))
       results.push(`Promotion expired (usage limit reached)`)
-      fireWebhook(studioId, 'promotion.expired', customerId, { reason: 'usage_limit' })
+      queueWebhook(studioId, 'promotion.expired', customerId, { reason: 'usage_limit' })
     } else {
       await adminSupabase
         .from('member_promotions')
@@ -433,6 +437,8 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
       remaining: Math.max(0, threshold - newSpendTotal),
     }
   }
+
+  await Promise.allSettled(webhookTasks)
 
   return {
     success: true,
