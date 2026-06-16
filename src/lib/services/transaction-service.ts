@@ -494,23 +494,35 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
 
 async function getLegacyWebhookContext(customerId: string, metadata: unknown) {
   const legacyMetadata = ((metadata as Record<string, unknown> | null)?.legacy_loyalty ?? null) as LegacyLoyaltyMetadata | null
-  const raw = legacyMetadata?.raw && typeof legacyMetadata.raw === 'object'
-    ? legacyMetadata.raw
-    : null
 
   const { data: link } = await adminSupabase
     .from('legacy_loyalty_links')
-    .select('provider, legacy_project, legacy_studio_id, legacy_customer_id, legacy_member_id, legacy_passkit_id, legacy_barcode_payload')
+    .select('provider, legacy_project, legacy_studio_id, legacy_customer_id, legacy_member_id, legacy_passkit_id, legacy_barcode_payload, legacy_payload')
     .eq('customer_id', customerId)
     .eq('provider', 'passkit_lovable')
     .maybeSingle()
 
   if (!legacyMetadata && !link) return null
 
-  const legacyContactId = stringOrNull(raw?.contact_id)
+  const metadataRaw = legacyMetadata?.raw && typeof legacyMetadata.raw === 'object'
+    ? legacyMetadata.raw
+    : null
+  const linkPayload = link?.legacy_payload && typeof link.legacy_payload === 'object'
+    ? link.legacy_payload as Record<string, unknown>
+    : null
+  const raw = {
+    ...(linkPayload ?? {}),
+    ...(metadataRaw ?? {}),
+  }
+
+  const legacyContactId = stringOrNull(raw.contact_id)
   const legacyEmail = stringOrNull(raw?.email)
   const legacyPhone = stringOrNull(raw?.phone)
   const legacyName = stringOrNull(raw?.name)
+  const legacyLocationId = stringOrNull(raw?.location) ?? stringOrNull(raw?.legacy_location_id)
+  const legacyGhlApi = stringOrNull(raw?.ghl_api)
+    ?? stringOrNull(raw?.gohighlevel_api)
+    ?? stringOrNull(raw?.legacy_ghl_api)
   const legacyCustomerId = stringOrNull(link?.legacy_customer_id) ?? legacyMetadata?.legacy_customer_id ?? null
   const legacyMemberId = stringOrNull(link?.legacy_member_id) ?? legacyMetadata?.legacy_member_id ?? null
   const legacyPasskitId = stringOrNull(link?.legacy_passkit_id) ?? legacyMetadata?.legacy_passkit_id ?? null
@@ -531,6 +543,8 @@ async function getLegacyWebhookContext(customerId: string, metadata: unknown) {
     legacy_name: legacyName,
     legacy_email: legacyEmail,
     legacy_phone: legacyPhone,
+    legacy_location_id: legacyLocationId,
+    legacy_ghl_api: legacyGhlApi,
     legacy_pass_provider: stringOrNull(raw?.pass_provider),
     card_install_status: legacyMetadata?.card_install_status ?? stringOrNull(raw?.card_install_status),
     card_issued_at: legacyMetadata?.card_issued_at ?? stringOrNull(raw?.card_issued_at),
@@ -547,6 +561,8 @@ async function getLegacyWebhookContext(customerId: string, metadata: unknown) {
       legacyContactId,
       legacyEmail,
       legacyPhone,
+      legacyLocationId,
+      legacyGhlApi,
     ].filter((value): value is string => !!value),
   }
 }

@@ -112,17 +112,31 @@ export async function syncLegacyPasskitCustomer(input: SyncInput): Promise<SyncR
       source: 'loyalink_v2',
     })
     const passkitMemberId = mapping.legacyMemberId ?? legacyCustomer.member_id
+    const balanceText = formatLegacyAmount(nextBalance)
+    const cashbackRatePercent = roundMoney(nextCashbackRate * 100)
     const passkit = await syncPasskitMemberPoints({
       memberId: passkitMemberId,
       points: nextBalance,
       dynamicData: {
         balance: nextBalance,
-        balance_text: formatLegacyAmount(nextBalance),
+        balanceText,
+        balance_formatted: balanceText,
+        balance_text: balanceText,
+        cashbackBalance: nextBalance,
+        cashback_balance: nextBalance,
+        current_balance: nextBalance,
+        loyalty_balance: nextBalance,
         points: nextBalance,
+        points_formatted: balanceText,
         total_spend: nextTotalSpend,
+        totalSpend: nextTotalSpend,
         cashback_rate: nextCashbackRate,
-        cashback_rate_percent: roundMoney(nextCashbackRate * 100),
+        cashbackRate: nextCashbackRate,
+        cashback_rate_percent: cashbackRatePercent,
+        cashbackRatePercent,
+        currency: legacyCustomer.currency ?? customer.currency ?? 'DKK',
         last_activity_at: now,
+        lastActivityAt: now,
         synced_from: 'loyalink_v2',
       },
     })

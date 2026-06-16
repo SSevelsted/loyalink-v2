@@ -26,8 +26,10 @@ export type PasskitMemberSyncResult =
       programId: string | null
       previousPoints: number | null
       points: number
+      confirmedPoints: number | null
       dynamicDataSynced: boolean
       passStatus: string | null
+      passLastUpdatedAt: string | null
     }
   | {
       status: 'failed'
@@ -59,15 +61,18 @@ export async function syncPasskitMemberPoints(input: {
       points: nextPoints,
       dynamicData: input.dynamicData,
     })
+    const after = await getPasskitMember(config, memberId)
 
     return {
       status: 'updated',
       memberId,
-      programId: before.programId ?? null,
+      programId: after.programId ?? before.programId ?? null,
       previousPoints: typeof before.points === 'number' ? before.points : null,
       points: nextPoints,
+      confirmedPoints: typeof after.points === 'number' ? after.points : null,
       dynamicDataSynced,
-      passStatus: before.passMetaData?.status ?? null,
+      passStatus: after.passMetaData?.status ?? before.passMetaData?.status ?? null,
+      passLastUpdatedAt: after.passMetaData?.lastUpdatedAt ?? before.passMetaData?.lastUpdatedAt ?? null,
     }
   } catch (err) {
     const error = err as PasskitError
