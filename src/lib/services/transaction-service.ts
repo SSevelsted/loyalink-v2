@@ -42,6 +42,23 @@ type ProcessTransactionResult = {
   summary: TransactionSummary
 }
 
+type LegacyLoyaltyMetadata = {
+  provider?: string | null
+  legacy_project?: string | null
+  legacy_studio_id?: string | null
+  legacy_customer_id?: string | null
+  legacy_member_id?: string | null
+  legacy_passkit_id?: string | null
+  barcode_payload?: string | null
+  barcode_pid?: string | null
+  barcode_pid_type?: string | null
+  card_install_status?: string | null
+  card_issued_at?: string | null
+  card_first_installed_at?: string | null
+  card_uninstalled_at?: string | null
+  raw?: Record<string, unknown>
+}
+
 export async function processTransaction(input: ProcessTransactionInput): Promise<ProcessTransactionResult> {
   const { customerId, studioId, amount, cashAmount, isDeposit, sourceTransactionId } = input
 
@@ -261,6 +278,7 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
   }
 
   const transactedAt = new Date().toISOString()
+  const legacyLoyalty = await getLegacyWebhookContext(customerId, customer.metadata)
   queueWebhook(studioId, 'transaction.created', customerId, {
     transaction_id: sourceTransactionId ?? `loyalink-${customerId}-${Date.now()}`,
     amount,
@@ -290,7 +308,9 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
       landing_page_id: customer.landing_page_id,
       created_at: customer.created_at,
       updated_at: customer.updated_at,
+      ...(legacyLoyalty ? { legacy_loyalty: legacyLoyalty } : {}),
     },
+    ...(legacyLoyalty ? { legacy_loyalty: legacyLoyalty } : {}),
   })
 
   const tierUpgradeForMessage = tierChanged && baseUpdates.loyalty_stage
@@ -470,6 +490,69 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
       isMaxTier: nextTier === null,
     },
   }
+}
+
+async function getLegacyWebhookContext(customerId: string, metadata: unknown) {
+  const legacyMetadata = ((metadata as Record<string, unknown> | null)?.legacy_loyalty ?? null) as LegacyLoyaltyMetadata | null
+  const raw = legacyMetadata?.raw && typeof legacyMetadata.raw === 'object'
+    ? legacyMetadata.raw
+    : null
+
+  const { data: link } = await adminSupabase
+    .from('legacy_loyalty_links')
+    .select('provider, legacy_project, legacy_studio_id, legacy_customer_id, legacy_member_id, legacy_passkit_id, legacy_barcode_payload')
+    .eq('customer_id', customerId)
+    .eq('provider', 'passkit_lovable')
+    .maybeSingle()
+
+  if (!legacyMetadata && !link) return null
+
+  const legacyContactId = stringOrNull(raw?.contact_id)
+  const legacyEmail = stringOrNull(raw?.email)
+  const legacyPhone = stringOrNull(raw?.phone)
+  const legacyName = stringOrNull(raw?.name)
+  const legacyCustomerId = stringOrNull(link?.legacy_customer_id) ?? legacyMetadata?.legacy_customer_id ?? null
+  const legacyMemberId = stringOrNull(link?.legacy_member_id) ?? legacyMetadata?.legacy_member_id ?? null
+  const legacyPasskitId = stringOrNull(link?.legacy_passkit_id) ?? legacyMetadata?.legacy_passkit_id ?? null
+  const barcodePayload = stringOrNull(link?.legacy_barcode_payload) ?? legacyMetadata?.barcode_payload ?? null
+  const barcodePid = legacyMetadata?.barcode_pid ?? stringOrNull(raw?.barcode_pid)
+
+  return {
+    provider: stringOrNull(link?.provider) ?? legacyMetadata?.provider ?? 'passkit_lovable',
+    legacy_project: stringOrNull(link?.legacy_project) ?? legacyMetadata?.legacy_project ?? 'lovable',
+    legacy_studio_id: stringOrNull(link?.legacy_studio_id) ?? legacyMetadata?.legacy_studio_id ?? null,
+    legacy_customer_id: legacyCustomerId,
+    legacy_member_id: legacyMemberId,
+    legacy_passkit_id: legacyPasskitId,
+    legacy_barcode_payload: barcodePayload,
+    barcode_pid: barcodePid,
+    barcode_pid_type: legacyMetadata?.barcode_pid_type ?? stringOrNull(raw?.barcode_pid_type),
+    legacy_contact_id: legacyContactId,
+    legacy_name: legacyName,
+    legacy_email: legacyEmail,
+    legacy_phone: legacyPhone,
+    legacy_pass_provider: stringOrNull(raw?.pass_provider),
+    card_install_status: legacyMetadata?.card_install_status ?? stringOrNull(raw?.card_install_status),
+    card_issued_at: legacyMetadata?.card_issued_at ?? stringOrNull(raw?.card_issued_at),
+    card_first_installed_at: legacyMetadata?.card_first_installed_at ?? stringOrNull(raw?.card_first_installed_at),
+    card_uninstalled_at: legacyMetadata?.card_uninstalled_at ?? stringOrNull(raw?.card_uninstalled_at),
+    legacy_created_at: stringOrNull(raw?.created_at),
+    legacy_updated_at: stringOrNull(raw?.updated_at),
+    search_keys: [
+      legacyCustomerId,
+      legacyMemberId,
+      legacyPasskitId,
+      barcodePayload,
+      barcodePid,
+      legacyContactId,
+      legacyEmail,
+      legacyPhone,
+    ].filter((value): value is string => !!value),
+  }
+}
+
+function stringOrNull(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value : null
 }
 
 function shouldUpgrade(

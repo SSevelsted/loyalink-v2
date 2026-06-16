@@ -115,8 +115,10 @@ export async function syncLegacyPasskitCustomer(input: SyncInput): Promise<SyncR
     const passkit = await syncPasskitMemberPoints({
       memberId: passkitMemberId,
       points: nextBalance,
-      metaData: {
+      dynamicData: {
         balance: nextBalance,
+        balance_text: formatLegacyAmount(nextBalance),
+        points: nextBalance,
         total_spend: nextTotalSpend,
         cashback_rate: nextCashbackRate,
         cashback_rate_percent: roundMoney(nextCashbackRate * 100),
