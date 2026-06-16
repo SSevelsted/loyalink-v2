@@ -30,6 +30,9 @@ export type PasskitMemberSyncResult =
       dynamicDataSynced: boolean
       passStatus: string | null
       passLastUpdatedAt: string | null
+      // TEMP DIAGNOSTIC: raw member snapshots to discover real field/metaData keys
+      rawBefore?: Record<string, unknown> | null
+      rawAfter?: Record<string, unknown> | null
     }
   | {
       status: 'failed'
@@ -73,6 +76,9 @@ export async function syncPasskitMemberPoints(input: {
       dynamicDataSynced,
       passStatus: after.passMetaData?.status ?? before.passMetaData?.status ?? null,
       passLastUpdatedAt: after.passMetaData?.lastUpdatedAt ?? before.passMetaData?.lastUpdatedAt ?? null,
+      // TEMP DIAGNOSTIC: full member objects so we can read the real metaData keys
+      rawBefore: (before ?? null) as Record<string, unknown> | null,
+      rawAfter: (after ?? null) as Record<string, unknown> | null,
     }
   } catch (err) {
     const error = err as PasskitError
