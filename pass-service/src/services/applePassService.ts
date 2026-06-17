@@ -441,7 +441,7 @@ export class ApplePassService {
           {
             key: 'balance',
             label: t.balanceLabel,
-            value: `${data.balance} ${data.currency}`,
+            value: `${data.balance} ${data.currency.toUpperCase()}`,
             changeMessage: t.changeMessage,
           },
         ],

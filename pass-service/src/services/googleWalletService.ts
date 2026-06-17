@@ -190,7 +190,10 @@ export class GoogleWalletService {
         balance: {
           money: {
             micros: data.balance * 1000000,
-            currencyCode: data.currency,
+            // Google requires a valid ISO 4217 code in UPPERCASE; some studios
+            // store it lowercase (e.g. "eur"), which Google rejects with a
+            // generic "a problem occurred" error during the save flow.
+            currencyCode: data.currency.toUpperCase(),
           },
         },
       },
@@ -310,7 +313,9 @@ export class GoogleWalletService {
                 balance: {
                   money: {
                     micros: objectData.balance * 1000000,
-                    currencyCode: objectData.currency,
+                    // Uppercase: Google rejects lowercase currency codes (see
+                    // createOrUpdateObject) — this is the save-flow path.
+                    currencyCode: objectData.currency.toUpperCase(),
                   },
                 },
               },

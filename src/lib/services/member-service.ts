@@ -162,7 +162,9 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
       cashback_rate: cashbackRate,
       loyalty_stage: loyaltyStage,
       referral_code: newReferralCode,
-      currency: resolvedCurrency,
+      // Normalize to a valid ISO 4217 uppercase code — studio settings can hold
+      // it lowercase (e.g. "eur"), which Google Wallet rejects on pass save.
+      currency: resolvedCurrency.toUpperCase(),
       language: resolvedLanguage,
       landing_page_id: resolvedLandingPageId,
     })
