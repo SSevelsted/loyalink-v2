@@ -112,12 +112,18 @@ export async function syncLegacyPasskitCustomer(input: SyncInput): Promise<SyncR
       source: 'loyalink_v2',
     })
     const passkitMemberId = mapping.legacyMemberId ?? legacyCustomer.member_id
-    // The pass template binds the displayed balance to the member's `points`
-    // field (member metaData stayed empty across every diagnostic sync), so we
-    // only need to set points — and via setPoints, which pushes the pass update.
+    const currency = (legacyCustomer.currency ?? customer.currency ?? 'DKK').toUpperCase()
+    // The legacy "lovable" pass template renders these member metaData keys — a
+    // pre-formatted Danish balance string ("37,5 DKK") and cashback % ("7,5%") —
+    // not the points field. Writing them updates the card AND triggers the push.
     const passkit = await syncPasskitMemberPoints({
       memberId: passkitMemberId,
       points: nextBalance,
+      metaData: {
+        balance: `${formatDanishNumber(nextBalance)} ${currency}`,
+        cashBackDeal: `${formatDanishNumber(roundMoney(nextCashbackRate * 100))}%`,
+        contact_id: legacyCustomer.contact_id ?? '',
+      },
     })
 
     await logLegacySync(input.studioId ?? customer.studio_id, customer.id, {
@@ -224,4 +230,10 @@ function roundMoney(value: number) {
 
 function formatLegacyAmount(value: number) {
   return value.toFixed(2).replace('.', ',')
+}
+
+// Danish display format for PassKit metaData: comma decimal, trailing zeros
+// trimmed (37.5 -> "37,5", 13.38 -> "13,38", 40 -> "40").
+function formatDanishNumber(value: number) {
+  return (Math.round(value * 100) / 100).toString().replace('.', ',')
 }

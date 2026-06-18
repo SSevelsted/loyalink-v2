@@ -44,6 +44,7 @@ const DEFAULT_PASSKIT_API_PREFIX = 'https://api.pub1.passkit.io'
 export async function syncPasskitMemberPoints(input: {
   memberId: string | null | undefined
   points: number
+  metaData?: Record<string, string>
 }): Promise<PasskitMemberSyncResult> {
   const memberId = input.memberId?.trim()
   if (!memberId) return { status: 'skipped', reason: 'missing_member_id' }
@@ -54,7 +55,7 @@ export async function syncPasskitMemberPoints(input: {
   try {
     const nextPoints = roundPoints(input.points)
     const before = await getPasskitMember(config, memberId)
-    await setPasskitMemberPoints(config, { id: memberId, points: nextPoints })
+    await updatePasskitMember(config, { id: memberId, points: nextPoints, metaData: input.metaData })
     const after = await getPasskitMember(config, memberId)
 
     return {
@@ -78,17 +79,23 @@ export async function syncPasskitMemberPoints(input: {
   }
 }
 
-async function setPasskitMemberPoints(
+async function updatePasskitMember(
   config: PasskitConfig,
-  body: { id: string; points: number },
+  body: { id: string; points: number; metaData?: Record<string, string> },
 ) {
-  // Use the dedicated setPoints operation — NOT updateMember (PUT /members/member).
-  // updateMember writes the points value but does not regenerate the pass, so the
-  // Apple/Google Wallet card kept showing a stale balance (passMetaData.lastUpdatedAt
-  // never advanced). setPoints sets the absolute balance and pushes the pass update.
-  await passkitFetch(config, '/members/member/points/set', {
+  // The legacy pass template renders member metaData fields (e.g. balance,
+  // cashBackDeal) — NOT the top-level points value. Writing metaData via
+  // updateMember updates the displayed card AND makes PassKit regenerate + push
+  // the pass (a template-bound field changed); writing only points never did,
+  // which is why passMetaData.lastUpdatedAt stayed null and the card showed 0.
+  const hasMetaData = body.metaData && Object.keys(body.metaData).length > 0
+  await passkitFetch(config, '/members/member', {
     method: 'PUT',
-    body: JSON.stringify({ id: body.id, points: body.points }),
+    body: JSON.stringify({
+      id: body.id,
+      points: body.points,
+      ...(hasMetaData ? { metaData: body.metaData } : {}),
+    }),
   })
 }
 

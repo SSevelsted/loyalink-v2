@@ -48,8 +48,10 @@ async function pk(path, init = {}) {
   return { ok: res.ok, status: res.status, body }
 }
 
+const fmt = (v) => (Math.round(v * 100) / 100).toString().replace('.', ',')
 const summarize = (m) => ({
   points: m?.points,
+  'metaData.balance': m?.metaData?.balance ?? null,
   lastUpdatedAt: m?.passMetaData?.lastUpdatedAt ?? null,
   updated: m?.updated,
 })
@@ -57,12 +59,15 @@ const summarize = (m) => ({
 const before = await pk(`/members/member/id/${encodeURIComponent(MEMBER_ID)}`)
 console.log('BEFORE:', JSON.stringify(summarize(before.body)))
 
+// Mirror the app: the template renders metaData.balance, so write that (re-using
+// the member's current balance) and confirm the pass regenerates + pushes.
 const points = typeof before.body?.points === 'number' ? before.body.points : 0
-const set = await pk('/members/member/points/set', {
+const metaData = { ...(before.body?.metaData || {}), balance: `${fmt(points)} DKK` }
+const set = await pk('/members/member', {
   method: 'PUT',
-  body: JSON.stringify({ id: MEMBER_ID, points }),
+  body: JSON.stringify({ id: MEMBER_ID, points, metaData }),
 })
-console.log(`SET /members/member/points/set -> HTTP ${set.status}`, set.ok ? 'OK' : JSON.stringify(set.body))
+console.log(`PUT /members/member (metaData.balance="${metaData.balance}") -> HTTP ${set.status}`, set.ok ? 'OK' : JSON.stringify(set.body))
 
 // brief poll for the push timestamp to land
 let after
@@ -77,7 +82,7 @@ const beforeStamp = before.body?.passMetaData?.lastUpdatedAt ?? null
 const afterStamp = after.body?.passMetaData?.lastUpdatedAt ?? null
 const advanced = afterStamp && afterStamp !== beforeStamp
 console.log('\nRESULT:', set.ok && advanced
-  ? '✅ setPoints accepted AND pass push fired (lastUpdatedAt advanced)'
+  ? '✅ metaData write accepted AND pass push fired (lastUpdatedAt advanced)'
   : set.ok
-    ? '⚠️ setPoints accepted but lastUpdatedAt did not advance yet'
-    : '❌ setPoints endpoint rejected the request')
+    ? '⚠️ metaData write accepted but lastUpdatedAt did not advance yet'
+    : '❌ updateMember request was rejected')
