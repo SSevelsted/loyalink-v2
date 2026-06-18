@@ -76,7 +76,7 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
   // Fetch rewards config
   const { data: studio } = await adminSupabase
     .from('studios')
-    .select('settings')
+    .select('settings, is_agency')
     .eq('id', studioId)
     .single()
 
@@ -278,12 +278,17 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
   }
 
   const transactedAt = new Date().toISOString()
-  const legacyLoyalty = await getLegacyWebhookContext(customerId, customer.metadata)
+  // Legacy GHL/PassKit context is internal to agency-managed (legacy) studios.
+  // Never expose it to self-serve Loyalink clients — gate on is_agency.
+  const legacyLoyalty = studio?.is_agency === true
+    ? await getLegacyWebhookContext(customerId, customer.metadata)
+    : null
   queueWebhook(studioId, 'transaction.created', customerId, {
     transaction_id: sourceTransactionId ?? `loyalink-${customerId}-${Date.now()}`,
     amount,
     amount_cents: Math.round(amount * 100),
     cash_amount: cashAmount ?? amount,
+    payment_type: isDeposit ? 'deposit' : 'full_payment',
     currency: (customer.currency as string | null | undefined) ?? (settings?.currency as string | null | undefined) ?? 'DKK',
     transacted_at: transactedAt,
     total_spend: newSpendTotal,

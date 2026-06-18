@@ -27,12 +27,8 @@ export type PasskitMemberSyncResult =
       previousPoints: number | null
       points: number
       confirmedPoints: number | null
-      dynamicDataSynced: boolean
       passStatus: string | null
       passLastUpdatedAt: string | null
-      // TEMP DIAGNOSTIC: raw member snapshots to discover real field/metaData keys
-      rawBefore?: Record<string, unknown> | null
-      rawAfter?: Record<string, unknown> | null
     }
   | {
       status: 'failed'
@@ -48,7 +44,6 @@ const DEFAULT_PASSKIT_API_PREFIX = 'https://api.pub1.passkit.io'
 export async function syncPasskitMemberPoints(input: {
   memberId: string | null | undefined
   points: number
-  dynamicData?: Record<string, unknown>
 }): Promise<PasskitMemberSyncResult> {
   const memberId = input.memberId?.trim()
   if (!memberId) return { status: 'skipped', reason: 'missing_member_id' }
@@ -59,11 +54,7 @@ export async function syncPasskitMemberPoints(input: {
   try {
     const nextPoints = roundPoints(input.points)
     const before = await getPasskitMember(config, memberId)
-    const dynamicDataSynced = await updatePasskitMember(config, {
-      id: memberId,
-      points: nextPoints,
-      dynamicData: input.dynamicData,
-    })
+    await setPasskitMemberPoints(config, { id: memberId, points: nextPoints })
     const after = await getPasskitMember(config, memberId)
 
     return {
@@ -73,12 +64,8 @@ export async function syncPasskitMemberPoints(input: {
       previousPoints: typeof before.points === 'number' ? before.points : null,
       points: nextPoints,
       confirmedPoints: typeof after.points === 'number' ? after.points : null,
-      dynamicDataSynced,
       passStatus: after.passMetaData?.status ?? before.passMetaData?.status ?? null,
       passLastUpdatedAt: after.passMetaData?.lastUpdatedAt ?? before.passMetaData?.lastUpdatedAt ?? null,
-      // TEMP DIAGNOSTIC: full member objects so we can read the real metaData keys
-      rawBefore: (before ?? null) as Record<string, unknown> | null,
-      rawAfter: (after ?? null) as Record<string, unknown> | null,
     }
   } catch (err) {
     const error = err as PasskitError
@@ -91,29 +78,18 @@ export async function syncPasskitMemberPoints(input: {
   }
 }
 
-async function updatePasskitMember(
+async function setPasskitMemberPoints(
   config: PasskitConfig,
-  body: { id: string; points: number; dynamicData?: Record<string, unknown> },
+  body: { id: string; points: number },
 ) {
-  const bodyWithDynamicData = body.dynamicData && Object.keys(body.dynamicData).length > 0
-    ? body
-    : { id: body.id, points: body.points }
-
-  try {
-    await passkitFetch(config, '/members/member', {
-      method: 'PUT',
-      body: JSON.stringify(bodyWithDynamicData),
-    })
-    return bodyWithDynamicData === body
-  } catch (err) {
-    if (!body.dynamicData) throw err
-
-    await passkitFetch(config, '/members/member', {
-      method: 'PUT',
-      body: JSON.stringify({ id: body.id, points: body.points }),
-    })
-    return false
-  }
+  // Use the dedicated setPoints operation — NOT updateMember (PUT /members/member).
+  // updateMember writes the points value but does not regenerate the pass, so the
+  // Apple/Google Wallet card kept showing a stale balance (passMetaData.lastUpdatedAt
+  // never advanced). setPoints sets the absolute balance and pushes the pass update.
+  await passkitFetch(config, '/members/member/points/set', {
+    method: 'PUT',
+    body: JSON.stringify({ id: body.id, points: body.points }),
+  })
 }
 
 function getPasskitConfig(): PasskitConfig | null {

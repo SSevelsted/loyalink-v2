@@ -112,33 +112,12 @@ export async function syncLegacyPasskitCustomer(input: SyncInput): Promise<SyncR
       source: 'loyalink_v2',
     })
     const passkitMemberId = mapping.legacyMemberId ?? legacyCustomer.member_id
-    const balanceText = formatLegacyAmount(nextBalance)
-    const cashbackRatePercent = roundMoney(nextCashbackRate * 100)
+    // The pass template binds the displayed balance to the member's `points`
+    // field (member metaData stayed empty across every diagnostic sync), so we
+    // only need to set points — and via setPoints, which pushes the pass update.
     const passkit = await syncPasskitMemberPoints({
       memberId: passkitMemberId,
       points: nextBalance,
-      dynamicData: {
-        balance: nextBalance,
-        balanceText,
-        balance_formatted: balanceText,
-        balance_text: balanceText,
-        cashbackBalance: nextBalance,
-        cashback_balance: nextBalance,
-        current_balance: nextBalance,
-        loyalty_balance: nextBalance,
-        points: nextBalance,
-        points_formatted: balanceText,
-        total_spend: nextTotalSpend,
-        totalSpend: nextTotalSpend,
-        cashback_rate: nextCashbackRate,
-        cashbackRate: nextCashbackRate,
-        cashback_rate_percent: cashbackRatePercent,
-        cashbackRatePercent,
-        currency: legacyCustomer.currency ?? customer.currency ?? 'DKK',
-        last_activity_at: now,
-        lastActivityAt: now,
-        synced_from: 'loyalink_v2',
-      },
     })
 
     await logLegacySync(input.studioId ?? customer.studio_id, customer.id, {
