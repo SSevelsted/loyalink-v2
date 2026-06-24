@@ -382,8 +382,10 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
 
   triggerPassUpdate(customerId)
 
-  // 6. Handle promotion usage decrement / expiry after transaction
-  if (promo && promo.remaining_transactions != null) {
+  // 6. Handle promotion usage decrement / expiry after transaction.
+  // Deposits are not completed transactions, so they don't consume a usage-based
+  // boost — mirrors the deposit exclusion in shouldUpgrade() for tier upgrades.
+  if (promo && promo.remaining_transactions != null && !isDeposit) {
     const remaining = promo.remaining_transactions - 1
     if (remaining <= 0) {
       await expirePromotion(promo.id, customerId, promo.original_tier_slug, Number(promo.original_cashback_rate))
