@@ -43,6 +43,9 @@ interface LoyaltyClassData {
   studioName: string;
   logoUrl?: string;
   heroImageUrl?: string;
+  // Studio brand colour mirrored from the Apple pass template's tier theme.
+  // Without it Google auto-derives a generic colour from the logo.
+  hexBackgroundColor?: string;
 }
 
 interface LoyaltyObjectData {
@@ -60,6 +63,22 @@ interface LoyaltyObjectData {
   studioName?: string;
   logoUrl?: string;
   heroImageUrl?: string;
+  hexBackgroundColor?: string;
+}
+
+// Google requires #RRGGBB. Templates may store #RGB or omit the leading hash;
+// normalise so Google doesn't silently reject the colour. Returns undefined for
+// anything unparseable so the field is simply omitted rather than sent invalid.
+function normalizeHexColor(color?: string): string | undefined {
+  if (!color) return undefined;
+  const hex = color.startsWith('#') ? color.slice(1) : color;
+  if (/^[0-9a-fA-F]{3}$/.test(hex)) {
+    return `#${hex.split('').map((c) => c + c).join('')}`;
+  }
+  if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+    return `#${hex}`;
+  }
+  return undefined;
 }
 
 export class GoogleWalletService {
@@ -116,6 +135,7 @@ export class GoogleWalletService {
       issuerName: data.studioName,
       reviewStatus: 'UNDER_REVIEW',
       programName: `${data.studioName} Loyalty`,
+      hexBackgroundColor: normalizeHexColor(data.hexBackgroundColor),
       // Notifies our pass-service when a user saves or removes this pass.
       callbackOptions: { url: googleCallbackUrl() },
       programLogo: data.logoUrl
@@ -275,6 +295,10 @@ export class GoogleWalletService {
         // Notifies our pass-service when a user saves or removes this pass.
         callbackOptions: { url: googleCallbackUrl() },
       };
+      const hexBackgroundColor = normalizeHexColor(objectData.hexBackgroundColor);
+      if (hexBackgroundColor) {
+        inlineClass.hexBackgroundColor = hexBackgroundColor;
+      }
       if (objectData.logoUrl) {
         inlineClass.programLogo = {
           sourceUri: { uri: objectData.logoUrl },

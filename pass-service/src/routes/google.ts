@@ -130,18 +130,22 @@ googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) 
     const studioLanguage = (studio?.settings as { language?: string } | null)?.language ?? 'en';
 
     const loyaltyTier = customer.loyalty_stage || 'base';
-    const tierThemes = template?.tier_themes as Record<string, { stripImage?: string | null; logoOverride?: string | null }> || {};
+    const tierThemes = template?.tier_themes as Record<string, { backgroundColor?: string | null; stripImage?: string | null; logoOverride?: string | null }> || {};
     const tierTheme = tierThemes[loyaltyTier] || tierThemes['base'] || {};
 
     const studioName = studio?.name || 'Studio';
     const logoUrl = tierTheme.logoOverride || template?.logo_url || undefined;
     const heroImageUrl = tierTheme.stripImage || undefined;
+    // Mirror the Apple template's tier background colour onto the Google card so
+    // it's on-brand instead of Google's generic logo-derived colour.
+    const hexBackgroundColor = tierTheme.backgroundColor || undefined;
 
     await googleWalletService.createOrUpdateClass({
       classId,
       studioName,
       logoUrl,
       heroImageUrl,
+      hexBackgroundColor,
     });
 
     // Create object ID from serial number
@@ -162,6 +166,7 @@ googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) 
       studioName,
       logoUrl,
       heroImageUrl,
+      hexBackgroundColor,
     });
 
     if (!jwt) {
@@ -204,13 +209,33 @@ googleRoutes.post('/update/:serialNumber', requireInternalAuth, async (req: Requ
     const classId = `loyalty_${walletPass.studio_id}`.replace(/-/g, '_');
     const objectId = serialNumber.replace(/-/g, '_');
 
-    // Fetch studio language for the localised pass labels
+    // Fetch studio name + language for the localised pass labels and class branding
     const { data: studioData } = await supabase
       .from('studios')
-      .select('settings')
+      .select('name, settings')
       .eq('id', walletPass.studio_id)
       .single();
     const studioLanguage = (studioData?.settings as { language?: string } | null)?.language ?? 'en';
+
+    // Refresh the loyalty class so branding (background colour, logo, hero) on
+    // existing passes stays in sync with the Apple template. hexBackgroundColor
+    // lives on the class, so an object-only update would never recolour the card.
+    const { data: template } = await supabase
+      .from('pass_templates')
+      .select('*')
+      .eq('studio_id', walletPass.studio_id)
+      .eq('is_active', true)
+      .single();
+    const loyaltyTier = customer.loyalty_stage || 'base';
+    const tierThemes = template?.tier_themes as Record<string, { backgroundColor?: string | null; stripImage?: string | null; logoOverride?: string | null }> || {};
+    const tierTheme = tierThemes[loyaltyTier] || tierThemes['base'] || {};
+    await googleWalletService.createOrUpdateClass({
+      classId,
+      studioName: studioData?.name || 'Studio',
+      logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
+      heroImageUrl: tierTheme.stripImage || undefined,
+      hexBackgroundColor: tierTheme.backgroundColor || undefined,
+    });
 
     // Update the Google Wallet object
     const success = await googleWalletService.createOrUpdateObject({
