@@ -38,6 +38,98 @@ async function getRegistrationsForCustomers(customerIds: string[]) {
   return { registrations: registrations || [], serialToCustomer, error };
 }
 
+// Push fresh data to Google Wallet for a set of customers.
+//
+// Google Wallet works fundamentally differently from Apple. Apple devices
+// register a push token (wallet_device_registrations) and re-fetch the pass
+// from our web service after an APNs ping. Google Wallet has NO device
+// registration concept — the card simply mirrors a loyalty object we maintain
+// server-side, so the only way to change it is to PUT the object ourselves.
+// We therefore drive Google updates straight from wallet_passes
+// (platform='google'); wallet_device_registrations only ever holds Apple rows,
+// so gating Google on it would (and did) silently update nothing.
+async function updateGoogleObjectsForCustomers(customerIds: string[]): Promise<number> {
+  if (customerIds.length === 0) return 0;
+
+  const { data: googlePasses } = await supabase
+    .from('wallet_passes')
+    .select('serial_number, customer_id, studio_id')
+    .in('customer_id', customerIds)
+    .eq('platform', 'google');
+
+  if (!googlePasses || googlePasses.length === 0) {
+    console.log(`[google] No google wallet_passes for ${customerIds.length} customer(s)`);
+    return 0;
+  }
+
+  const { data: customers } = await supabase
+    .from('customers')
+    .select('*')
+    .in('id', customerIds);
+  const customerById = Object.fromEntries((customers || []).map((c) => [c.id, c]));
+
+  // Class branding is per studio, so build + refresh it once per studio.
+  const studioCtxCache = new Map<string, { classId: string; language: string }>();
+  let updated = 0;
+
+  for (const pass of googlePasses) {
+    const customer = customerById[pass.customer_id];
+    if (!customer) continue;
+
+    let studioCtx = studioCtxCache.get(pass.studio_id);
+    if (!studioCtx) {
+      const classId = `loyalty_${pass.studio_id}`.replace(/-/g, '_');
+
+      const { data: studioRow } = await supabase
+        .from('studios')
+        .select('name, settings')
+        .eq('id', pass.studio_id)
+        .single();
+      const language = (studioRow?.settings as { language?: string } | null)?.language ?? 'en';
+
+      const { data: template } = await supabase
+        .from('pass_templates')
+        .select('*')
+        .eq('studio_id', pass.studio_id)
+        .eq('is_active', true)
+        .single();
+      const tierThemes = (template?.tier_themes as Record<string, { backgroundColor?: string | null; stripImage?: string | null; logoOverride?: string | null }>) || {};
+      const baseTheme = tierThemes['base'] || {};
+
+      // Refresh the class once so brand colour/logo/hero stay in sync with the
+      // Apple template (background colour lives on the class, not the object).
+      await googleWalletService.createOrUpdateClass({
+        classId,
+        studioName: studioRow?.name || 'Studio',
+        logoUrl: baseTheme.logoOverride || template?.logo_url || undefined,
+        heroImageUrl: baseTheme.stripImage || undefined,
+        hexBackgroundColor: baseTheme.backgroundColor || undefined,
+      });
+
+      studioCtx = { classId, language };
+      studioCtxCache.set(pass.studio_id, studioCtx);
+    }
+
+    const objectId = pass.serial_number.replace(/-/g, '_');
+    const ok = await googleWalletService.createOrUpdateObject({
+      objectId,
+      classId: studioCtx.classId,
+      customerId: customer.id,
+      customerName: customer.name,
+      memberId: customer.member_id || customer.id,
+      balance: customer.balance,
+      cashbackRate: customer.cashback_rate,
+      loyaltyTier: customer.loyalty_stage || 'base',
+      currency: customer.currency || 'DKK',
+      language: customer.language || studioCtx.language,
+    });
+    if (ok) updated++;
+  }
+
+  console.log(`[google] Updated ${updated}/${googlePasses.length} google object(s)`);
+  return updated;
+}
+
 // Debug: check registration state for a studio
 pushRoutes.get('/debug/:studioId', async (req: Request, res: Response) => {
   try {
@@ -92,15 +184,7 @@ pushRoutes.post('/customer/:customerId', async (req: Request, res: Response) => 
 
     console.log(`[push/customer] ${customerId}: found ${registrations.length} registration(s)${error ? ` (dbError: ${error})` : ''}`);
 
-    if (error || registrations.length === 0) {
-      return res.json({
-        success: true,
-        message: 'No active devices found',
-        sent: 0,
-      });
-    }
-
-    // Send push to Apple devices
+    // Apple: an APNs ping tells registered devices to re-fetch the pass.
     const appleTokens = registrations
       .filter((r) => r.platform === 'apple')
       .map((r) => r.push_token);
@@ -113,70 +197,9 @@ pushRoutes.post('/customer/:customerId', async (req: Request, res: Response) => 
       console.log(`[push/customer] APNs result: sent=${appleResults.sent}, failed=${appleResults.failed}`);
     }
 
-    // Update Google passes. Unlike Apple (which re-fetches the pass from our web
-    // service after an APNs ping), Google Wallet only reflects new data when we
-    // PUT the loyalty object ourselves. Without this the card stays frozen at its
-    // install-time balance (e.g. 0) while the backend shows the real balance.
-    const googleRegistrations = registrations.filter((r) => r.platform === 'google');
-    let googleUpdated = 0;
-
-    if (googleRegistrations.length > 0) {
-      const { data: customer } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('id', customerId)
-        .single();
-
-      if (customer) {
-        const classId = `loyalty_${customer.studio_id}`.replace(/-/g, '_');
-
-        // Studio language drives the localised labels; the active template's base
-        // tier theme drives class branding (logo, hero, background colour).
-        const { data: studioRow } = await supabase
-          .from('studios')
-          .select('name, settings')
-          .eq('id', customer.studio_id)
-          .single();
-        const studioLanguage = (studioRow?.settings as { language?: string } | null)?.language ?? 'en';
-
-        const { data: template } = await supabase
-          .from('pass_templates')
-          .select('*')
-          .eq('studio_id', customer.studio_id)
-          .eq('is_active', true)
-          .single();
-        const tierThemes = (template?.tier_themes as Record<string, { backgroundColor?: string | null; stripImage?: string | null; logoOverride?: string | null }>) || {};
-        const baseTheme = tierThemes['base'] || {};
-
-        // Refresh the loyalty class so brand colour/logo/hero stay in sync with
-        // the Apple template. Background colour lives on the class, so an
-        // object-only update would never recolour the card.
-        await googleWalletService.createOrUpdateClass({
-          classId,
-          studioName: studioRow?.name || 'Studio',
-          logoUrl: baseTheme.logoOverride || template?.logo_url || undefined,
-          heroImageUrl: baseTheme.stripImage || undefined,
-          hexBackgroundColor: baseTheme.backgroundColor || undefined,
-        });
-
-        for (const reg of googleRegistrations) {
-          const objectId = reg.serial_number.replace(/-/g, '_');
-          const ok = await googleWalletService.createOrUpdateObject({
-            objectId,
-            classId,
-            customerId: customer.id,
-            customerName: customer.name,
-            memberId: customer.member_id || customer.id,
-            balance: customer.balance,
-            cashbackRate: customer.cashback_rate,
-            loyaltyTier: customer.loyalty_stage || 'base',
-            currency: customer.currency || 'DKK',
-            language: customer.language || studioLanguage,
-          });
-          if (ok) googleUpdated++;
-        }
-      }
-    }
+    // Google: PUT the loyalty object directly. This runs regardless of device
+    // registrations — Google passes never create one (see helper comment).
+    const googleUpdated = await updateGoogleObjectsForCustomers([customerId]);
 
     // Update pass updated_at so Apple Wallet sees it as modified
     await supabase
@@ -247,17 +270,12 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
 
     const customerIds = customers.map((c) => c.id);
 
-    // Get all device registrations via wallet_passes join
-    const { registrations, serialToCustomer, error: regError } = await getRegistrationsForCustomers(customerIds);
-
-    if (regError || registrations.length === 0) {
-      console.log(`[push/studio] No active devices for studio ${studioId} (${customers.length} customers). regError:`, regError);
-      return res.json({
-        success: true,
-        message: 'No active devices found',
-        totalCustomers: customers.length,
-        sent: 0,
-      });
+    // Get all Apple device registrations via wallet_passes join. (Google passes
+    // have no registrations — they're handled separately, straight from
+    // wallet_passes, so an empty result here must NOT short-circuit the push.)
+    const { registrations, error: regError } = await getRegistrationsForCustomers(customerIds);
+    if (regError) {
+      console.log(`[push/studio] registration lookup error for studio ${studioId}:`, regError);
     }
 
     // Send Apple push notifications
@@ -265,7 +283,7 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
       .filter((r) => r.platform === 'apple')
       .map((r) => r.push_token);
 
-    console.log(`[push/studio] Sending to ${appleTokens.length} Apple devices, ${registrations.filter(r => r.platform === 'google').length} Google devices`);
+    console.log(`[push/studio] ${customers.length} customers, ${appleTokens.length} Apple devices`);
 
     let appleResults = { sent: 0, failed: 0 };
     if (appleTokens.length > 0) {
@@ -273,96 +291,33 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
       console.log(`[push/studio] APNs results: sent=${appleResults.sent}, failed=${appleResults.failed}`);
     }
 
-    // Update Google passes
-    const googleRegistrations = registrations.filter((r) => r.platform === 'google');
-    let googleUpdated = 0;
+    // Update Google passes directly (no device registration exists for Google).
+    const googleUpdated = await updateGoogleObjectsForCustomers(customerIds);
 
-    if (googleRegistrations.length > 0) {
-      const classId = `loyalty_${studioId}`.replace(/-/g, '_');
-
-      // Studio + template are the same for every customer in this push, so fetch
-      // once. Studio language drives the localised labels; the template's base
-      // tier theme drives class branding (logo, hero, background colour).
-      const { data: studioRow } = await supabase
-        .from('studios')
-        .select('name, settings')
-        .eq('id', studioId)
-        .single();
-      const studioLanguage = (studioRow?.settings as { language?: string } | null)?.language ?? 'en';
-
-      const { data: template } = await supabase
-        .from('pass_templates')
-        .select('*')
-        .eq('studio_id', studioId)
-        .eq('is_active', true)
-        .single();
-      const tierThemes = (template?.tier_themes as Record<string, { backgroundColor?: string | null; stripImage?: string | null; logoOverride?: string | null }>) || {};
-      const baseTheme = tierThemes['base'] || {};
-
-      // Refresh the loyalty class once so branding (background colour, logo, hero)
-      // on all existing passes stays in sync with the Apple template. Background
-      // colour lives on the class, so object-only updates would never recolour.
-      await googleWalletService.createOrUpdateClass({
-        classId,
-        studioName: studioRow?.name || 'Studio',
-        logoUrl: baseTheme.logoOverride || template?.logo_url || undefined,
-        heroImageUrl: baseTheme.stripImage || undefined,
-        hexBackgroundColor: baseTheme.backgroundColor || undefined,
-      });
-
-      for (const reg of googleRegistrations) {
-        const regCustomerId = serialToCustomer[reg.serial_number];
-        if (!regCustomerId) continue;
-
-        const { data: customer } = await supabase
-          .from('customers')
-          .select('*')
-          .eq('id', regCustomerId)
-          .single();
-
-        if (customer) {
-          const objectId = reg.serial_number.replace(/-/g, '_');
-
-          await googleWalletService.createOrUpdateObject({
-            objectId,
-            classId,
-            customerId: customer.id,
-            customerName: customer.name,
-            memberId: customer.member_id || customer.id,
-            balance: customer.balance,
-            cashbackRate: customer.cashback_rate,
-            loyaltyTier: customer.loyalty_stage || 'base',
-            currency: customer.currency || 'DKK',
-            language: customer.language || studioLanguage,
-          });
-
-          googleUpdated++;
-        }
-      }
-    }
-
-    // Touch updated_at on all targeted passes so Apple's passesUpdatedSince filter
-    // picks them up. This must always succeed regardless of other column state.
+    // Touch updated_at on Apple passes so Apple's passesUpdatedSince filter picks
+    // them up. This must always succeed regardless of other column state.
     const targetedSerials = registrations.map((r) => r.serial_number);
-    await supabase
-      .from('wallet_passes')
-      .update({ updated_at: new Date().toISOString() })
-      .in('serial_number', targetedSerials);
-
-    // Set push_message separately — this column requires migration 010 to exist.
-    // If the column is missing this fails silently rather than breaking updated_at.
-    if (pushMessage) {
+    if (targetedSerials.length > 0) {
       await supabase
         .from('wallet_passes')
-        .update({ push_message: pushMessage })
+        .update({ updated_at: new Date().toISOString() })
         .in('serial_number', targetedSerials);
+
+      // Set push_message separately — this column requires migration 010 to exist.
+      // If the column is missing this fails silently rather than breaking updated_at.
+      if (pushMessage) {
+        await supabase
+          .from('wallet_passes')
+          .update({ push_message: pushMessage })
+          .in('serial_number', targetedSerials);
+      }
     }
 
     // Log the push with optional campaign/automation reference
     await supabase.from('wallet_push_logs').insert({
       studio_id: studioId,
       target_type: 'all',
-      total_devices: registrations.length,
+      total_devices: registrations.length + googleUpdated,
       sent_count: appleResults.sent + googleUpdated,
       failed_count: appleResults.failed,
       status: 'completed',
@@ -373,7 +328,7 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
     res.json({
       success: true,
       totalCustomers: customers.length,
-      totalDevices: registrations.length,
+      totalDevices: registrations.length + googleUpdated,
       apple: appleResults,
       google: { updated: googleUpdated },
     });
