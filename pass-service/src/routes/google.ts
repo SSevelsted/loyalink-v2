@@ -299,15 +299,18 @@ googleRoutes.get('/object/:serialNumber', requireInternalAuth, async (req: Reque
       const obj = result.object as {
         id?: string;
         state?: string;
-        loyaltyPoints?: { balance?: { money?: { micros?: number; currencyCode?: string } } };
+        loyaltyPoints?: { balance?: { money?: { micros?: number | string; currencyCode?: string } } };
         textModulesData?: { header?: string; body?: string }[];
       };
+      // Google serializes int64 micros as a STRING ("21000000"), so coerce.
       const micros = obj.loyaltyPoints?.balance?.money?.micros;
+      const microsNum = micros == null ? null : Number(micros);
       google = {
         id: obj.id,
         state: obj.state,
-        balance: typeof micros === 'number' ? micros / 1_000_000 : null,
+        balance: microsNum != null && !Number.isNaN(microsNum) ? microsNum / 1_000_000 : null,
         currency: obj.loyaltyPoints?.balance?.money?.currencyCode ?? null,
+        rawLoyaltyPoints: obj.loyaltyPoints ?? null,
         textModules: obj.textModulesData?.map((t) => ({ header: t.header, body: t.body })) ?? [],
       };
     }
