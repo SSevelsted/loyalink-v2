@@ -130,13 +130,34 @@ pushRoutes.post('/customer/:customerId', async (req: Request, res: Response) => 
       if (customer) {
         const classId = `loyalty_${customer.studio_id}`.replace(/-/g, '_');
 
-        // Studio language drives the localised Google Wallet labels
+        // Studio language drives the localised labels; the active template's base
+        // tier theme drives class branding (logo, hero, background colour).
         const { data: studioRow } = await supabase
           .from('studios')
-          .select('settings')
+          .select('name, settings')
           .eq('id', customer.studio_id)
           .single();
         const studioLanguage = (studioRow?.settings as { language?: string } | null)?.language ?? 'en';
+
+        const { data: template } = await supabase
+          .from('pass_templates')
+          .select('*')
+          .eq('studio_id', customer.studio_id)
+          .eq('is_active', true)
+          .single();
+        const tierThemes = (template?.tier_themes as Record<string, { backgroundColor?: string | null; stripImage?: string | null; logoOverride?: string | null }>) || {};
+        const baseTheme = tierThemes['base'] || {};
+
+        // Refresh the loyalty class so brand colour/logo/hero stay in sync with
+        // the Apple template. Background colour lives on the class, so an
+        // object-only update would never recolour the card.
+        await googleWalletService.createOrUpdateClass({
+          classId,
+          studioName: studioRow?.name || 'Studio',
+          logoUrl: baseTheme.logoOverride || template?.logo_url || undefined,
+          heroImageUrl: baseTheme.stripImage || undefined,
+          hexBackgroundColor: baseTheme.backgroundColor || undefined,
+        });
 
         for (const reg of googleRegistrations) {
           const objectId = reg.serial_number.replace(/-/g, '_');
