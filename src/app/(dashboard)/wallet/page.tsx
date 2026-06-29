@@ -12,7 +12,7 @@ import { ImageUpload, type ImageUploadHandle } from '@/components/wallet/image-u
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Save, Link, Copy, Check, Eye, ImagePlus, Plus, Trash2, RotateCcw } from 'lucide-react'
+import { Save, Link, Copy, Check, Eye, ImagePlus, Plus, Trash2, RotateCcw, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import type { TierTheme, CardField } from '@/types/database'
 import { DEFAULT_TIER_THEMES, DEFAULT_CARD_FIELDS, DEFAULT_REWARDS_CONFIG, getActiveTierSlugs, migrateRewardsConfig } from '@/types/database'
@@ -58,6 +58,7 @@ export default function WalletPage() {
   const [iconUrl, setIconUrl] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   // Refs for triggering uploads from preview clicks
   const logoUploadRef = useRef<ImageUploadHandle>(null)
@@ -300,6 +301,33 @@ export default function WalletPage() {
     }
   }
 
+  // Re-push current balance + design to every installed pass in the studio.
+  // Unlike Save, this doesn't require an edit — use it to backfill cards that
+  // drifted out of sync (e.g. Google Wallet balances that never updated).
+  const handleSyncAll = async () => {
+    if (!currentStudio) return
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/pass/push/studio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studioId: currentStudio.id }),
+      })
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      const total = (data.apple?.sent ?? 0) + (data.google?.updated ?? 0)
+      toast.success(
+        total > 0
+          ? `Synced ${total} installed pass${total === 1 ? '' : 'es'}`
+          : 'No installed passes to sync'
+      )
+    } catch {
+      toast.error('Failed to sync passes')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   // Filter tiers to only show active ones (from rewards config) + custom tiers.
   // Always include a theme entry for every active slug, generating defaults for missing ones.
   const activeSlugs = rewardsConfig ? getActiveTierSlugs(rewardsConfig) : DEFAULT_REWARDS_CONFIG.tiers.map(t => t.slug)
@@ -353,15 +381,27 @@ export default function WalletPage() {
             Design cards, manage templates and push updates
           </p>
         </div>
-        <Button
-          variant="glow"
-          onClick={handleSave}
-          disabled={!dirty || !logoUrl || !iconUrl || updateTemplate.isPending}
-          className="gap-2"
-        >
-          <Save className="h-4 w-4" />
-          {updateTemplate.isPending ? 'Saving...' : 'Save'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleSyncAll}
+            disabled={syncing}
+            className="gap-2"
+            title="Re-push the current balance and design to all installed passes"
+          >
+            <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Sync all passes'}
+          </Button>
+          <Button
+            variant="glow"
+            onClick={handleSave}
+            disabled={!dirty || !logoUrl || !iconUrl || updateTemplate.isPending}
+            className="gap-2"
+          >
+            <Save className="h-4 w-4" />
+            {updateTemplate.isPending ? 'Saving...' : 'Save'}
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="designer">
