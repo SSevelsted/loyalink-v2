@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { passServiceFetch } from '@/lib/pass-service'
-import { getSessionUser, isStudioMember } from '@/lib/studio-access'
+import { verifyStudioAccess } from '@/lib/studio-access'
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,14 +22,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'studioId is required' }, { status: 400 })
     }
 
-    const user = await getSessionUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const member = await isStudioMember(user.id, studioId)
-    if (!member) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    // Grants access to studio members AND super_admins (who manage any studio).
+    const access = await verifyStudioAccess(studioId)
+    if (!access.authorized) {
+      return access.error
     }
 
     const res = await passServiceFetch(`/api/push/studio/${studioId}`, {

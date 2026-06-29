@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { passServiceFetch } from '@/lib/pass-service'
-import { adminSupabase, getSessionUser, isStudioMember } from '@/lib/studio-access'
+import { adminSupabase, verifyStudioAccess } from '@/lib/studio-access'
 import { syncLegacyPasskitCustomer } from '@/lib/services/legacy-passkit-sync-service'
 
 export async function POST(request: NextRequest) {
@@ -9,11 +9,6 @@ export async function POST(request: NextRequest) {
 
     if (!customerId) {
       return NextResponse.json({ error: 'customerId is required' }, { status: 400 })
-    }
-
-    const user = await getSessionUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { data: customer, error } = await adminSupabase
@@ -26,9 +21,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
     }
 
-    const member = await isStudioMember(user.id, customer.studio_id)
-    if (!member) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    // Grants access to studio members AND super_admins (who manage any studio).
+    const access = await verifyStudioAccess(customer.studio_id)
+    if (!access.authorized) {
+      return access.error
     }
 
     const legacySync = await syncLegacyPasskitCustomer({ customerId: customer.id, studioId: customer.studio_id })
