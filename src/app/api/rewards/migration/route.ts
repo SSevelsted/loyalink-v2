@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminSupabase, getSessionUser, isStudioMember } from '@/lib/studio-access'
+import { adminSupabase, verifyStudioAccess } from '@/lib/studio-access'
 import { passServiceFetch } from '@/lib/pass-service'
 import type { RewardsConfig } from '@/types/database'
 
@@ -20,14 +20,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'studioId and newConfig are required' }, { status: 400 })
     }
 
-    const user = await getSessionUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const isMember = await isStudioMember(user.id, studioId)
-    if (!isMember) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    // Grants access to studio members AND super_admins (who manage any studio).
+    const access = await verifyStudioAccess(studioId)
+    if (!access.authorized) {
+      return access.error
     }
 
     const newTierMap = new Map(newConfig.tiers.map((t) => [t.slug, t]))

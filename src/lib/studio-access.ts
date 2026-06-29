@@ -21,17 +21,6 @@ export async function getSessionUser() {
   return user
 }
 
-export async function isStudioMember(userId: string, studioId: string): Promise<boolean> {
-  const { data } = await adminSupabase
-    .from('studio_members')
-    .select('id')
-    .eq('studio_id', studioId)
-    .eq('user_id', userId)
-    .maybeSingle()
-
-  return !!data
-}
-
 export type StudioAccessResult =
   | {
       authorized: true
