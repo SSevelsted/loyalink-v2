@@ -14,6 +14,9 @@ public class MainActivity extends BridgeActivity {
             bridge.getWebView().setOverScrollMode(View.OVER_SCROLL_NEVER);
             // Prevent the flash of white between splash and first web paint.
             bridge.getWebView().setBackgroundColor(Color.parseColor("#09090b"));
+            // Guarantee the branded offline/error screen on load failures (e.g.
+            // ERR_NAME_NOT_RESOLVED) and recover from render-process death.
+            bridge.setWebViewClient(new LoyalinkWebViewClient(bridge));
         }
     }
 }
