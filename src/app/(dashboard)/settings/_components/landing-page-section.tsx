@@ -40,7 +40,7 @@ const LANDING_PRESETS = [
   { name: 'Rose', bg: '#1A0A0E', text: '#FFF1F3', brand: '#F43F5E' },
   { name: 'Amber', bg: '#1A1000', text: '#FFFBEB', brand: '#F59E0B' },
 ]
-import { generateDefaultBenefits, BENEFIT_ICON_MAP, BENEFIT_ICON_OPTIONS } from '@/components/landing/value-stack'
+import { generateDefaultBenefits, benefitRatesOutOfSync, BENEFIT_ICON_MAP, BENEFIT_ICON_OPTIONS } from '@/components/landing/value-stack'
 import type { RewardsConfig } from '@/types/database'
 import { migrateRewardsConfig } from '@/types/database'
 
@@ -482,12 +482,7 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
                 const benefitLanguage = settings.language ?? (studioSettings.language as string) ?? 'en'
                 const currentBenefits = settings.benefits ?? generateDefaultBenefits(rewardsConfig, currency, benefitLanguage)
                 const generatedBenefits = generateDefaultBenefits(rewardsConfig, currency, benefitLanguage)
-                const RATE_IDS = ['base_cashback', 'max_cashback', 'referral_commission', 'welcome_bonus']
-                const isOutOfSync = settings.benefits != null && RATE_IDS.some(id => {
-                  const stored = settings.benefits!.find(b => b.id === id)
-                  const generated = generatedBenefits.find(b => b.id === id)
-                  return stored && generated && stored.text !== generated.text
-                })
+                const isOutOfSync = benefitRatesOutOfSync(settings.benefits, generatedBenefits)
                 const syncRates = () => {
                   const synced = currentBenefits.map(b => {
                     const fresh = generatedBenefits.find(g => g.id === b.id)

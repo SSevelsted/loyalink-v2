@@ -52,12 +52,34 @@ function getReferralBenefitText(
   return t.benefitReferralInvite
 }
 
-export function syncGeneratedBenefitTexts(benefits: Benefit[], generatedBenefits: Benefit[]): Benefit[] {
-  return benefits.map((benefit) => {
-    if (!RATE_DERIVED_BENEFIT_IDS.has(benefit.id)) return benefit
+/**
+ * Extract the numeric tokens from a benefit string (e.g. "5% cashback on every
+ * Tattoo" → "5"). Thousands/decimal separators inside a number are collapsed so
+ * locale formatting ("1.000", "1,000", "1000") compares equal.
+ */
+function extractRateTokens(text: string): string {
+  return text
+    .replace(/(?<=\d)[.,\s](?=\d)/g, '')
+    .match(/\d+/g)
+    ?.join('|') ?? ''
+}
 
-    const generated = generatedBenefits.find((item) => item.id === benefit.id)
-    return generated ? { ...benefit, text: generated.text } : benefit
+/**
+ * True when a rate-derived benefit's numbers no longer match the current rewards
+ * config — i.e. the studio changed a cashback/referral rate but the saved benefit
+ * text still shows the old number. Customised wording (same numbers) does NOT
+ * count as out of sync, so edited copy never triggers a false warning.
+ */
+export function benefitRatesOutOfSync(
+  benefits: Benefit[] | null | undefined,
+  generatedBenefits: Benefit[],
+): boolean {
+  if (!benefits) return false
+  return [...RATE_DERIVED_BENEFIT_IDS].some((id) => {
+    const stored = benefits.find((b) => b.id === id)
+    const generated = generatedBenefits.find((b) => b.id === id)
+    if (!stored || !generated) return false
+    return extractRateTokens(stored.text) !== extractRateTokens(generated.text)
   })
 }
 

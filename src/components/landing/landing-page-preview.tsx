@@ -4,7 +4,7 @@ import { useState } from 'react'
 import type { LandingPageSettings } from '@/hooks/use-landing-page'
 import type { RewardsConfig } from '@/types/database'
 import { Star } from 'lucide-react'
-import { generateDefaultBenefits, BENEFIT_ICON_MAP, syncGeneratedBenefitTexts } from '@/components/landing/value-stack'
+import { generateDefaultBenefits, BENEFIT_ICON_MAP } from '@/components/landing/value-stack'
 import { getTriggerDisplayText } from '@/lib/format'
 import { getSignupTranslations } from '@/lib/i18n/signup'
 
@@ -31,11 +31,11 @@ export function LandingPagePreview({ headline, description, settings, rewardsCon
   const [view, setView] = useState<'form' | 'success'>('form')
   const t = getSignupTranslations(language)
 
-  // Resolve benefits: use saved ones, or generate defaults
-  const generatedBenefits = rewardsConfig ? generateDefaultBenefits(rewardsConfig, currency ?? 'dkk', language) : []
-  const benefits = settings.benefits
-    ? syncGeneratedBenefitTexts(settings.benefits, generatedBenefits)
-    : generatedBenefits
+  // Resolve benefits WYSIWYG: show the saved list exactly as customers will see
+  // it (matching the live join page), or generate defaults when none are saved.
+  // Do NOT re-sync rate text by id here — that discards edited copy and can
+  // duplicate a line; rate drift is handled by the editor's "Sync rates" banner.
+  const benefits = settings.benefits ?? (rewardsConfig ? generateDefaultBenefits(rewardsConfig, currency ?? 'dkk', language) : [])
 
   const visibleBenefits = benefits.filter((b) => b.text)
 

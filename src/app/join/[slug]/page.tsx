@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { JoinForm } from '@/components/landing/join-form'
 import { TrustBar } from '@/components/landing/trust-bar'
-import { ValueStack, generateDefaultBenefits, syncGeneratedBenefitTexts } from '@/components/landing/value-stack'
+import { ValueStack, generateDefaultBenefits } from '@/components/landing/value-stack'
 import { TierProgression } from '@/components/landing/tier-progression'
 import { ReferralBanner } from '@/components/landing/referral-banner'
 import { migrateRewardsConfig } from '@/types/database'
@@ -119,12 +119,12 @@ export default async function JoinPage({ params, searchParams }: Props) {
   const headline = resolveLandingPageCopy(page.headline, 'headline', page.studios?.name, language)
   const description = resolveLandingPageCopy(page.description, 'description', page.studios?.name, language)
 
-  // Benefits: use stored list if customised, but always keep rate-derived rows in sync
-  // with the live rewards config so they don't show a stale % after a config change.
-  const generatedBenefits = generateDefaultBenefits(rewardsConfig, currency, language)
-  const benefits = settings.benefits
-    ? syncGeneratedBenefitTexts(settings.benefits, generatedBenefits)
-    : generatedBenefits
+  // Benefits are WYSIWYG: render the studio's saved list exactly as shown in the
+  // editor. We must NOT re-sync rate text here — overwriting a customised row by
+  // id silently discards edited copy and can collide with another row's text,
+  // producing a duplicate line. Rate drift is surfaced (and fixed) in the editor
+  // via its "Sync rates" banner instead. Fall back to defaults when unset.
+  const benefits = settings.benefits ?? generateDefaultBenefits(rewardsConfig, currency, language)
 
   // Referral bonus details
   const showReferralBanner =

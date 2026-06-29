@@ -50,7 +50,7 @@ import {
   resolveLandingPageCopy,
 } from '@/lib/landing-page-defaults'
 import type { CustomField, Benefit } from '@/hooks/use-landing-page'
-import { generateDefaultBenefits, BENEFIT_ICON_MAP, BENEFIT_ICON_OPTIONS } from '@/components/landing/value-stack'
+import { generateDefaultBenefits, benefitRatesOutOfSync, BENEFIT_ICON_MAP, BENEFIT_ICON_OPTIONS } from '@/components/landing/value-stack'
 import {
   Select,
   SelectContent,
@@ -936,12 +936,7 @@ export default function SetupPage() {
               {(() => {
                 const currentBenefits = settings.benefits ?? generateDefaultBenefits(rewardsConfig, currency, language)
                 const generatedBenefits = generateDefaultBenefits(rewardsConfig, currency, language)
-                const RATE_IDS = ['base_cashback', 'max_cashback', 'referral_commission', 'welcome_bonus']
-                const isOutOfSync = settings.benefits != null && RATE_IDS.some(id => {
-                  const stored = settings.benefits!.find(b => b.id === id)
-                  const generated = generatedBenefits.find(b => b.id === id)
-                  return stored && generated && stored.text !== generated.text
-                })
+                const isOutOfSync = benefitRatesOutOfSync(settings.benefits, generatedBenefits)
                 const syncRates = () => {
                   const synced = currentBenefits.map(b => {
                     const fresh = generatedBenefits.find(g => g.id === b.id)
