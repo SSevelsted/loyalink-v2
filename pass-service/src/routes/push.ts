@@ -113,7 +113,49 @@ pushRoutes.post('/customer/:customerId', async (req: Request, res: Response) => 
       console.log(`[push/customer] APNs result: sent=${appleResults.sent}, failed=${appleResults.failed}`);
     }
 
-    const googleUpdated = registrations.filter((r) => r.platform === 'google').length;
+    // Update Google passes. Unlike Apple (which re-fetches the pass from our web
+    // service after an APNs ping), Google Wallet only reflects new data when we
+    // PUT the loyalty object ourselves. Without this the card stays frozen at its
+    // install-time balance (e.g. 0) while the backend shows the real balance.
+    const googleRegistrations = registrations.filter((r) => r.platform === 'google');
+    let googleUpdated = 0;
+
+    if (googleRegistrations.length > 0) {
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', customerId)
+        .single();
+
+      if (customer) {
+        const classId = `loyalty_${customer.studio_id}`.replace(/-/g, '_');
+
+        // Studio language drives the localised Google Wallet labels
+        const { data: studioRow } = await supabase
+          .from('studios')
+          .select('settings')
+          .eq('id', customer.studio_id)
+          .single();
+        const studioLanguage = (studioRow?.settings as { language?: string } | null)?.language ?? 'en';
+
+        for (const reg of googleRegistrations) {
+          const objectId = reg.serial_number.replace(/-/g, '_');
+          const ok = await googleWalletService.createOrUpdateObject({
+            objectId,
+            classId,
+            customerId: customer.id,
+            customerName: customer.name,
+            memberId: customer.member_id || customer.id,
+            balance: customer.balance,
+            cashbackRate: customer.cashback_rate,
+            loyaltyTier: customer.loyalty_stage || 'base',
+            currency: customer.currency || 'DKK',
+            language: customer.language || studioLanguage,
+          });
+          if (ok) googleUpdated++;
+        }
+      }
+    }
 
     // Update pass updated_at so Apple Wallet sees it as modified
     await supabase
