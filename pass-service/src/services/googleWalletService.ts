@@ -272,6 +272,31 @@ export class GoogleWalletService {
     }
   }
 
+  // Read the loyalty object Google currently stores. Used for debugging update
+  // issues: it answers "did our PUT actually land?" by returning Google's own
+  // copy, independent of what we think we wrote. Returns the raw object, or
+  // { status } when Google responds non-2xx (e.g. 404 = object never created).
+  async getObject(objectId: string): Promise<{ ok: boolean; status: number; object?: unknown; error?: string }> {
+    const token = await this.getAccessToken();
+    if (!token) return { ok: false, status: 0, error: 'No access token (service account not configured)' };
+
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/loyaltyObject/${googleConfig.issuerId}.${objectId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (!response.ok) {
+        const body = await response.text();
+        return { ok: false, status: response.status, error: body.slice(0, 500) };
+      }
+
+      return { ok: true, status: response.status, object: await response.json() };
+    } catch (error) {
+      return { ok: false, status: 0, error: String(error) };
+    }
+  }
+
   async createSaveJwt(objectData: LoyaltyObjectData): Promise<string | null> {
     if (!googleConfig.serviceAccountBase64) return null;
 

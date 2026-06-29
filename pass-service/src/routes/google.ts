@@ -269,3 +269,63 @@ googleRoutes.post('/update/:serialNumber', requireInternalAuth, async (req: Requ
     res.status(500).json({ error: 'Failed to update pass' });
   }
 });
+
+// Debug: read the loyalty object Google currently stores for a serial and show
+// it next to the balance/tier our DB expects. Answers "did our PUT land on the
+// object the device shows?" without guessing — compare `google` vs `expected`.
+googleRoutes.get('/object/:serialNumber', requireInternalAuth, async (req: Request, res: Response) => {
+  try {
+    const { serialNumber } = req.params;
+
+    const { data: walletPass } = await supabase
+      .from('wallet_passes')
+      .select('*, customers(*)')
+      .eq('serial_number', serialNumber)
+      .eq('platform', 'google')
+      .maybeSingle();
+
+    if (!walletPass) {
+      return res.status(404).json({ error: 'Google pass not found for serial', serialNumber });
+    }
+
+    const customer = walletPass.customers as { id: string; name: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string };
+    const objectId = serialNumber.replace(/-/g, '_');
+
+    const result = await googleWalletService.getObject(objectId);
+
+    // Pull the few fields that actually render on the card out of Google's blob.
+    let google: Record<string, unknown> | null = null;
+    if (result.ok && result.object) {
+      const obj = result.object as {
+        id?: string;
+        state?: string;
+        loyaltyPoints?: { balance?: { money?: { micros?: number; currencyCode?: string } } };
+        textModulesData?: { header?: string; body?: string }[];
+      };
+      const micros = obj.loyaltyPoints?.balance?.money?.micros;
+      google = {
+        id: obj.id,
+        state: obj.state,
+        balance: typeof micros === 'number' ? micros / 1_000_000 : null,
+        currency: obj.loyaltyPoints?.balance?.money?.currencyCode ?? null,
+        textModules: obj.textModulesData?.map((t) => ({ header: t.header, body: t.body })) ?? [],
+      };
+    }
+
+    res.json({
+      serialNumber,
+      objectId: `${googleConfig.issuerId}.${objectId}`,
+      fetch: { ok: result.ok, status: result.status, error: result.error ?? null },
+      expected: {
+        balance: customer.balance,
+        currency: (customer.currency || 'DKK').toUpperCase(),
+        loyaltyTier: customer.loyalty_stage || 'base',
+        cashbackRate: customer.cashback_rate,
+      },
+      google,
+    });
+  } catch (error) {
+    console.error('Error reading Google object:', error);
+    res.status(500).json({ error: 'Failed to read Google object' });
+  }
+});
