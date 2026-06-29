@@ -256,42 +256,67 @@ pushRoutes.post('/studio/:studioId', async (req: Request, res: Response) => {
     const googleRegistrations = registrations.filter((r) => r.platform === 'google');
     let googleUpdated = 0;
 
-    for (const reg of googleRegistrations) {
-      const regCustomerId = serialToCustomer[reg.serial_number];
-      if (!regCustomerId) continue;
+    if (googleRegistrations.length > 0) {
+      const classId = `loyalty_${studioId}`.replace(/-/g, '_');
 
-      const { data: customer } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('id', regCustomerId)
+      // Studio + template are the same for every customer in this push, so fetch
+      // once. Studio language drives the localised labels; the template's base
+      // tier theme drives class branding (logo, hero, background colour).
+      const { data: studioRow } = await supabase
+        .from('studios')
+        .select('name, settings')
+        .eq('id', studioId)
         .single();
+      const studioLanguage = (studioRow?.settings as { language?: string } | null)?.language ?? 'en';
 
-      if (customer) {
-        const classId = `loyalty_${studioId}`.replace(/-/g, '_');
-        const objectId = reg.serial_number.replace(/-/g, '_');
+      const { data: template } = await supabase
+        .from('pass_templates')
+        .select('*')
+        .eq('studio_id', studioId)
+        .eq('is_active', true)
+        .single();
+      const tierThemes = (template?.tier_themes as Record<string, { backgroundColor?: string | null; stripImage?: string | null; logoOverride?: string | null }>) || {};
+      const baseTheme = tierThemes['base'] || {};
 
-        // Studio language drives the localised Google Wallet labels
-        const { data: studioRow } = await supabase
-          .from('studios')
-          .select('settings')
-          .eq('id', studioId)
+      // Refresh the loyalty class once so branding (background colour, logo, hero)
+      // on all existing passes stays in sync with the Apple template. Background
+      // colour lives on the class, so object-only updates would never recolour.
+      await googleWalletService.createOrUpdateClass({
+        classId,
+        studioName: studioRow?.name || 'Studio',
+        logoUrl: baseTheme.logoOverride || template?.logo_url || undefined,
+        heroImageUrl: baseTheme.stripImage || undefined,
+        hexBackgroundColor: baseTheme.backgroundColor || undefined,
+      });
+
+      for (const reg of googleRegistrations) {
+        const regCustomerId = serialToCustomer[reg.serial_number];
+        if (!regCustomerId) continue;
+
+        const { data: customer } = await supabase
+          .from('customers')
+          .select('*')
+          .eq('id', regCustomerId)
           .single();
-        const studioLanguage = (studioRow?.settings as { language?: string } | null)?.language ?? 'en';
 
-        await googleWalletService.createOrUpdateObject({
-          objectId,
-          classId,
-          customerId: customer.id,
-          customerName: customer.name,
-          memberId: customer.member_id || customer.id,
-          balance: customer.balance,
-          cashbackRate: customer.cashback_rate,
-          loyaltyTier: customer.loyalty_stage || 'base',
-          currency: customer.currency || 'DKK',
-          language: customer.language || studioLanguage,
-        });
+        if (customer) {
+          const objectId = reg.serial_number.replace(/-/g, '_');
 
-        googleUpdated++;
+          await googleWalletService.createOrUpdateObject({
+            objectId,
+            classId,
+            customerId: customer.id,
+            customerName: customer.name,
+            memberId: customer.member_id || customer.id,
+            balance: customer.balance,
+            cashbackRate: customer.cashback_rate,
+            loyaltyTier: customer.loyalty_stage || 'base',
+            currency: customer.currency || 'DKK',
+            language: customer.language || studioLanguage,
+          });
+
+          googleUpdated++;
+        }
       }
     }
 
