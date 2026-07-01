@@ -4,6 +4,7 @@ import { validateApiKey } from '@/lib/api-keys'
 import { apiError, apiPaginated, apiSuccess } from '@/lib/api-response'
 import { createMember, DuplicateMemberError } from '@/lib/services/member-service'
 import { escapeIlike } from '@/lib/escape-html'
+import { MARKETING_URL } from '@/lib/constants'
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,7 +44,12 @@ export async function GET(request: NextRequest) {
 
     if (error) return apiError(error.message, 500)
 
-    return apiPaginated(data ?? [], count ?? 0, limit, offset)
+    const members = (data ?? []).map((member) => ({
+      ...member,
+      invite_link: `${MARKETING_URL}/refer/${member.id}`,
+    }))
+
+    return apiPaginated(members, count ?? 0, limit, offset)
   } catch {
     return apiError('Internal server error', 500)
   }

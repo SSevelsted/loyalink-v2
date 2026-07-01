@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { adminSupabase } from '@/lib/studio-access'
 import { validateApiKey } from '@/lib/api-keys'
 import { apiSuccess, apiError } from '@/lib/api-response'
+import { MARKETING_URL } from '@/lib/constants'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -20,7 +21,10 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     if (error || !customer) return apiError('Member not found', 404)
 
-    return apiSuccess(customer)
+    return apiSuccess({
+      ...customer,
+      invite_link: `${MARKETING_URL}/refer/${customer.id}`,
+    })
   } catch {
     return apiError('Internal server error', 500)
   }
