@@ -13,6 +13,7 @@ import {
   Share2, Smartphone, Sparkles, TrendingUp, Trophy, Users, Wallet, Zap,
 } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
+import { QRCodeSVG } from 'qrcode.react'
 import { MARKETING_URL } from '@/lib/constants'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { getLoyaltyTranslations } from '@/lib/loyalty-translations'
@@ -220,7 +221,8 @@ function detectPlatform(): 'apple' | 'google' {
   return 'apple'
 }
 
-function AddToWalletCard({ customerId, customerAccessToken, brandColor, autoAdd, tokenOverride }: {
+function AddToWalletCard({ memberId, customerId, customerAccessToken, brandColor, autoAdd, tokenOverride }: {
+  memberId: string
   customerId: string
   customerAccessToken: string
   brandColor: string
@@ -304,18 +306,26 @@ function AddToWalletCard({ customerId, customerAccessToken, brandColor, autoAdd,
   if (added) return null
   if (isDesktop === null) return null // wait for detection
 
-  // Desktop: show message to open on phone
+  // Desktop: wallet apps live on the phone, so show a QR the visitor can scan
+  // to open this same page (with auto-add) on their device.
   if (isDesktop) {
+    const qrValue = `${window.location.origin}/loyalty/${memberId}?addPass=1`
     return (
       <Card className="rounded-xl">
-        <CardContent className="p-4 text-center space-y-2">
+        <CardContent className="p-4 text-center space-y-3">
           <div className="flex items-center justify-center gap-2">
-            <Smartphone className="h-5 w-5" style={{ color: brandColor }} />
-            <p className="text-sm font-semibold">Open this link on your phone</p>
+            <Wallet className="h-5 w-5" style={{ color: brandColor }} />
+            <p className="text-sm font-semibold">Add to Wallet</p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            To add the loyalty card to your wallet, open this page on your phone.
-          </p>
+          <div className="flex justify-center">
+            <div className="rounded-lg bg-white p-3">
+              <QRCodeSVG value={qrValue} size={160} level="M" />
+            </div>
+          </div>
+          <div className="flex items-center justify-center gap-2 text-muted-foreground">
+            <Smartphone className="h-4 w-4" />
+            <p className="text-xs">Scan with your phone to add the card to Apple or Google Wallet</p>
+          </div>
         </CardContent>
       </Card>
     )
@@ -570,6 +580,7 @@ export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer,
 
         {/* ===== ADD TO WALLET ===== */}
         <AddToWalletCard
+          memberId={memberId}
           customerId={customer.id}
           customerAccessToken={customerAccessToken}
           brandColor={brandColor}

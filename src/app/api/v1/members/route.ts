@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     let query = adminSupabase
       .from('customers')
-      .select('id, name, email, phone, balance, tier_slug, loyalty_stage, referral_code, metadata, custom_fields, created_at, has_purchased, total_real_spend', { count: 'exact' })
+      .select('id, member_id, name, email, phone, balance, tier_slug, loyalty_stage, referral_code, metadata, custom_fields, created_at, has_purchased, total_real_spend', { count: 'exact' })
       .eq('studio_id', auth.studioId)
 
     if (search) {
@@ -44,10 +44,20 @@ export async function GET(request: NextRequest) {
 
     if (error) return apiError(error.message, 500)
 
-    const members = (data ?? []).map((member) => ({
-      ...member,
-      invite_link: `${MARKETING_URL}/refer/${member.id}`,
-    }))
+    const members = (data ?? []).map((member) => {
+      // Prefer the short nanoid member_id for shareable links; fall back to the
+      // UUID when a legacy row has no member_id. Both are resolved by the
+      // /loyalty and /refer public pages.
+      const publicId = member.member_id ?? member.id
+      return {
+        ...member,
+        // Onboarding link: opens the member's loyalty hub and auto-adds their
+        // pass to Apple/Google Wallet on mobile. This is the link to send leads.
+        invite_link: `${MARKETING_URL}/loyalty/${publicId}?addPass=1`,
+        // Referral link: the member invites others (previously exposed as invite_link).
+        referral_link: `${MARKETING_URL}/refer/${publicId}`,
+      }
+    })
 
     return apiPaginated(members, count ?? 0, limit, offset)
   } catch {

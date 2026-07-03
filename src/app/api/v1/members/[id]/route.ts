@@ -21,9 +21,17 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     if (error || !customer) return apiError('Member not found', 404)
 
+    // Prefer the short nanoid member_id for shareable links; fall back to the
+    // UUID for legacy rows. Both are resolved by the public /loyalty and /refer pages.
+    const publicId = customer.member_id ?? customer.id
+
     return apiSuccess({
       ...customer,
-      invite_link: `${MARKETING_URL}/refer/${customer.id}`,
+      // Onboarding link: opens the member's loyalty hub and auto-adds their pass
+      // to Apple/Google Wallet on mobile. This is the link to send leads.
+      invite_link: `${MARKETING_URL}/loyalty/${publicId}?addPass=1`,
+      // Referral link: the member invites others (previously exposed as invite_link).
+      referral_link: `${MARKETING_URL}/refer/${publicId}`,
     })
   } catch {
     return apiError('Internal server error', 500)
