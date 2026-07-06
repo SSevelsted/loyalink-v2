@@ -5,6 +5,7 @@ import { apiError, apiPaginated, apiSuccess } from '@/lib/api-response'
 import { createMember, DuplicateMemberError } from '@/lib/services/member-service'
 import { escapeIlike } from '@/lib/escape-html'
 import { MARKETING_URL } from '@/lib/constants'
+import { summarizeMemberPasses } from '@/lib/pass-status'
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     let query = adminSupabase
       .from('customers')
-      .select('id, member_id, name, email, phone, balance, tier_slug, loyalty_stage, referral_code, metadata, custom_fields, created_at, has_purchased, total_real_spend', { count: 'exact' })
+      .select('id, member_id, name, email, phone, balance, tier_slug, loyalty_stage, referral_code, metadata, custom_fields, created_at, has_purchased, total_real_spend, passes:wallet_passes(platform, status, installed_at, created_at, updated_at)', { count: 'exact' })
       .eq('studio_id', auth.studioId)
 
     if (search) {
@@ -49,6 +50,8 @@ export async function GET(request: NextRequest) {
       // UUID when a legacy row has no member_id. Both are resolved by the
       // /loyalty and /refer public pages.
       const publicId = member.member_id ?? member.id
+      // Collapse wallet_passes to the current status per platform (+ a boolean).
+      const { passes, pass_installed } = summarizeMemberPasses(member.passes)
       return {
         ...member,
         // Onboarding link: opens the member's loyalty hub and auto-adds their
@@ -56,6 +59,9 @@ export async function GET(request: NextRequest) {
         invite_link: `${MARKETING_URL}/loyalty/${publicId}?addPass=1`,
         // Referral link: the member invites others (previously exposed as invite_link).
         referral_link: `${MARKETING_URL}/refer/${publicId}`,
+        // Wallet pass status per platform (apple/google), plus whether any is installed.
+        passes,
+        pass_installed,
       }
     })
 

@@ -3,6 +3,7 @@ import { adminSupabase } from '@/lib/studio-access'
 import { validateApiKey } from '@/lib/api-keys'
 import { apiSuccess, apiError } from '@/lib/api-response'
 import { MARKETING_URL } from '@/lib/constants'
+import { summarizeMemberPasses } from '@/lib/pass-status'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     const { data: customer, error } = await adminSupabase
       .from('customers')
-      .select('*')
+      .select('*, passes:wallet_passes(platform, status, installed_at, created_at, updated_at)')
       .eq('id', id)
       .eq('studio_id', auth.studioId)
       .single()
@@ -24,6 +25,8 @@ export async function GET(request: NextRequest, { params }: Params) {
     // Prefer the short nanoid member_id for shareable links; fall back to the
     // UUID for legacy rows. Both are resolved by the public /loyalty and /refer pages.
     const publicId = customer.member_id ?? customer.id
+    // Collapse wallet_passes to the current status per platform (+ a boolean).
+    const { passes, pass_installed } = summarizeMemberPasses(customer.passes)
 
     return apiSuccess({
       ...customer,
@@ -32,6 +35,9 @@ export async function GET(request: NextRequest, { params }: Params) {
       invite_link: `${MARKETING_URL}/loyalty/${publicId}?addPass=1`,
       // Referral link: the member invites others (previously exposed as invite_link).
       referral_link: `${MARKETING_URL}/refer/${publicId}`,
+      // Wallet pass status per platform (apple/google), plus whether any is installed.
+      passes,
+      pass_installed,
     })
   } catch {
     return apiError('Internal server error', 500)
