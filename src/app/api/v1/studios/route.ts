@@ -11,6 +11,7 @@ import {
   STREAMINK_PROMOTIONS,
 } from '@/lib/templates/streamink-template'
 import { getDefaultLandingPageCopy } from '@/lib/landing-page-defaults'
+import { WEBHOOK_EVENTS } from '@/lib/webhook-events'
 
 export async function POST(request: NextRequest) {
   try {
@@ -126,6 +127,26 @@ export async function POST(request: NextRequest) {
 
     if (promoError) {
       console.error('[v1/studios] promotions error:', promoError)
+    }
+
+    // Auto-subscribe StreamInk's dashboard to this studio's events so agency
+    // studios receive webhooks from the get-go. STREAMINK_WEBHOOK_URL holds the
+    // full receiver URL including the ?key=… shared secret StreamInk validates
+    // (Loyalink sends unsigned POSTs, so the secret lives in the URL). Skipped
+    // when unset (e.g. local dev). Subscribes to all known events.
+    const streaminkWebhookUrl = process.env.STREAMINK_WEBHOOK_URL
+    if (streaminkWebhookUrl) {
+      const { error: webhookError } = await adminSupabase
+        .from('studio_webhooks')
+        .insert({
+          studio_id: studio.id,
+          url: streaminkWebhookUrl,
+          events: WEBHOOK_EVENTS.map((e) => e.value),
+        })
+
+      if (webhookError) {
+        console.error('[v1/studios] webhook registration error:', webhookError)
+      }
     }
 
     return apiSuccess(studio, 201)
