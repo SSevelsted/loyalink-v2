@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -122,6 +123,18 @@ export function ReferralProgram({
   const milestones = computeReferralMilestones(config).filter((m) => m.friends > 0).slice(0, 5)
   const friendTier = config.tiers.find((t) => t.slug === r.friend_tier_slug)
 
+  // The referred friend joins at friendTier, so their cashback rate IS that tier's
+  // rate. friend_cashback_rate is persisted separately (member-service reads it), so
+  // keep it in sync — otherwise editing the tier's cashback elsewhere leaves a stale
+  // rate here that would silently be applied to new referred friends.
+  const friendTierRate = friendTier?.cashback_rate ?? r.friend_cashback_rate
+  useEffect(() => {
+    if (friendTier && r.friend_cashback_rate !== friendTier.cashback_rate) {
+      updateReferrals({ friend_cashback_rate: friendTier.cashback_rate })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [friendTier?.cashback_rate, r.friend_tier_slug])
+
   const unlockDropdownValue = referralUnlockTier
     ? (config.tiers[0]?.unlocks_referrals ? ALWAYS_ON : referralUnlockTier.slug)
     : ''
@@ -164,7 +177,7 @@ export function ReferralProgram({
             <div className="flex flex-col sm:flex-row sm:items-stretch gap-2">
               {[
                 { icon: Share2, title: 'Customer shares', sub: 'their personal link' },
-                { icon: UserPlus, title: 'Friend joins', sub: `${r.friend_cashback_rate}% + ${r.friend_welcome_bonus > 0 ? `${r.friend_welcome_bonus} ${currCfg.symbol} bonus` : 'head start'}` },
+                { icon: UserPlus, title: 'Friend joins', sub: `${friendTierRate}% + ${r.friend_welcome_bonus > 0 ? `${r.friend_welcome_bonus} ${currCfg.symbol} bonus` : 'head start'}` },
                 { icon: TrendingUp, title: 'Customer earns', sub: `+${r.referrer_cashback_bonus_per_ref}% cashback per friend` },
               ].map((step, i) => {
                 const Icon = step.icon
@@ -209,7 +222,16 @@ export function ReferralProgram({
               <p className="text-xs font-semibold uppercase tracking-wider text-violet-400">The referred friend gets</p>
               <p className="text-sm text-foreground leading-loose">
                 New friends join at{' '}
-                <Select value={r.friend_tier_slug} onValueChange={(v) => updateReferrals({ friend_tier_slug: v })}>
+                <Select
+                  value={r.friend_tier_slug}
+                  onValueChange={(v) =>
+                    updateReferrals({
+                      friend_tier_slug: v,
+                      friend_cashback_rate:
+                        config.tiers.find((t) => t.slug === v)?.cashback_rate ?? r.friend_cashback_rate,
+                    })
+                  }
+                >
                   <SelectTrigger className={inlineSelectTrigger}>
                     <SelectValue />
                   </SelectTrigger>
@@ -219,9 +241,7 @@ export function ReferralProgram({
                     ))}
                   </SelectContent>
                 </Select>{' '}
-                earning{' '}
-                <InlineNumber value={r.friend_cashback_rate} onChange={(v) => updateReferrals({ friend_cashback_rate: v })} max={100} />{' '}
-                % cashback, plus a{' '}
+                earning <span className="font-semibold text-foreground">{friendTierRate}%</span> cashback, plus a{' '}
                 <InlineNumber value={r.friend_welcome_bonus} onChange={(v) => updateReferrals({ friend_welcome_bonus: v })} step={10} width="w-16" />{' '}
                 {currCfg.symbol} welcome bonus to get started.
               </p>
@@ -350,7 +370,7 @@ export function ReferralProgram({
             {friendTier && (
               <p className="text-xs text-muted-foreground leading-relaxed">
                 In short: refer a friend, they start at{' '}
-                <span className="text-foreground font-medium">{r.friend_cashback_rate}%</span>
+                <span className="text-foreground font-medium">{friendTierRate}%</span>
                 {r.friend_welcome_bonus > 0 && (
                   <> with <span className="text-foreground font-medium">{r.friend_welcome_bonus} {currCfg.symbol}</span> free credit</>
                 )}
