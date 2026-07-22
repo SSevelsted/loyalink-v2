@@ -66,10 +66,12 @@ export async function PUT(request: NextRequest) {
 
     const currentSettings = (studio.settings as Record<string, unknown>) ?? {}
 
+    const normalizedConfig = migrateRewardsConfig(config)
+
     const { error } = await supabase
       .from('studios')
       .update({
-        settings: { ...currentSettings, rewards_config: config },
+        settings: { ...currentSettings, rewards_config: normalizedConfig },
       })
       .eq('id', studioId)
 

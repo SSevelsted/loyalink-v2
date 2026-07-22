@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { adminSupabase } from '@/lib/studio-access'
 import { validateApiKey } from '@/lib/api-keys'
 import { apiSuccess, apiError } from '@/lib/api-response'
+import { migrateRewardsConfig } from '@/types/database'
 import type { RewardsConfig } from '@/types/database'
 
 type Params = { params: Promise<{ id: string }> }
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (!studio) return apiError('Studio not found', 404)
 
     const settings = studio.settings as Record<string, unknown>
-    return apiSuccess(settings?.rewards_config ?? null)
+    return apiSuccess(settings?.rewards_config ? migrateRewardsConfig(settings.rewards_config) : null)
   } catch {
     return apiError('Internal server error', 500)
   }
@@ -50,14 +51,16 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!studio) return apiError('Studio not found', 404)
 
     const currentSettings = studio.settings as Record<string, unknown>
+    const normalizedConfig = migrateRewardsConfig(config)
+
     const { error } = await adminSupabase
       .from('studios')
-      .update({ settings: { ...currentSettings, rewards_config: config } })
+      .update({ settings: { ...currentSettings, rewards_config: normalizedConfig } })
       .eq('id', id)
 
     if (error) return apiError(error.message, 500)
 
-    return apiSuccess(config)
+    return apiSuccess(normalizedConfig)
   } catch {
     return apiError('Internal server error', 500)
   }

@@ -481,6 +481,27 @@ export const TIER_COLOR_PALETTE = [
 
 export const REFERRAL_COLOR = { border: 'border-violet-500/20', bg: 'bg-violet-500/5', text: 'text-violet-400', dot: 'bg-violet-400', input: 'bg-violet-500/10 border-violet-500/20 text-violet-400' } as const
 
+export function parseRewardsNumber(value: unknown, fallback = 0): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : fallback
+  if (typeof value !== 'string') return fallback
+
+  const normalized = value.trim().replace(/\s/g, '').replace(',', '.')
+  if (!normalized) return fallback
+
+  const parsed = Number.parseFloat(normalized)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function normalizeUpgradeTriggerConfig(value: UpgradeTriggerConfig | string | undefined): UpgradeTriggerConfig | undefined {
+  if (!value) return undefined
+  if (typeof value === 'string') return { type: value as UpgradeTrigger }
+
+  return {
+    ...value,
+    threshold: value.threshold == null ? undefined : parseRewardsNumber(value.threshold),
+  }
+}
+
 // ── Support Tickets ──
 
 export type SupportTicketCategory = 'bug' | 'billing' | 'feature_request' | 'question' | 'other'
@@ -522,24 +543,33 @@ export function migrateRewardsConfig(raw: unknown): RewardsConfig {
     const config = { ...DEFAULT_REWARDS_CONFIG, ...obj } as RewardsConfig
 
     // Ensure tiers have all required fields
-    config.tiers = config.tiers.map((t, i) => ({
-      ...DEFAULT_REWARDS_CONFIG.tiers[i] ?? { slug: t.slug, name: t.name ?? t.slug, cashback_rate: 7.5, unlocks_referrals: false },
-      ...t,
-    }))
-
-    // Migrate string triggers inside tiers
-    for (const tier of config.tiers) {
-      if (typeof tier.upgrade_trigger === 'string') {
-        tier.upgrade_trigger = { type: tier.upgrade_trigger as UpgradeTrigger }
+    config.tiers = config.tiers.map((t, i) => {
+      const fallbackTier = DEFAULT_REWARDS_CONFIG.tiers[i] ?? {
+        slug: t.slug,
+        name: t.name ?? t.slug,
+        cashback_rate: 7.5,
+        unlocks_referrals: false,
       }
-    }
+      const tier = { ...fallbackTier, ...t }
 
-    // Migrate referrals.activation_trigger
-    if (typeof (config.referrals as Record<string, unknown>)?.activation_trigger === 'string') {
-      config.referrals = {
-        ...config.referrals,
-        activation_trigger: { type: (config.referrals as Record<string, unknown>).activation_trigger as UpgradeTrigger },
+      return {
+        ...tier,
+        cashback_rate: parseRewardsNumber(tier.cashback_rate, fallbackTier.cashback_rate),
+        upgrade_trigger: normalizeUpgradeTriggerConfig(tier.upgrade_trigger),
       }
+    })
+
+    const referrals = { ...DEFAULT_REWARDS_CONFIG.referrals, ...(config.referrals ?? {}) }
+
+    config.referrals = {
+      ...referrals,
+      referrer_commission_rate: parseRewardsNumber(referrals.referrer_commission_rate, DEFAULT_REWARDS_CONFIG.referrals.referrer_commission_rate),
+      referrer_commission_duration_days: parseRewardsNumber(referrals.referrer_commission_duration_days, DEFAULT_REWARDS_CONFIG.referrals.referrer_commission_duration_days),
+      referrer_cashback_bonus_per_ref: parseRewardsNumber(referrals.referrer_cashback_bonus_per_ref, DEFAULT_REWARDS_CONFIG.referrals.referrer_cashback_bonus_per_ref),
+      referrer_cashback_cap: parseRewardsNumber(referrals.referrer_cashback_cap, DEFAULT_REWARDS_CONFIG.referrals.referrer_cashback_cap),
+      friend_cashback_rate: parseRewardsNumber(referrals.friend_cashback_rate, DEFAULT_REWARDS_CONFIG.referrals.friend_cashback_rate),
+      friend_welcome_bonus: parseRewardsNumber(referrals.friend_welcome_bonus, DEFAULT_REWARDS_CONFIG.referrals.friend_welcome_bonus),
+      activation_trigger: normalizeUpgradeTriggerConfig(referrals.activation_trigger) ?? DEFAULT_REWARDS_CONFIG.referrals.activation_trigger,
     }
 
     return config
@@ -564,33 +594,37 @@ export function migrateRewardsConfig(raw: unknown): RewardsConfig {
       {
         slug: v1.base_tier_slug ?? 'base',
         name: 'Base',
-        cashback_rate: v1.base_cashback_rate ?? 7.5,
+        cashback_rate: parseRewardsNumber(v1.base_cashback_rate, 7.5),
         unlocks_referrals: false,
       },
     ]
 
     if (v1.loyalty_upgrade?.enabled !== false) {
-      const trigger = typeof v1.loyalty_upgrade?.trigger === 'string'
-        ? { type: v1.loyalty_upgrade.trigger as UpgradeTrigger }
-        : (v1.loyalty_upgrade?.trigger ?? { type: 'first_purchase' as UpgradeTrigger })
+      const trigger = normalizeUpgradeTriggerConfig(v1.loyalty_upgrade?.trigger) ?? { type: 'first_purchase' as UpgradeTrigger }
       tiers.push({
         slug: v1.loyalty_upgrade?.tier_slug ?? 'loyalty_club',
         name: 'Loyalty Club',
-        cashback_rate: v1.loyalty_upgrade?.cashback_rate ?? 15,
+        cashback_rate: parseRewardsNumber(v1.loyalty_upgrade?.cashback_rate, 15),
         upgrade_trigger: trigger,
         unlocks_referrals: v1.loyalty_upgrade?.unlocks_referrals ?? true,
       })
     }
 
     const referrals = { ...DEFAULT_REWARDS_CONFIG.referrals, ...(v1.referrals ?? {}) }
-    if (typeof (referrals as Record<string, unknown>).activation_trigger === 'string') {
-      referrals.activation_trigger = { type: (referrals as Record<string, unknown>).activation_trigger as UpgradeTrigger }
-    }
 
     return {
       enabled: (v1.enabled as boolean) ?? true,
       tiers,
-      referrals,
+      referrals: {
+        ...referrals,
+        referrer_commission_rate: parseRewardsNumber(referrals.referrer_commission_rate, DEFAULT_REWARDS_CONFIG.referrals.referrer_commission_rate),
+        referrer_commission_duration_days: parseRewardsNumber(referrals.referrer_commission_duration_days, DEFAULT_REWARDS_CONFIG.referrals.referrer_commission_duration_days),
+        referrer_cashback_bonus_per_ref: parseRewardsNumber(referrals.referrer_cashback_bonus_per_ref, DEFAULT_REWARDS_CONFIG.referrals.referrer_cashback_bonus_per_ref),
+        referrer_cashback_cap: parseRewardsNumber(referrals.referrer_cashback_cap, DEFAULT_REWARDS_CONFIG.referrals.referrer_cashback_cap),
+        friend_cashback_rate: parseRewardsNumber(referrals.friend_cashback_rate, DEFAULT_REWARDS_CONFIG.referrals.friend_cashback_rate),
+        friend_welcome_bonus: parseRewardsNumber(referrals.friend_welcome_bonus, DEFAULT_REWARDS_CONFIG.referrals.friend_welcome_bonus),
+        activation_trigger: normalizeUpgradeTriggerConfig(referrals.activation_trigger) ?? DEFAULT_REWARDS_CONFIG.referrals.activation_trigger,
+      },
       cashback_on_cashback_balance: (v1.cashback_on_cashback_balance as boolean) ?? false,
     }
   }

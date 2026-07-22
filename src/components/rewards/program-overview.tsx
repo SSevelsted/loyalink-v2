@@ -26,7 +26,7 @@ import {
   Zap,
 } from 'lucide-react'
 import type { RewardsConfig, TierConfig, UpgradeTriggerConfig } from '@/types/database'
-import { DEFAULT_REWARDS_CONFIG, TIER_COLOR_PALETTE, MAX_TIERS } from '@/types/database'
+import { DEFAULT_REWARDS_CONFIG, TIER_COLOR_PALETTE, MAX_TIERS, parseRewardsNumber } from '@/types/database'
 import { TriggerSelector } from '@/components/rewards/rewards-config-form'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import type { RewardTemplate } from '@/lib/rewards-templates'
@@ -194,8 +194,8 @@ export function ProgramOverview({
             <div className="flex items-baseline gap-1">
               <Input
                 type="number"
-                value={tier.cashback_rate}
-                onChange={(e) => updateTier(globalIndex, { cashback_rate: parseFloat(e.target.value) || 0 })}
+                value={parseRewardsNumber(tier.cashback_rate)}
+                onChange={(e) => updateTier(globalIndex, { cashback_rate: parseRewardsNumber(e.target.value) })}
                 onFocus={(e) => e.currentTarget.select()}
                 min={0}
                 max={100}
