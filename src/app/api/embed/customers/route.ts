@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminSupabase } from '@/lib/studio-access'
 import { verifyEmbedToken } from '@/lib/embed-access'
 import { escapeIlike } from '@/lib/escape-html'
+import { resolveLegacyLoyaltySearch } from '@/lib/services/legacy-loyalty-service'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
@@ -42,5 +43,31 @@ export async function GET(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ data: data ?? [], total: count ?? 0, limit, offset })
+  let rows = data ?? []
+  let total = count ?? 0
+
+  // If a targeted search matched no normal customer, fall back to the legacy
+  // loyalty database (PassKit). A single unambiguous match links/creates a
+  // shadow customer that is then returned, mirroring the scan path so legacy
+  // members are findable in the embed before their first scan.
+  if (search && rows.length === 0) {
+    try {
+      const legacy = await resolveLegacyLoyaltySearch(studioId, search)
+      if (legacy.status === 'resolved') {
+        const { data: cust } = await adminSupabase
+          .from('customers')
+          .select('id, name, email, phone, balance, loyalty_stage, has_purchased, total_real_spend, created_at')
+          .eq('id', legacy.customerId)
+          .maybeSingle()
+        if (cust) {
+          rows = [cust]
+          total = 1
+        }
+      }
+    } catch (err) {
+      console.error('[embed/customers] legacy search failed', err)
+    }
+  }
+
+  return NextResponse.json({ data: rows, total, limit, offset })
 }
