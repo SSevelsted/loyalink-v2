@@ -59,7 +59,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { TierTheme, CardField, RewardsConfig } from '@/types/database'
-import { DEFAULT_TIER_THEMES, DEFAULT_CARD_FIELDS, DEFAULT_REWARDS_CONFIG, migrateRewardsConfig, getActiveTierSlugs } from '@/types/database'
+import { DEFAULT_TIER_THEMES, DEFAULT_CARD_FIELDS, DEFAULT_REWARDS_CONFIG, migrateRewardsConfig, getActiveTierSlugs, syncReferralFriendRate } from '@/types/database'
 import { getTriggerLabel } from '@/components/rewards/rewards-config-form'
 import { ProgramOverview } from '@/components/rewards/program-overview'
 import { ReferralProgram } from '@/components/rewards/referral-program'
@@ -449,7 +449,7 @@ export default function SetupPage() {
   }
 
   const saveRewardsConfig = async () => {
-    await writeStudio({ rewards_config: rewardsConfig })
+    await writeStudio({ rewards_config: syncReferralFriendRate(rewardsConfig) })
   }
 
   const saveStepProgress = async (nextStep: number) => {
@@ -495,7 +495,7 @@ export default function SetupPage() {
       await saveCardDesigner()
       await saveRewardsConfig()
       await writeStudio({
-        rewards_config: rewardsConfig,
+        rewards_config: syncReferralFriendRate(rewardsConfig),
         onboarding_completed: true,
         onboarding_step: 4,
         onboarding_version: 2,

@@ -492,6 +492,19 @@ export function parseRewardsNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+export function syncReferralFriendRate(config: RewardsConfig): RewardsConfig {
+  const friendTier = config.tiers.find((tier) => tier.slug === config.referrals.friend_tier_slug)
+  if (!friendTier || config.referrals.friend_cashback_rate === friendTier.cashback_rate) return config
+
+  return {
+    ...config,
+    referrals: {
+      ...config.referrals,
+      friend_cashback_rate: friendTier.cashback_rate,
+    },
+  }
+}
+
 function normalizeUpgradeTriggerConfig(value: UpgradeTriggerConfig | string | undefined): UpgradeTriggerConfig | undefined {
   if (!value) return undefined
   if (typeof value === 'string') return { type: value as UpgradeTrigger }
@@ -572,7 +585,7 @@ export function migrateRewardsConfig(raw: unknown): RewardsConfig {
       activation_trigger: normalizeUpgradeTriggerConfig(referrals.activation_trigger) ?? DEFAULT_REWARDS_CONFIG.referrals.activation_trigger,
     }
 
-    return config
+    return syncReferralFriendRate(config)
   }
 
   // V1 format — has base_cashback_rate + loyalty_upgrade
@@ -612,7 +625,7 @@ export function migrateRewardsConfig(raw: unknown): RewardsConfig {
 
     const referrals = { ...DEFAULT_REWARDS_CONFIG.referrals, ...(v1.referrals ?? {}) }
 
-    return {
+    return syncReferralFriendRate({
       enabled: (v1.enabled as boolean) ?? true,
       tiers,
       referrals: {
@@ -626,7 +639,7 @@ export function migrateRewardsConfig(raw: unknown): RewardsConfig {
         activation_trigger: normalizeUpgradeTriggerConfig(referrals.activation_trigger) ?? DEFAULT_REWARDS_CONFIG.referrals.activation_trigger,
       },
       cashback_on_cashback_balance: (v1.cashback_on_cashback_balance as boolean) ?? false,
-    }
+    })
   }
 
   return DEFAULT_REWARDS_CONFIG

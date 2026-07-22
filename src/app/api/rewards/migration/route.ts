@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminSupabase, verifyStudioAccess } from '@/lib/studio-access'
 import { passServiceFetch } from '@/lib/pass-service'
+import { migrateRewardsConfig, syncReferralFriendRate } from '@/types/database'
 import type { RewardsConfig } from '@/types/database'
 
 type MigrationRequest = {
@@ -20,13 +21,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'studioId and newConfig are required' }, { status: 400 })
     }
 
+    const normalizedConfig = migrateRewardsConfig(newConfig)
+
     // Grants access to studio members AND super_admins (who manage any studio).
     const access = await verifyStudioAccess(studioId)
     if (!access.authorized) {
       return access.error
     }
 
-    const newTierMap = new Map(newConfig.tiers.map((t) => [t.slug, t]))
+    const newTierMap = new Map(normalizedConfig.tiers.map((t) => [t.slug, t]))
     let migratedMembers = 0
     let migratedPromotions = 0
 
@@ -121,7 +124,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Update referral config if friend_tier_slug was removed
-    const finalConfig = { ...newConfig }
+    let finalConfig = syncReferralFriendRate(normalizedConfig)
     if (finalConfig.referrals?.friend_tier_slug) {
       const friendSlug = finalConfig.referrals.friend_tier_slug
       if (!newTierMap.has(friendSlug) && mappings[friendSlug]) {
@@ -132,6 +135,7 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+    finalConfig = syncReferralFriendRate(finalConfig)
 
     // 4. Save config (last — so failed migration doesn't leave inconsistent state)
     const { data: studio, error: fetchError } = await adminSupabase

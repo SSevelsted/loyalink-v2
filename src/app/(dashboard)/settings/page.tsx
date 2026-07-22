@@ -5,7 +5,7 @@ import { useStudio } from '@/hooks/use-studio'
 import { useRewardsConfig, useUpdateRewardsConfig, useMigrateTiers, useMigrateReferrals, useReferralMigrationPreview } from '@/hooks/use-rewards'
 import { useTierMemberCounts } from '@/hooks/use-tier-member-counts'
 import type { RewardsConfig } from '@/types/database'
-import { DEFAULT_REWARDS_CONFIG } from '@/types/database'
+import { DEFAULT_REWARDS_CONFIG, syncReferralFriendRate } from '@/types/database'
 import { computeTierDiff, type TierDiff } from '@/lib/tier-diff'
 import { computeReferralDiff, type ReferralDiff } from '@/lib/referral-diff'
 import { TierMigrationDialog, type TierMigration } from '@/components/rewards/tier-migration-dialog'
@@ -80,8 +80,13 @@ export default function SettingsPage() {
   const handleSaveRewards = useCallback(async () => {
     if (!rewardsConfig) return
 
+    const configToSave = syncReferralFriendRate(localRewardsConfig)
+    if (configToSave !== localRewardsConfig) {
+      setLocalRewardsConfig(configToSave)
+    }
+
     // Check tier changes first
-    const diff = computeTierDiff(rewardsConfig, localRewardsConfig)
+    const diff = computeTierDiff(rewardsConfig, configToSave)
     if (diff.requiresMigration) {
       setPendingDiff(diff)
       setMigrationDialogOpen(true)
@@ -89,7 +94,7 @@ export default function SettingsPage() {
     }
 
     // Then check referral changes
-    const refDiff = computeReferralDiff(rewardsConfig, localRewardsConfig)
+    const refDiff = computeReferralDiff(rewardsConfig, configToSave)
     if (refDiff.requiresMigration) {
       setPendingReferralDiff(refDiff)
       void refetchReferralPreview()
@@ -98,7 +103,7 @@ export default function SettingsPage() {
     }
 
     try {
-      await updateRewardsConfig.mutateAsync(localRewardsConfig)
+      await updateRewardsConfig.mutateAsync(configToSave)
       toast.success('Rewards config saved')
     } catch {
       toast.error('Failed to save rewards config')
@@ -107,8 +112,13 @@ export default function SettingsPage() {
 
   const handleMigrationConfirm = useCallback(async (migration: TierMigration) => {
     try {
+      const configToSave = syncReferralFriendRate(localRewardsConfig)
+      if (configToSave !== localRewardsConfig) {
+        setLocalRewardsConfig(configToSave)
+      }
+
       const result = await migrateTiers.mutateAsync({
-        newConfig: localRewardsConfig,
+        newConfig: configToSave,
         mappings: migration.mappings,
         applyRateChanges: migration.applyRateChanges,
         applyToExisting: migration.applyToExisting,
@@ -119,7 +129,7 @@ export default function SettingsPage() {
 
       // After tier migration, also check for referral changes
       if (rewardsConfig) {
-        const refDiff = computeReferralDiff(rewardsConfig, localRewardsConfig)
+        const refDiff = computeReferralDiff(rewardsConfig, configToSave)
         if (refDiff.requiresMigration) {
           setPendingReferralDiff(refDiff)
           void refetchReferralPreview()
@@ -144,8 +154,13 @@ export default function SettingsPage() {
 
   const handleReferralMigrationConfirm = useCallback(async (migration: ReferralMigration) => {
     try {
+      const configToSave = syncReferralFriendRate(localRewardsConfig)
+      if (configToSave !== localRewardsConfig) {
+        setLocalRewardsConfig(configToSave)
+      }
+
       const result = await migrateReferrals.mutateAsync({
-        newConfig: localRewardsConfig,
+        newConfig: configToSave,
         applyFriendRate: migration.applyFriendRate,
         applyCommissionDuration: migration.applyCommissionDuration,
       })

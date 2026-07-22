@@ -20,6 +20,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'studioId and newConfig are required' }, { status: 400 })
     }
 
+    const configToSave = migrateRewardsConfig(newConfig)
+
     // Grants access to studio members AND super_admins (who manage any studio).
     const access = await verifyStudioAccess(studioId)
     if (!access.authorized) {
@@ -44,7 +46,7 @@ export async function POST(request: NextRequest) {
     // 1. Update friend cashback rate for existing referred customers
     if (applyFriendRate && oldConfig.referrals?.friend_tier_slug) {
       const oldFriendSlug = oldConfig.referrals.friend_tier_slug
-      const newRate = newConfig.referrals.friend_cashback_rate
+      const newRate = configToSave.referrals.friend_cashback_rate
 
       const { data: affected } = await adminSupabase
         .from('customers')
@@ -59,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Recalculate commission_expires_at for activated referrals
     if (applyCommissionDuration) {
-      const newDurationDays = newConfig.referrals.referrer_commission_duration_days
+      const newDurationDays = configToSave.referrals.referrer_commission_duration_days
 
       // Fetch all activated referrals for this studio
       const { data: activatedReferrals } = await adminSupabase
@@ -93,7 +95,7 @@ export async function POST(request: NextRequest) {
     const currentSettings = (studio?.settings as Record<string, unknown>) ?? {}
     const { error: saveError } = await adminSupabase
       .from('studios')
-      .update({ settings: { ...currentSettings, rewards_config: newConfig } })
+      .update({ settings: { ...currentSettings, rewards_config: configToSave } })
       .eq('id', studioId)
 
     if (saveError) {
