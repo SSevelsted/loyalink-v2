@@ -406,7 +406,7 @@ html, body {
 /* iOS Safari/WebView zooms any input whose font-size is < 16px on focus.
    Force all text inputs to at least 16px on mobile to prevent the zoom. */
 @media (max-width: 767px) {
-  input[type="text"],
+  input[type="text"]:not(.amount-input),
   input[type="email"],
   input[type="tel"],
   input[type="url"],
@@ -415,7 +415,7 @@ html, body {
   input[type="number"],
   input[type="date"],
   input[type="datetime-local"],
-  input:not([type]),
+  input:not([type]):not(.amount-input),
   textarea,
   select {
     font-size: 16px !important;

@@ -357,7 +357,7 @@ export function RecordTransactionView({
             onKeyDown={(e) => { if (e.key === 'Enter' && canRecord) handleRecord() }}
             placeholder="0"
             style={{ width: `${Math.max(1, amount.length)}ch` }}
-            className="text-center text-8xl font-bold tracking-tighter tabular-nums bg-transparent border-none outline-none focus:outline-none text-foreground placeholder:text-foreground/15 caret-primary max-w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="amount-input text-center text-8xl font-bold tracking-tighter tabular-nums bg-transparent border-none outline-none focus:outline-none text-foreground placeholder:text-foreground/15 caret-primary max-w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           {!currencyConfig.prefix && (
             <span className="text-4xl font-medium text-muted-foreground/40">{currencyConfig.symbol}</span>
