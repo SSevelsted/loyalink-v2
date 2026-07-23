@@ -4,10 +4,11 @@ import { useStudio } from '@/hooks/use-studio'
 import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
+import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Search } from 'lucide-react'
+import { ChevronRight, Search } from 'lucide-react'
 
 export default function EmbedCustomers() {
   const { currentStudio } = useStudio()
@@ -55,24 +56,31 @@ export default function EmbedCustomers() {
       ) : (
         <div className="space-y-2">
           {customers.map((c: Record<string, unknown>) => (
-            <Card key={c.id as string} className="glass-card">
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground truncate">{c.name as string}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {(c.email as string) || (c.phone as string) || 'No contact info'}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <Badge variant="secondary" className="text-xs">
-                    {c.loyalty_stage as string}
-                  </Badge>
-                  <span className="text-sm font-semibold text-foreground tabular-nums">
-                    {Number(c.balance).toFixed(0)} kr
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+            <Link
+              key={c.id as string}
+              href={`/embed/${studioId}/customers/${c.id as string}?token=${token}`}
+              className="block rounded-xl transition-colors hover:bg-secondary/40 active:scale-[0.99]"
+            >
+              <Card className="glass-card">
+                <CardContent className="flex items-center justify-between p-4">
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground truncate">{c.name as string}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {(c.email as string) || (c.phone as string) || 'No contact info'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <Badge variant="secondary" className="text-xs">
+                      {c.loyalty_stage as string}
+                    </Badge>
+                    <span className="text-sm font-semibold text-foreground tabular-nums">
+                      {Number(c.balance).toFixed(0)} kr
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       )}
