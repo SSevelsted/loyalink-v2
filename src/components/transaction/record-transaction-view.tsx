@@ -159,8 +159,8 @@ export function RecordTransactionView({
             </div>
           </div>
           <div className="animate-fade-up" style={{ animationDelay: '120ms' }}>
-            <p className="text-sm text-muted-foreground mb-0.5">Transaction recorded</p>
-            <p className="text-3xl font-bold tracking-tight text-foreground">
+            <p className="text-sm text-muted-foreground mb-1">Transaction recorded</p>
+            <p className="text-5xl font-bold tracking-tighter tabular-nums text-foreground">
               {formatAmount(recorded.amount, currencyConfig)}
             </p>
           </div>
@@ -168,7 +168,7 @@ export function RecordTransactionView({
 
         {/* Tier upgrade banner */}
         {s?.tierUpgraded && s.previousTier && (
-          <div className={`rounded-xl border ${currentTierPalette.border} ${currentTierPalette.bg} px-4 py-3`}>
+          <div className={`rounded-2xl border ${currentTierPalette.border} ${currentTierPalette.bg} px-4 py-3.5`}>
             <div className="flex items-center gap-2.5">
               <div className={`h-8 w-8 rounded-full ${currentTierPalette.bg} border ${currentTierPalette.border} flex items-center justify-center`}>
                 <ArrowUp className={`h-4 w-4 ${currentTierPalette.text}`} />
@@ -186,32 +186,32 @@ export function RecordTransactionView({
         )}
 
         {/* Transaction breakdown */}
-        <div className="rounded-xl bg-secondary/30 px-3.5 py-3 space-y-2">
+        <div className="rounded-2xl bg-secondary/30 px-4 py-3.5 space-y-2.5">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Breakdown</p>
           {recorded.balanceUsed > 0 && (
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Balance redeemed</span>
-              <span className="text-xs font-medium text-emerald-400">-{formatAmount(recorded.balanceUsed, currencyConfig)}</span>
+              <span className="text-[13px] text-muted-foreground">Balance redeemed</span>
+              <span className="text-[13px] font-medium text-emerald-400">-{formatAmount(recorded.balanceUsed, currencyConfig)}</span>
             </div>
           )}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Charged on POS</span>
-            <span className="text-xs font-medium text-foreground">{formatAmount(recorded.chargeOnPOS, currencyConfig)}</span>
+            <span className="text-[13px] text-muted-foreground">Charged on POS</span>
+            <span className="text-[13px] font-medium text-foreground">{formatAmount(recorded.chargeOnPOS, currencyConfig)}</span>
           </div>
           {recorded.cashback > 0 && (
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Cashback earned ({s?.cashbackRate ?? cashbackRate}%)</span>
-              <span className="text-xs font-medium text-emerald-400">+{formatAmount(recorded.cashback, currencyConfig)}</span>
+              <span className="text-[13px] text-muted-foreground">Cashback earned ({s?.cashbackRate ?? cashbackRate}%)</span>
+              <span className="text-[13px] font-medium text-emerald-400">+{formatAmount(recorded.cashback, currencyConfig)}</span>
             </div>
           )}
-          <div className="flex items-center justify-between pt-1.5 border-t border-border/30">
-            <span className="text-xs font-medium text-foreground">New balance</span>
-            <span className="text-xs font-bold text-foreground">{formatAmount(recorded.newBalance, currencyConfig)}</span>
+          <div className="flex items-center justify-between pt-2.5 border-t border-border/30">
+            <span className="text-[13px] font-medium text-foreground">New balance</span>
+            <span className="text-[13px] font-semibold text-foreground">{formatAmount(recorded.newBalance, currencyConfig)}</span>
           </div>
         </div>
 
         {/* Customer status card */}
-        <div className="rounded-xl bg-secondary/30 px-3.5 py-3 space-y-2.5">
+        <div className="rounded-2xl bg-secondary/30 px-4 py-3.5 space-y-2.5">
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-sm font-semibold text-foreground shrink-0">
               {customer.name.charAt(0).toUpperCase()}
@@ -296,7 +296,7 @@ export function RecordTransactionView({
         {(onScanNext || secondarySuccessAction) && (
           <div className="space-y-2 pt-1">
             {onScanNext && (
-              <Button className="w-full" onClick={onScanNext}>
+              <Button className="w-full h-13 rounded-2xl text-base font-semibold active:scale-[0.98]" onClick={onScanNext}>
                 Scan next customer
               </Button>
             )}
@@ -344,9 +344,9 @@ export function RecordTransactionView({
 
       {/* Amount — hero, grows to fill space */}
       <div className="flex-1 flex flex-col items-center justify-center">
-        <div className="flex items-baseline justify-center gap-2 w-full">
+        <div className="flex items-baseline justify-center gap-2.5">
           {currencyConfig.prefix && (
-            <span className="text-3xl font-medium text-muted-foreground/50">{currencyConfig.symbol}</span>
+            <span className="text-4xl font-medium text-muted-foreground/40">{currencyConfig.symbol}</span>
           )}
           <input
             type="text"
@@ -356,64 +356,66 @@ export function RecordTransactionView({
             onChange={(e) => setAmount(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && canRecord) handleRecord() }}
             placeholder="0"
-            className="text-center text-7xl font-bold tracking-tight bg-transparent border-none outline-none focus:outline-none text-foreground placeholder:text-foreground/15 caret-primary w-full max-w-[260px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            style={{ width: `${Math.max(1, amount.length)}ch` }}
+            className="text-center text-8xl font-bold tracking-tighter tabular-nums bg-transparent border-none outline-none focus:outline-none text-foreground placeholder:text-foreground/15 caret-primary max-w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           {!currencyConfig.prefix && (
-            <span className="text-3xl font-medium text-muted-foreground/50">{currencyConfig.symbol}</span>
+            <span className="text-4xl font-medium text-muted-foreground/40">{currencyConfig.symbol}</span>
           )}
         </div>
-        <p className="text-xs text-muted-foreground mt-1.5">{cashbackRate}% cashback</p>
+        <p className="text-sm text-muted-foreground mt-4">{cashbackRate}% cashback</p>
       </div>
 
       {/* Bottom section — always sticks near the button */}
       <div className="shrink-0 space-y-3 pt-4">
-        {/* Deposit toggle */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-foreground">Deposit</p>
-          <Switch checked={isDeposit} onCheckedChange={setIsDeposit} />
-        </div>
-
-        {/* Balance toggle */}
-        {currentBalance > 0 && (
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-foreground">
-              Use balance <span className="text-xs text-muted-foreground ml-1">· {formatAmount(currentBalance, currencyConfig)} available</span>
-            </p>
-            <Switch checked={useBalance} onCheckedChange={setUseBalance} />
+        {/* Toggles — grouped card */}
+        <div className="rounded-2xl bg-secondary/30 divide-y divide-border/30">
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <p className="text-sm text-foreground">Deposit</p>
+            <Switch checked={isDeposit} onCheckedChange={setIsDeposit} />
           </div>
-        )}
+
+          {currentBalance > 0 && (
+            <div className="flex items-center justify-between px-4 py-3.5">
+              <p className="text-sm text-foreground">
+                Use balance <span className="text-xs text-muted-foreground ml-1">· {formatAmount(currentBalance, currencyConfig)} available</span>
+              </p>
+              <Switch checked={useBalance} onCheckedChange={setUseBalance} />
+            </div>
+          )}
+        </div>
 
         {/* Breakdown — compact card, only when amount entered */}
         {parsedAmount > 0 && (
-          <div className="rounded-xl bg-secondary/30 px-3 py-2.5 space-y-1.5">
+          <div className="rounded-2xl bg-secondary/30 px-4 py-3.5 space-y-2.5">
             {balanceUsed > 0 && (
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Uses balance</span>
-                <span className="text-xs font-medium text-emerald-400">−{formatAmount(balanceUsed, currencyConfig)}</span>
+                <span className="text-[13px] text-muted-foreground">Uses balance</span>
+                <span className="text-[13px] font-medium text-emerald-400">−{formatAmount(balanceUsed, currencyConfig)}</span>
               </div>
             )}
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-foreground">Charge on POS</span>
-              <span className="text-xs font-bold text-foreground">{formatAmount(chargeOnPOS, currencyConfig)}</span>
+              <span className="text-[13px] font-medium text-foreground">Charge on POS</span>
+              <span className="text-[13px] font-semibold text-foreground">{formatAmount(chargeOnPOS, currencyConfig)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Cashback ({cashbackRate}%)</span>
+              <span className="text-[13px] text-muted-foreground">Cashback ({cashbackRate}%)</span>
               {earnsNow > 0 ? (
-                <span className="text-xs font-medium text-emerald-400">+{formatAmount(earnsNow, currencyConfig)}</span>
+                <span className="text-[13px] font-medium text-emerald-400">+{formatAmount(earnsNow, currencyConfig)}</span>
               ) : (
-                <span className="text-xs text-muted-foreground/50">—</span>
+                <span className="text-[13px] text-muted-foreground/50">—</span>
               )}
             </div>
-            <div className="flex items-center justify-between pt-1 border-t border-border/30">
-              <span className="text-xs text-muted-foreground">New balance</span>
-              <span className="text-xs font-semibold text-foreground">{formatAmount(newBalanceAfter, currencyConfig)}</span>
+            <div className="flex items-center justify-between pt-2.5 border-t border-border/30">
+              <span className="text-[13px] text-muted-foreground">New balance</span>
+              <span className="text-[13px] font-semibold text-foreground">{formatAmount(newBalanceAfter, currencyConfig)}</span>
             </div>
           </div>
         )}
 
         {/* CTA */}
         <Button
-          className="w-full h-12 text-base font-semibold active:scale-[0.98]"
+          className="w-full h-13 rounded-2xl text-base font-semibold active:scale-[0.98]"
           disabled={!canRecord}
           onClick={handleRecord}
         >
