@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminSupabase } from '@/lib/studio-access'
 import { verifyEmbedToken } from '@/lib/embed-access'
+import { resolveLegacyLoyaltyScan } from '@/lib/services/legacy-loyalty-service'
 
 function normalizeScanValue(value: string) {
   const trimmed = value.trim()
@@ -74,7 +75,29 @@ export async function GET(request: NextRequest) {
   }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!data) return NextResponse.json({ error: 'No customer found' }, { status: 404 })
+
+  if (!data) {
+    // Fall back to the legacy loyalty database (PassKit shadow customers),
+    // mirroring the full-app scan path (/api/legacy-loyalty/resolve). The
+    // service self-authorizes via studio settings + service-role, so the
+    // embed token needs no extra privilege.
+    try {
+      const legacy = await resolveLegacyLoyaltyScan(studioId, value)
+      if (legacy.status === 'resolved') {
+        const { data: cust } = await adminSupabase
+          .from('customers')
+          .select('id, name, email, phone, balance, loyalty_stage, cashback_rate, total_real_spend, has_purchased')
+          .eq('id', legacy.customerId)
+          .maybeSingle()
+        if (cust) return NextResponse.json({ customer: cust })
+      } else if (legacy.status === 'duplicate') {
+        return NextResponse.json({ error: 'Multiple legacy members matched this scan' }, { status: 409 })
+      }
+    } catch (err) {
+      console.error('[embed/scan] legacy lookup failed', err)
+    }
+    return NextResponse.json({ error: 'No customer found' }, { status: 404 })
+  }
 
   return NextResponse.json({ customer: data })
 }
