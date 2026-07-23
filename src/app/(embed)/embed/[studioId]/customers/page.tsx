@@ -9,6 +9,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { ChevronRight, Search } from 'lucide-react'
+import { getTierDisplayName } from '@/lib/format'
+import { rewardsConfigFromStudio } from '@/lib/embed-rewards'
 
 export default function EmbedCustomers() {
   const { currentStudio } = useStudio()
@@ -16,6 +18,7 @@ export default function EmbedCustomers() {
   const token = searchParams.get('token')
   const studioId = currentStudio?.id
   const [search, setSearch] = useState('')
+  const rewardsConfig = rewardsConfigFromStudio(currentStudio)
 
   const { data, isLoading } = useQuery({
     queryKey: ['embed-customers', studioId, search],
@@ -71,7 +74,7 @@ export default function EmbedCustomers() {
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <Badge variant="secondary" className="text-xs">
-                      {c.loyalty_stage as string}
+                      {getTierDisplayName((c.loyalty_stage as string) ?? '', rewardsConfig)}
                     </Badge>
                     <span className="text-sm font-semibold text-foreground tabular-nums">
                       {Number(c.balance).toFixed(0)} kr

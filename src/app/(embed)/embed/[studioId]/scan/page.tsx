@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { useStudio } from '@/hooks/use-studio'
 import { getCurrencyConfig } from '@/lib/currency'
 import { getTierDisplayName, getTierIndex } from '@/lib/format'
+import { rewardsConfigFromStudio } from '@/lib/embed-rewards'
 import { RecordTransactionView, type RecordTransactionSummary } from '@/components/transaction/record-transaction-view'
 
 type Customer = {
@@ -35,6 +36,7 @@ export default function EmbedScanPage() {
   const lookingUpRef = useRef(false)
 
   const currencyConfig = getCurrencyConfig((currentStudio?.settings?.currency as string) ?? 'kr')
+  const rewardsConfig = rewardsConfigFromStudio(currentStudio)
 
   const lookupCustomer = useCallback(async (value: string) => {
     if (!studioId || !token || !value.trim() || lookingUpRef.current) return
@@ -109,8 +111,8 @@ export default function EmbedScanPage() {
           currencyConfig={currencyConfig}
           cashbackRate={Number(customer.cashback_rate ?? 0)}
           currentBalance={Number(customer.balance ?? 0)}
-          tierName={getTierDisplayName(customer.loyalty_stage ?? '')}
-          tierIndex={getTierIndex(customer.loyalty_stage ?? '')}
+          tierName={getTierDisplayName(customer.loyalty_stage ?? '', rewardsConfig)}
+          tierIndex={getTierIndex(customer.loyalty_stage ?? '', rewardsConfig)}
           onRecord={recordTransaction}
           backSlot={
             <button
