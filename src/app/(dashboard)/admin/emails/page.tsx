@@ -268,7 +268,7 @@ export default async function AdminEmailsPage() {
 
       <div className="grid gap-6">
         {previews.map((p) => (
-          <section key={p.id} className="rounded-xl border border-border bg-card overflow-hidden">
+          <section key={p.id} className="rounded-2xl border border-border bg-card overflow-hidden">
             <header className="px-5 py-4 border-b border-border flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">

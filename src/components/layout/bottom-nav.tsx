@@ -29,7 +29,7 @@ function NavTab({ tab, pathname }: { tab: typeof leftTabs[number]; pathname: str
     <Link
       href={tab.href}
       onClick={() => hapticTap()}
-      className={`relative flex flex-1 flex-col items-center justify-center gap-1 py-2 rounded-xl transition-all active:scale-95 active:opacity-70 ${
+      className={`relative flex flex-1 flex-col items-center justify-center gap-1 py-2 rounded-2xl transition-all active:scale-95 active:opacity-70 ${
         isActive ? 'text-primary' : 'text-muted-foreground'
       }`}
     >

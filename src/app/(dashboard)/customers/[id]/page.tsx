@@ -215,7 +215,7 @@ export default function CustomerDetailPage() {
         <div className="h-4 w-32 animate-shimmer rounded" />
         <div className="grid gap-4 md:grid-cols-3 mt-6">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-28 animate-shimmer rounded-xl" />
+            <div key={i} className="h-28 animate-shimmer rounded-2xl" />
           ))}
         </div>
       </div>
@@ -382,7 +382,7 @@ export default function CustomerDetailPage() {
                           key={tier.slug}
                           onClick={() => handleChangeTier(tier.slug)}
                           disabled={isCurrent || updateCustomer.isPending}
-                          className={`w-full rounded-xl border p-3 text-left transition-colors ${
+                          className={`w-full rounded-2xl border p-3 text-left transition-colors ${
                             isCurrent
                               ? `${p.border} ${p.bg} opacity-60 cursor-default`
                               : `border-border/50 hover:${p.bg} hover:${p.border}`
@@ -770,22 +770,22 @@ export default function CustomerDetailPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-2 mb-4">
-              <div className="rounded-xl bg-secondary/30 p-2.5 text-center">
+              <div className="rounded-2xl bg-secondary/30 p-2.5 text-center">
                 <p className="text-lg font-bold text-foreground">{referralStats.sent}</p>
                 <p className="text-[11px] text-muted-foreground">Sent</p>
               </div>
-              <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/10 p-2.5 text-center">
+              <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/10 p-2.5 text-center">
                 <p className="text-lg font-bold text-emerald-400">{referralStats.activated}</p>
                 <p className="text-[11px] text-muted-foreground">Activated</p>
               </div>
-              <div className="rounded-xl bg-amber-500/5 border border-amber-500/10 p-2.5 text-center">
+              <div className="rounded-2xl bg-amber-500/5 border border-amber-500/10 p-2.5 text-center">
                 <p className="text-lg font-bold text-amber-400">{referralStats.pending}</p>
                 <p className="text-[11px] text-muted-foreground">Pending</p>
               </div>
             </div>
 
             {referralStats.totalEarned > 0 && (
-              <div className="rounded-xl bg-blue-500/5 border border-blue-500/10 px-3 py-2 mb-3 flex items-center justify-between">
+              <div className="rounded-2xl bg-blue-500/5 border border-blue-500/10 px-3 py-2 mb-3 flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Commission earned</span>
                 <span className="text-sm font-semibold text-blue-400">{formatAmount(referralStats.totalEarned, currencyConfig)}</span>
               </div>
@@ -959,7 +959,7 @@ export default function CustomerDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`rounded-xl border ${tierPalette.border} ${tierPalette.bg} px-3 py-2.5 mb-4 flex items-center justify-between`}>
+            <div className={`rounded-2xl border ${tierPalette.border} ${tierPalette.bg} px-3 py-2.5 mb-4 flex items-center justify-between`}>
               <div>
                 <p className={`text-sm font-semibold ${tierPalette.text}`}>
                   {getTierDisplayName(customer.loyalty_stage, rewardsConfig)}

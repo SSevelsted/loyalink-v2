@@ -168,7 +168,7 @@ export function TierEditor({
       </div>
 
       {/* Color mapping hint */}
-      <div className="rounded-xl border border-border/30 bg-secondary/20 p-3 space-y-2">
+      <div className="rounded-2xl border border-border/30 bg-secondary/20 p-3 space-y-2">
         <p className="text-xs text-muted-foreground font-medium">Color mapping</p>
         <div className="flex items-center gap-3 text-xs">
           <div className="flex items-center gap-1.5">

@@ -246,7 +246,7 @@ function AdminMessageBubble({ message, currentUserId }: { message: EnrichedMessa
 
   if (message.is_internal) {
     return (
-      <div className="border border-dashed border-amber-500/30 bg-amber-500/5 rounded-xl px-3.5 py-2.5">
+      <div className="border border-dashed border-amber-500/30 bg-amber-500/5 rounded-2xl px-3.5 py-2.5">
         <div className="flex items-center gap-1.5 mb-1">
           <span className="text-[10px] font-medium text-amber-400 uppercase tracking-wider">Internal note</span>
         </div>
@@ -262,7 +262,7 @@ function AdminMessageBubble({ message, currentUserId }: { message: EnrichedMessa
   return (
     <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
       <div
-        className={`max-w-[85%] rounded-xl px-3.5 py-2.5 ${
+        className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 ${
           isOwn
             ? 'bg-primary/10 border border-primary/20'
             : 'bg-secondary/80 border border-border'

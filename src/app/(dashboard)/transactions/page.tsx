@@ -385,7 +385,7 @@ export default function TransactionsPage() {
                       className="flex items-center justify-between rounded-2xl border border-transparent px-4 py-3.5 transition-all duration-200 hover:bg-card hover:border-border/50 active:bg-card active:scale-[0.99] group min-h-[56px] w-full text-left"
                     >
                       <div className="flex items-center gap-4">
-                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${meta.icon_bg}`}>
+                        <div className={`h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 ${meta.icon_bg}`}>
                           <meta.icon className={`h-5 w-5 ${meta.icon_color}`} />
                         </div>
                         <div className="min-w-0">
@@ -572,7 +572,7 @@ export default function TransactionsPage() {
                   )}
 
                   {/* Transaction ID */}
-                  <div className="rounded-xl bg-secondary/30 px-3 py-2.5 mt-2">
+                  <div className="rounded-2xl bg-secondary/30 px-3 py-2.5 mt-2">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Transaction ID</p>
                     <p className="text-xs font-mono text-muted-foreground">{selectedTx.id}</p>
                   </div>

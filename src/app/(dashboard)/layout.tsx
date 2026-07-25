@@ -75,7 +75,7 @@ function DashboardShell({
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background">
         <div className="space-y-4 text-center">
-          <div className="mx-auto h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+          <div className="mx-auto h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
             <LogoMark className="h-full w-full text-primary p-2" />
           </div>
           <div className="h-1.5 w-32 mx-auto rounded-full animate-shimmer" />

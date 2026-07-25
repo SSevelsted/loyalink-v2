@@ -115,7 +115,7 @@ export function CampaignsSection() {
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-20 animate-shimmer rounded-xl" />
+              <div key={i} className="h-20 animate-shimmer rounded-2xl" />
             ))}
           </div>
         ) : !campaigns?.length ? (
@@ -130,7 +130,7 @@ export function CampaignsSection() {
               <Card
                 key={campaign.id}
                 variant="glass"
-                className="rounded-xl cursor-pointer hover:bg-card/80 transition-colors"
+                className="rounded-2xl cursor-pointer hover:bg-card/80 transition-colors"
                 onClick={() => setSelectedCampaign(campaign)}
               >
                 <CardContent className="py-3 flex items-center justify-between">

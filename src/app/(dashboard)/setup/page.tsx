@@ -553,7 +553,7 @@ export default function SetupPage() {
     return (
       <div className="space-y-4">
         <div className="h-8 w-48 animate-shimmer rounded-lg" />
-        <div className="h-96 animate-shimmer rounded-xl" />
+        <div className="h-96 animate-shimmer rounded-2xl" />
       </div>
     )
   }
@@ -1455,7 +1455,7 @@ export default function SetupPage() {
                         <div key={tier.slug} className="flex items-center gap-3">
                           {i > 0 && <ArrowRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
                           <div
-                            className="rounded-xl border border-border/30 px-4 py-3 min-w-[120px]"
+                            className="rounded-2xl border border-border/30 px-4 py-3 min-w-[120px]"
                             style={{ backgroundColor: theme?.backgroundColor, color: theme?.foregroundColor }}
                           >
                             <p className="text-xl font-bold">{tier.cashback_rate}%</p>
@@ -1476,7 +1476,7 @@ export default function SetupPage() {
                         <div className="flex items-center gap-3">
                           <ArrowRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
                           <div
-                            className="rounded-xl border border-border/30 px-4 py-3 min-w-[120px]"
+                            className="rounded-2xl border border-border/30 px-4 py-3 min-w-[120px]"
                             style={{ backgroundColor: refTheme?.backgroundColor ?? '#1a1a1a', color: refTheme?.foregroundColor ?? '#fff' }}
                           >
                             <p className="text-xl font-bold">{rewardsConfig.referrals.referrer_cashback_cap}%</p>
@@ -1503,7 +1503,7 @@ export default function SetupPage() {
 
           {/* Stories teaser */}
           <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 flex items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20">
               <Sparkles className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">

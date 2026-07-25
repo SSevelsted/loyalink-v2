@@ -399,7 +399,7 @@ export default function StoriesPage() {
             <button
               onClick={triggerFileInput}
               disabled={uploading}
-              className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/[0.1] hover:border-primary/30 bg-secondary/20 hover:bg-secondary/30 transition-colors py-5"
+              className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-white/[0.1] hover:border-primary/30 bg-secondary/20 hover:bg-secondary/30 transition-colors py-5"
             >
               {uploading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

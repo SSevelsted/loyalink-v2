@@ -190,7 +190,7 @@ export default function EmbedScanPage() {
         ) : (
           status !== 'looking-up' && (
             <div className="absolute bottom-6 left-0 right-0 flex justify-center">
-              <Button onClick={() => setManualMode(true)} variant="secondary" className="gap-2 rounded-xl">
+              <Button onClick={() => setManualMode(true)} variant="secondary" className="gap-2 rounded-2xl">
                 <Keyboard className="h-4 w-4" />
                 Enter manually
               </Button>
@@ -200,7 +200,7 @@ export default function EmbedScanPage() {
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
           {error}
         </div>
       )}

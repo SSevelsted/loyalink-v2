@@ -71,7 +71,7 @@ export function BillingSection() {
         <p className="text-sm text-muted-foreground mt-1">Manage your subscription and payment details.</p>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-6 space-y-5">
+      <div className="rounded-2xl border border-border bg-card p-6 space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">Current plan</p>

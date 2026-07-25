@@ -29,7 +29,7 @@ function ScanButton() {
         onClick={() => setOpen(true)}
         className="group relative flex items-center gap-4 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 p-5 transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 active:scale-[0.98] cursor-pointer w-full glow-primary-sm"
       >
-        <div className="relative h-12 w-12 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center shrink-0">
+        <div className="relative h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center shrink-0">
           <ScanLine className="h-6 w-6 text-primary" />
           <div className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-primary animate-pulse" />
         </div>
@@ -155,7 +155,7 @@ export default function DashboardPage() {
           <CardContent className="p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="flex items-center gap-3 shrink-0">
-                <div className="h-10 w-10 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
                   <LinkIcon className="h-5 w-5 text-primary" />
                 </div>
                 <div>

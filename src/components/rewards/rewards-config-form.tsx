@@ -92,7 +92,7 @@ export function TriggerSelector({
   }
 
   return (
-    <div className="rounded-xl border border-dashed border-border/70 bg-secondary/20 p-4 space-y-3">
+    <div className="rounded-2xl border border-dashed border-border/70 bg-secondary/20 p-4 space-y-3">
       <Label className="text-xs text-muted-foreground uppercase tracking-wider">Upgrade Condition</Label>
       <div className="flex items-center gap-3 flex-wrap">
         <Select
@@ -157,7 +157,7 @@ export function RewardsConfigForm({
     <div className="space-y-4">
       {/* Quick Start */}
       {showQuickStart && !fromSetup && (
-        <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+        <div className="flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" />
             <span className="text-sm font-medium">Use recommended defaults for a tattoo studio?</span>
@@ -236,7 +236,7 @@ export function RewardsConfigForm({
                   return (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {/* Cashback column */}
-                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 space-y-3">
+                      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 space-y-3">
                         <div className="flex items-center gap-2">
                           <div className="h-6 w-6 rounded-full bg-emerald-500/10 flex items-center justify-center">
                             <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
@@ -267,7 +267,7 @@ export function RewardsConfigForm({
                       </div>
 
                       {/* Discount column */}
-                      <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3.5 space-y-3">
+                      <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-3.5 space-y-3">
                         <div className="flex items-center gap-2">
                           <div className="h-6 w-6 rounded-full bg-red-500/10 flex items-center justify-center">
                             <BadgePercent className="h-3.5 w-3.5 text-red-400" />

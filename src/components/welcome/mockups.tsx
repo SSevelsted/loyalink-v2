@@ -24,7 +24,7 @@ const SIZE: Record<
     titleText: 'text-[9px]',
     bodyText: 'text-[7.5px]',
     tinyText: 'text-[6px]',
-    cardRadius: 'rounded-xl',
+    cardRadius: 'rounded-2xl',
     bezelRadius: 'rounded-[1.85rem]',
     screenRadius: 'rounded-[1.55rem]',
     sidePad: 'px-2',

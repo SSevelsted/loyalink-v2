@@ -153,7 +153,7 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
     return (
       <div className="space-y-4">
         <div className="h-8 w-48 animate-shimmer rounded-lg" />
-        <div className="h-64 animate-shimmer rounded-xl" />
+        <div className="h-64 animate-shimmer rounded-2xl" />
       </div>
     )
   }

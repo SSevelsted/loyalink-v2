@@ -269,7 +269,7 @@ export function ScanDialog({
           {/* Error toast */}
           {scanError && !isLookingUp && (
             <div className="absolute top-[max(7rem,calc(env(safe-area-inset-top)+6rem))] left-4 right-4 z-10">
-              <div className="mx-auto max-w-sm rounded-xl bg-red-500/20 backdrop-blur-sm border border-red-500/30 px-4 py-2.5 text-center">
+              <div className="mx-auto max-w-sm rounded-2xl bg-red-500/20 backdrop-blur-sm border border-red-500/30 px-4 py-2.5 text-center">
                 <p className="text-sm text-red-300">{scanError}</p>
               </div>
             </div>
@@ -292,12 +292,12 @@ export function ScanDialog({
                         if (e.key === 'Escape') { setManualMode(false); setManualInput('') }
                       }}
                       placeholder="Member ID or phone..."
-                      className="flex-1 h-12 rounded-xl bg-white/10 border border-white/10 px-4 text-base text-white placeholder:text-white/40 focus:outline-none focus:border-white/25"
+                      className="flex-1 h-12 rounded-2xl bg-white/10 border border-white/10 px-4 text-base text-white placeholder:text-white/40 focus:outline-none focus:border-white/25"
                     />
                     <Button
                       onClick={handleManualLookup}
                       disabled={!manualInput.trim()}
-                      className="h-12 rounded-xl px-5"
+                      className="h-12 rounded-2xl px-5"
                     >
                       Look up
                     </Button>

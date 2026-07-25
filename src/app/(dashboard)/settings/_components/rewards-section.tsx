@@ -102,7 +102,7 @@ export function RewardsSection({ config, onChange, onSave, saving, currency, isA
                 return (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Cashback column */}
-                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 space-y-3">
+                    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 space-y-3">
                       <div className="flex items-center gap-2">
                         <div className="h-6 w-6 rounded-full bg-emerald-500/10 flex items-center justify-center">
                           <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
@@ -133,7 +133,7 @@ export function RewardsSection({ config, onChange, onSave, saving, currency, isA
                     </div>
 
                     {/* Discount column */}
-                    <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3.5 space-y-3">
+                    <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-3.5 space-y-3">
                       <div className="flex items-center gap-2">
                         <div className="h-6 w-6 rounded-full bg-red-500/10 flex items-center justify-center">
                           <BadgePercent className="h-3.5 w-3.5 text-red-400" />

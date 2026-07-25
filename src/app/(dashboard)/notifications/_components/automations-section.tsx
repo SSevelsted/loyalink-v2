@@ -101,7 +101,7 @@ export function AutomationsSection() {
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-20 animate-shimmer rounded-xl" />
+              <div key={i} className="h-20 animate-shimmer rounded-2xl" />
             ))}
           </div>
         ) : !automations?.length ? (
@@ -119,7 +119,7 @@ export function AutomationsSection() {
                 <Card
                   key={automation.id}
                   variant="glass"
-                  className="rounded-xl cursor-pointer hover:bg-card/80 transition-colors"
+                  className="rounded-2xl cursor-pointer hover:bg-card/80 transition-colors"
                   onClick={() => handleEdit(automation)}
                 >
                   <CardContent className="py-3 flex items-center justify-between">
