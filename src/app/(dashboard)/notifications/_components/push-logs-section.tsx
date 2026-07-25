@@ -19,7 +19,7 @@ export function PushLogsSection() {
           {pushLogs.map(log => (
             <div
               key={log.id}
-              className="flex items-center justify-between rounded-xl border border-border/30 px-4 py-3 hover:bg-card/50 transition-colors"
+              className="flex items-center justify-between rounded-2xl border border-border/30 px-4 py-3 hover:bg-card/50 transition-colors"
             >
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">

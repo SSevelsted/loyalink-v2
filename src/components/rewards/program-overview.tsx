@@ -390,7 +390,7 @@ export function ProgramOverview({
           const totalDiscRevenue = (amt - cb1) * 3
           const savings = totalCbRevenue - totalDiscRevenue
           return (
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex items-center justify-between gap-4">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <p className="text-[13px] font-semibold text-emerald-400">You earn {f(savings)} more with cashback</p>
                 <p className="text-[11px] text-muted-foreground">Over just 3 sessions — and cashback is only earned on real spend, not on credit redeemed. Your cost decreases every session.</p>

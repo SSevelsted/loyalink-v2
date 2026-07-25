@@ -360,7 +360,7 @@ export default function WalletPage() {
     return (
       <div className="space-y-4">
         <div className="h-8 w-48 animate-shimmer rounded-lg" />
-        <div className="h-96 animate-shimmer rounded-xl" />
+        <div className="h-96 animate-shimmer rounded-2xl" />
       </div>
     )
   }
@@ -414,7 +414,7 @@ export default function WalletPage() {
         <TabsContent value="designer" className="space-y-6 mt-4">
           {/* Getting started hint */}
           {(!logoUrl || !iconUrl) && (
-            <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+            <div className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
               <ImagePlus className="h-5 w-5 text-primary shrink-0" />
               <div>
                 <p className="text-sm font-medium text-foreground">

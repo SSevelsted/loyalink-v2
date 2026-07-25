@@ -175,21 +175,21 @@ export function TeamSection() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="rounded-xl bg-secondary/30 p-3 space-y-1.5">
+            <div className="rounded-2xl bg-secondary/30 p-3 space-y-1.5">
               <div className="flex items-center gap-2">
                 <Crown className="h-4 w-4 text-amber-400" />
                 <span className="text-xs font-semibold">Owner</span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">Full access. Manage team, billing, and all settings.</p>
             </div>
-            <div className="rounded-xl bg-secondary/30 p-3 space-y-1.5">
+            <div className="rounded-2xl bg-secondary/30 p-3 space-y-1.5">
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-blue-400" />
                 <span className="text-xs font-semibold">Admin</span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">Manage team, customers, and settings. Cannot delete studio or transfer ownership.</p>
             </div>
-            <div className="rounded-xl bg-secondary/30 p-3 space-y-1.5">
+            <div className="rounded-2xl bg-secondary/30 p-3 space-y-1.5">
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-emerald-400" />
                 <span className="text-xs font-semibold">Member</span>

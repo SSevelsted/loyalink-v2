@@ -38,7 +38,7 @@ export default function EmbedAnalytics() {
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 rounded-xl bg-secondary/50 animate-pulse" />
+            <div key={i} className="h-24 rounded-2xl bg-secondary/50 animate-pulse" />
           ))}
         </div>
       ) : (

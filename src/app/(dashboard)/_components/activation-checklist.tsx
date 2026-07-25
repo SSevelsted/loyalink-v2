@@ -109,7 +109,7 @@ export function ActivationChecklist() {
     <Card variant="glass" className="rounded-2xl border-primary/20 bg-gradient-to-br from-primary/8 via-primary/4 to-transparent overflow-hidden">
       <CardContent className="p-5 space-y-5">
         <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center shrink-0">
+          <div className="h-10 w-10 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center shrink-0">
             <Rocket className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">

@@ -213,15 +213,15 @@ export function CardPreview({
             <img
               src={iconUrl || activeLogo!}
               alt="Icon"
-              className="h-10 w-10 rounded-xl object-contain bg-white shadow-sm"
+              className="h-10 w-10 rounded-2xl object-contain bg-white shadow-sm"
             />
           ) : (
-            <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-xs font-bold text-gray-600">
+            <div className="h-10 w-10 rounded-2xl bg-white shadow-sm flex items-center justify-center text-xs font-bold text-gray-600">
               {studioName.charAt(0)}
             </div>
           )}
           {onClickIcon && (
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/icon:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/icon:opacity-100 transition-opacity rounded-2xl flex items-center justify-center">
               <Pencil className="h-3 w-3 text-white" />
             </div>
           )}

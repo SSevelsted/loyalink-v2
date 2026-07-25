@@ -51,7 +51,7 @@ export default function EmbedCustomers() {
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-16 rounded-xl bg-secondary/50 animate-pulse" />
+            <div key={i} className="h-16 rounded-2xl bg-secondary/50 animate-pulse" />
           ))}
         </div>
       ) : customers.length === 0 ? (
@@ -62,7 +62,7 @@ export default function EmbedCustomers() {
             <Link
               key={c.id as string}
               href={`/embed/${studioId}/customers/${c.id as string}?token=${token}`}
-              className="block rounded-xl transition-colors hover:bg-secondary/40 active:scale-[0.99]"
+              className="block rounded-2xl transition-colors hover:bg-secondary/40 active:scale-[0.99]"
             >
               <Card className="glass-card">
                 <CardContent className="flex items-center justify-between p-4">

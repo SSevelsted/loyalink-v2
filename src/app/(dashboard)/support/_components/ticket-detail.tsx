@@ -225,7 +225,7 @@ export function TicketDetail({ ticket, open, onOpenChange, onUpdate }: Props) {
 
         {/* Resolved banner */}
         {isClosed && (
-          <div className="mx-6 mt-4 mb-0 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 flex items-center gap-3 shrink-0">
+          <div className="mx-6 mt-4 mb-0 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 flex items-center gap-3 shrink-0">
             <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
             <div>
               <p className="text-sm font-medium text-emerald-400">
@@ -300,7 +300,7 @@ export function TicketDetail({ ticket, open, onOpenChange, onUpdate }: Props) {
                   href={localTicket.attachment_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block rounded-xl overflow-hidden border border-border hover:opacity-90 transition-opacity"
+                  className="block rounded-2xl overflow-hidden border border-border hover:opacity-90 transition-opacity"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -363,7 +363,7 @@ function MessageBubble({ message, isOwn }: { message: EnrichedMessage; isOwn: bo
   return (
     <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
       <div
-        className={`max-w-[85%] rounded-xl px-3.5 py-2.5 ${
+        className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 ${
           isOwn
             ? 'bg-primary/10 border border-primary/20'
             : 'bg-secondary/80 border border-border'

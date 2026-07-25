@@ -107,7 +107,7 @@ export function RewardsProgramPreview({ config, currency = 'kr' }: RewardsProgra
                 </div>
               )}
               <div
-                className="relative w-full sm:w-auto sm:min-w-[132px] rounded-xl border border-border/30 px-4 py-3"
+                className="relative w-full sm:w-auto sm:min-w-[132px] rounded-2xl border border-border/30 px-4 py-3"
                 style={{
                   backgroundColor: theme?.backgroundColor ?? '#1a1a1a',
                   color: theme?.foregroundColor ?? '#fff',
@@ -137,7 +137,7 @@ export function RewardsProgramPreview({ config, currency = 'kr' }: RewardsProgra
 
       {/* Concrete earn example — what the customer actually experiences */}
       {firstTier && (
-        <div className="flex items-start gap-3 rounded-xl border border-border/30 bg-background/40 p-4">
+        <div className="flex items-start gap-3 rounded-2xl border border-border/30 bg-background/40 p-4">
           <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
             <Wallet className="h-4 w-4 text-primary" />
           </div>
@@ -163,7 +163,7 @@ export function RewardsProgramPreview({ config, currency = 'kr' }: RewardsProgra
 
       {/* Referral summary */}
       {referrals.enabled && (
-        <div className="flex items-start gap-3 rounded-xl border border-border/30 bg-background/40 p-4">
+        <div className="flex items-start gap-3 rounded-2xl border border-border/30 bg-background/40 p-4">
           <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
             <Users className="h-4 w-4 text-primary" />
           </div>

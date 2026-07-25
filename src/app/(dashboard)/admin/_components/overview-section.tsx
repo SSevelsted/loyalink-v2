@@ -50,7 +50,7 @@ export function OverviewSection() {
         <Card variant="glass" className="rounded-2xl">
           <CardContent className="p-5">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
                 <TrendingUp className="h-5 w-5 text-primary" />
               </div>
               <div>

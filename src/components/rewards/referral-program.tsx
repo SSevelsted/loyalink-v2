@@ -164,7 +164,7 @@ export function ReferralProgram({
         </div>
 
         {!r.enabled && (
-          <div className="rounded-xl bg-muted/30 p-4">
+          <div className="rounded-2xl bg-muted/30 p-4">
             <p className="text-xs text-muted-foreground leading-relaxed">
               Turn this on to let your loyal customers bring in new ones. They earn more cashback for every friend they refer, and the friend gets a welcome bonus too.
             </p>
@@ -184,7 +184,7 @@ export function ReferralProgram({
                 return (
                   <div key={step.title} className="flex items-center gap-2 sm:flex-1">
                     {i > 0 && <ArrowRight className="h-4 w-4 text-violet-400/40 shrink-0 rotate-90 sm:rotate-0" />}
-                    <div className="flex items-center gap-2.5 rounded-xl border border-violet-500/15 bg-violet-500/5 px-3 py-2.5 flex-1 min-w-0">
+                    <div className="flex items-center gap-2.5 rounded-2xl border border-violet-500/15 bg-violet-500/5 px-3 py-2.5 flex-1 min-w-0">
                       <div className="h-8 w-8 rounded-lg bg-violet-500/15 flex items-center justify-center shrink-0">
                         <Icon className="h-4 w-4 text-violet-300" />
                       </div>

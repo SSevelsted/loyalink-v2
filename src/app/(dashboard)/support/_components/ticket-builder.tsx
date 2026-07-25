@@ -199,7 +199,7 @@ export function TicketBuilder({ open, onOpenChange }: Props) {
           <div className="space-y-2">
             <Label>Attachment <span className="text-muted-foreground font-normal">(optional)</span></Label>
             {imagePreview ? (
-              <div className="relative w-full rounded-xl overflow-hidden border border-border bg-secondary/30">
+              <div className="relative w-full rounded-2xl overflow-hidden border border-border bg-secondary/30">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={imagePreview} alt="Preview" className="w-full max-h-40 object-contain" />
                 <button
@@ -216,7 +216,7 @@ export function TicketBuilder({ open, onOpenChange }: Props) {
                 onClick={() => fileInputRef.current?.click()}
                 onDrop={handleDrop}
                 onDragOver={(e) => e.preventDefault()}
-                className="w-full h-24 rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-colors flex flex-col items-center justify-center gap-1.5 text-muted-foreground"
+                className="w-full h-24 rounded-2xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-colors flex flex-col items-center justify-center gap-1.5 text-muted-foreground"
               >
                 <ImagePlus className="h-5 w-5" />
                 <span className="text-xs">Click or drag an image to attach</span>

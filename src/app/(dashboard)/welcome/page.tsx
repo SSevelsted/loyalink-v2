@@ -446,7 +446,7 @@ function StepScan({
       <Card variant="glass" className="rounded-2xl border-primary/20 bg-gradient-to-br from-primary/[0.07] to-transparent mb-10">
         <CardContent className="p-5">
           <div className="flex items-start gap-3.5">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
               <Smartphone className="h-5 w-5 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
@@ -560,7 +560,7 @@ function StepPitch({
           <CardContent className="p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                   <Quote className="h-4 w-4 text-primary" />
                 </div>
                 <div className="min-w-0">
@@ -578,7 +578,7 @@ function StepPitch({
                 {copied === 'script' ? 'Copied' : 'Copy'}
               </Button>
             </div>
-            <div className="mt-4 rounded-xl border border-border/60 bg-foreground/[0.03] p-4">
+            <div className="mt-4 rounded-2xl border border-border/60 bg-foreground/[0.03] p-4">
               <p className="text-sm text-foreground/90 italic leading-relaxed">&ldquo;{PITCH_SCRIPT}&rdquo;</p>
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed mt-3">
@@ -593,7 +593,7 @@ function StepPitch({
           <Card variant="glass" className="rounded-2xl">
             <CardContent className="p-5 flex flex-col h-full">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                   <Instagram className="h-4 w-4 text-primary" />
                 </div>
                 <div>
@@ -629,7 +629,7 @@ function StepPitch({
           <Card variant="glass" className="rounded-2xl">
             <CardContent className="p-5 flex flex-col h-full">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                   <QrCode className="h-4 w-4 text-primary" />
                 </div>
                 <div>
@@ -735,7 +735,7 @@ function StepStaff({
           <CardContent className="p-0">
             <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border/50">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <div className="h-9 w-9 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                   <Megaphone className="h-4 w-4 text-primary" />
                 </div>
                 <div className="min-w-0">
@@ -763,7 +763,7 @@ function StepStaff({
                   </li>
                 ))}
               </ol>
-              <div className="mt-4 flex gap-3 rounded-xl border border-primary/15 bg-primary/[0.05] p-3.5">
+              <div className="mt-4 flex gap-3 rounded-2xl border border-primary/15 bg-primary/[0.05] p-3.5">
                 <MessageCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   <span className="font-medium text-foreground">If a customer hesitates:</span> {STAFF_HESITATION}

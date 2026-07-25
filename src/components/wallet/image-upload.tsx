@@ -297,7 +297,7 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
         </span>
       )}
       {currentUrl ? (
-        <div className="relative group rounded-xl border border-border/30 overflow-hidden bg-secondary/30">
+        <div className="relative group rounded-2xl border border-border/30 overflow-hidden bg-secondary/30">
           <img
             src={currentUrl}
             alt={label}
@@ -331,7 +331,7 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
         </div>
       ) : placeholderUrl ? (
         <div
-          className="relative group rounded-xl border border-border/30 overflow-hidden bg-secondary/30 cursor-pointer"
+          className="relative group rounded-2xl border border-border/30 overflow-hidden bg-secondary/30 cursor-pointer"
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
@@ -357,7 +357,7 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
-          className="flex flex-col items-center justify-center h-24 rounded-xl border-2 border-dashed border-border/40 hover:border-primary/40 transition-colors cursor-pointer bg-secondary/20"
+          className="flex flex-col items-center justify-center h-24 rounded-2xl border-2 border-dashed border-border/40 hover:border-primary/40 transition-colors cursor-pointer bg-secondary/20"
         >
           {uploading ? (
             <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -394,7 +394,7 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
             )}
           </DialogHeader>
           <div
-            className="relative h-96 rounded-xl overflow-hidden"
+            className="relative h-96 rounded-2xl overflow-hidden"
             onDoubleClick={handleFitToCenter}
             style={{
               backgroundImage:
