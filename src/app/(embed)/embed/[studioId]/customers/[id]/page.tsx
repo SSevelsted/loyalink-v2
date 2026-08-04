@@ -16,6 +16,7 @@ import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { getTierDisplayName, getTierIndex } from '@/lib/format'
 import { rewardsConfigFromStudio } from '@/lib/embed-rewards'
 import { TIER_COLOR_PALETTE } from '@/types/database'
+import { MemberManageDialog } from '@/components/embed/member-manage-dialog'
 
 type Customer = {
   id: string
@@ -89,6 +90,7 @@ export default function EmbedCustomerProfilePage() {
   const transactions: Transaction[] = data?.transactions ?? []
   const referrals: Referral[] = data?.referrals ?? []
   const tierHistory: TierChange[] = data?.tierHistory ?? []
+  const canManage: boolean = data?.canManage ?? false
 
   const stats = useMemo(() => {
     const txs: Transaction[] = data?.transactions ?? []
@@ -175,12 +177,25 @@ export default function EmbedCustomerProfilePage() {
             </Badge>
           </div>
         </div>
-        <Button asChild className="shrink-0">
-          <Link href={recordHref}>
-            <Plus className="h-4 w-4" />
-            Record Transaction
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          {canManage && token && (
+            <MemberManageDialog
+              studioId={studioId}
+              token={token}
+              customerId={customerId}
+              currentTier={customer.loyalty_stage ?? ''}
+              currentCashback={customer.cashback_rate ?? 0}
+              currentBalance={Number(customer.balance ?? 0)}
+              tiers={rewardsConfig.tiers}
+            />
+          )}
+          <Button asChild>
+            <Link href={recordHref}>
+              <Plus className="h-4 w-4" />
+              Record Transaction
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Stat tiles */}
