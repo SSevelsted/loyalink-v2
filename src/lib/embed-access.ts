@@ -4,6 +4,11 @@ type EmbedAccessPayload = {
   studioId: string
   scope: 'embed_access'
   exp: number
+  // Whether this token grants manager-level write access (edit tier / cashback /
+  // balance). The embed token is otherwise scopeless, so this claim is the only
+  // gate for the embed write routes — it is minted ONLY for owners/shop managers
+  // (StreamInk decides) and must never be inferred client-side.
+  manage?: boolean
 }
 
 function getSigningSecret(): string {
@@ -21,11 +26,18 @@ function sign(value: string): string {
     .digest('base64url')
 }
 
-export function createEmbedToken(studioId: string, ttlSeconds = 60 * 60): string {
+export function createEmbedToken(
+  studioId: string,
+  ttlSeconds = 60 * 60,
+  opts: { manage?: boolean } = {},
+): string {
   const payload: EmbedAccessPayload = {
     studioId,
     scope: 'embed_access',
     exp: Math.floor(Date.now() / 1000) + ttlSeconds,
+    // Only stamp the claim when granted — keeps read-only tokens byte-identical
+    // to the pre-existing format.
+    ...(opts.manage ? { manage: true } : {}),
   }
 
   const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url')

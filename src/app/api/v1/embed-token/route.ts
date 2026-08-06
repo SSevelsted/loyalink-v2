@@ -10,8 +10,12 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}))
     const ttl = Math.min(Number(body.ttl_seconds || 3600), 86400) // Max 24h
+    // Manager-level tokens carry a `manage` claim that unlocks the embed write
+    // routes. The caller (StreamInk) is trusted here via its studio API key and
+    // only requests manage: true for owners/shop managers.
+    const manage = body.manage === true
 
-    const token = createEmbedToken(auth.studioId, ttl)
+    const token = createEmbedToken(auth.studioId, ttl, { manage })
 
     return apiSuccess({
       token,

@@ -71,5 +71,8 @@ export async function GET(
     transactions: txRes.data ?? [],
     referrals: refRes.data ?? [],
     tierHistory,
+    // Manager-level tokens can edit tier / cashback / balance; drives the embed
+    // Manage UI. Non-managers get a read-only profile.
+    canManage: payload.manage === true,
   })
 }
