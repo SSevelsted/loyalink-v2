@@ -418,7 +418,7 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
                   <PopoverTrigger asChild>
                     <Button size="sm" variant="secondary" className="gap-1">
                       <Palette className="h-3 w-3" />
-                      Color
+                      Edit
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-3" align="center">
