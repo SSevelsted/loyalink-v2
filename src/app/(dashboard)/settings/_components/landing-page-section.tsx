@@ -92,7 +92,9 @@ export function LandingPageSection({ isAdmin }: LandingPageSectionProps) {
       setDescription(localized.description)
       setSettings(localized.settings)
     }
-  }, [landingPage?.id])
+    // Re-hydrate on updated_at too, so edits saved in Wallet → Landing Page
+    // show up here after navigation (id alone never changes for the same row).
+  }, [landingPage?.id, landingPage?.updated_at])
 
   useEffect(() => {
     setHeadline((prev) => resolveLandingPageCopy(prev, 'headline', currentStudio?.name, language))

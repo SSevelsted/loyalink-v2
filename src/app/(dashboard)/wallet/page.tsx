@@ -107,7 +107,9 @@ export default function WalletPage() {
       setLpDescription(localized.description)
       setLpSettings(localized.settings)
     }
-  }, [landingPage?.id])
+    // Re-hydrate on updated_at too, so edits saved in Settings → Landing Page
+    // show up here after navigation (id alone never changes for the same row).
+  }, [landingPage?.id, landingPage?.updated_at])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
