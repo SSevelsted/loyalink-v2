@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAdminStudios, useCreateStudio, useUpdateStudioSubscription, useSetStudioLegacyLoyalty } from '@/hooks/use-admin'
 import { useStudio } from '@/hooks/use-studio'
@@ -262,17 +262,27 @@ function LegacyLoyaltyDialog({
   open: boolean
   onOpenChange: (v: boolean) => void
 }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Legacy loyalty</DialogTitle>
+        </DialogHeader>
+        {/* Mount the form only while open so its field seeds fresh from the
+            current settings on every open — no state-sync effect needed. */}
+        {open && <LegacyLoyaltyForm studio={studio} onDone={() => onOpenChange(false)} />}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function LegacyLoyaltyForm({ studio, onDone }: { studio: StudioWithCounts; onDone: () => void }) {
   const legacy = (studio.settings?.legacy_loyalty ?? null) as
     | { enabled?: boolean; legacy_studio_id?: string }
     | null
   const isEnabled = !!legacy?.enabled
   const [legacyStudioId, setLegacyStudioId] = useState(legacy?.legacy_studio_id ?? '')
   const { mutateAsync, isPending } = useSetStudioLegacyLoyalty()
-
-  // Re-sync the field whenever this dialog re-opens (studio may differ / have changed).
-  useEffect(() => {
-    if (open) setLegacyStudioId(legacy?.legacy_studio_id ?? '')
-  }, [open, legacy?.legacy_studio_id])
 
   async function handleEnable() {
     const trimmed = legacyStudioId.trim()
@@ -283,7 +293,7 @@ function LegacyLoyaltyDialog({
     try {
       await mutateAsync({ studioId: studio.id, enabled: true, legacyStudioId: trimmed })
       toast.success('Legacy loyalty enabled')
-      onOpenChange(false)
+      onDone()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update')
     }
@@ -293,68 +303,62 @@ function LegacyLoyaltyDialog({
     try {
       await mutateAsync({ studioId: studio.id, enabled: false })
       toast.success('Legacy loyalty disabled')
-      onOpenChange(false)
+      onDone()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update')
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Legacy loyalty</DialogTitle>
-        </DialogHeader>
+    <>
+      <div className="space-y-4 py-2">
+        <p className="text-sm text-muted-foreground">
+          Let <span className="font-medium text-foreground">{studio.name}</span> scan old PassKit
+          cards and create linked Loyalink members. Agency studios only.
+        </p>
 
-        <div className="space-y-4 py-2">
-          <p className="text-sm text-muted-foreground">
-            Let <span className="font-medium text-foreground">{studio.name}</span> scan old PassKit
-            cards and create linked Loyalink members. Agency studios only.
+        <div className="space-y-1.5">
+          <Label htmlFor="edit-legacy-studio-id">Legacy studio ID</Label>
+          <Input
+            id="edit-legacy-studio-id"
+            value={legacyStudioId}
+            onChange={(e) => setLegacyStudioId(e.target.value)}
+            placeholder="e.g. skincut_tattoostudio"
+            autoComplete="off"
+            disabled={isPending}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Use the old PassKit/Lovable studio ID from the legacy export.
           </p>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-legacy-studio-id">Legacy studio ID</Label>
-            <Input
-              id="edit-legacy-studio-id"
-              value={legacyStudioId}
-              onChange={(e) => setLegacyStudioId(e.target.value)}
-              placeholder="e.g. skincut_tattoostudio"
-              autoComplete="off"
-              disabled={isPending}
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Use the old PassKit/Lovable studio ID from the legacy export.
-            </p>
-          </div>
-
-          {isEnabled && (
-            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
-              <p className="text-xs text-emerald-400">
-                Currently enabled{legacy?.legacy_studio_id ? ` · ${legacy.legacy_studio_id}` : ''}.
-              </p>
-            </div>
-          )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-2">
-          {isEnabled && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleDisable}
-              disabled={isPending}
-              className="text-destructive hover:text-destructive"
-            >
-              Disable
-            </Button>
-          )}
-          <Button type="button" onClick={handleEnable} disabled={isPending}>
-            {isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-            {isEnabled ? 'Update' : 'Enable'}
+        {isEnabled && (
+          <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+            <p className="text-xs text-emerald-400">
+              Currently enabled{legacy?.legacy_studio_id ? ` · ${legacy.legacy_studio_id}` : ''}.
+            </p>
+          </div>
+        )}
+      </div>
+
+      <DialogFooter className="gap-2 sm:gap-2">
+        {isEnabled && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleDisable}
+            disabled={isPending}
+            className="text-destructive hover:text-destructive"
+          >
+            Disable
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        )}
+        <Button type="button" onClick={handleEnable} disabled={isPending}>
+          {isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+          {isEnabled ? 'Update' : 'Enable'}
+        </Button>
+      </DialogFooter>
+    </>
   )
 }
 
