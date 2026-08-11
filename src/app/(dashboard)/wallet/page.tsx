@@ -8,7 +8,7 @@ import { useStudio } from '@/hooks/use-studio'
 import { CardPreview } from '@/components/wallet/card-preview'
 import { TierList } from '@/components/wallet/tier-list'
 import { TierEditor } from '@/components/wallet/tier-editor'
-import { ImageUpload, type ImageUploadHandle } from '@/components/wallet/image-upload'
+import { ImageUpload, tintImage, type ImageUploadHandle } from '@/components/wallet/image-upload'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -64,6 +64,10 @@ export default function WalletPage() {
   const logoUploadRef = useRef<ImageUploadHandle>(null)
   const stripUploadRef = useRef<ImageUploadHandle>(null)
   const iconUploadRef = useRef<ImageUploadHandle>(null)
+  // Per-tier logo override uploader — clicking the preview logo edits THIS tier
+  // only (not the global "all cards" logo).
+  const tierLogoRef = useRef<ImageUploadHandle>(null)
+  const [tinting, setTinting] = useState(false)
   const lpLogoTouchedRef = useRef(false)
 
   // Landing page state
@@ -265,8 +269,41 @@ export default function WalletPage() {
   const handleTierLogoUpload = async (file: File) => {
     const url = await upload(file, `logo_${selectedTier}.png`)
     if (url) {
-      handleTierChange({ logoOverride: url })
+      // A freshly uploaded logo becomes the new untinted base and clears any
+      // previous recolor.
+      handleTierChange({ logoOverride: url, logoBase: url, logoTint: null })
     }
+  }
+
+  // Recolor this tier's logo to a solid color. Bakes the tint into a PNG (so the
+  // real Apple/Google pass shows it too) and stores it as logoOverride, keeping
+  // the untinted source in logoBase so recolor stays reversible/re-appliable.
+  const handleTierLogoTint = async (color: string) => {
+    const base = currentTier.logoBase ?? currentTier.logoOverride ?? logoUrl
+    if (!base) {
+      toast.error('Upload a logo first, then recolor it')
+      return
+    }
+    setTinting(true)
+    try {
+      const file = await tintImage(base, color, `logo_${selectedTier}_tint.png`)
+      const url = await upload(file, `logo_${selectedTier}_tint.png`)
+      if (url) {
+        handleTierChange({ logoBase: base, logoTint: color, logoOverride: url })
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to recolor logo')
+    } finally {
+      setTinting(false)
+    }
+  }
+
+  // Revert to the original (untinted) logo. No-op when nothing is tinted, so we
+  // never clobber an untinted per-tier override. If this tier has no base of its
+  // own, clearing the override falls the preview/pass back to the global logo.
+  const handleTierLogoTintClear = () => {
+    if (!currentTier.logoTint) return
+    handleTierChange({ logoTint: null, logoOverride: currentTier.logoBase ?? null })
   }
 
   const handleSave = async () => {
@@ -500,9 +537,15 @@ export default function WalletPage() {
                   onChange={handleTierChange}
                   onDelete={handleDeleteTier}
                   canDelete={selectedTier !== 'base'}
+                  logoOverrideRef={tierLogoRef}
                   logoOverride={currentTier.logoOverride}
                   onLogoOverrideUpload={handleTierLogoUpload}
-                  onLogoOverrideRemove={() => handleTierChange({ logoOverride: null })}
+                  onLogoOverrideRemove={() => handleTierChange({ logoOverride: null, logoBase: null, logoTint: null })}
+                  globalLogoUrl={logoUrl}
+                  logoTint={currentTier.logoTint ?? null}
+                  onLogoTint={handleTierLogoTint}
+                  onLogoTintClear={handleTierLogoTintClear}
+                  tinting={tinting}
                   uploading={uploading}
                 />
               </CardContent>
@@ -520,7 +563,7 @@ export default function WalletPage() {
                 studioName={currentStudio?.name ?? 'Studio'}
                 cardFields={cardFields}
                 iconUrl={iconUrl}
-                onClickLogo={() => logoUploadRef.current?.trigger()}
+                onClickLogo={() => tierLogoRef.current?.trigger()}
                 onClickStrip={() => stripUploadRef.current?.trigger()}
                 onClickIcon={() => iconUploadRef.current?.trigger()}
               />

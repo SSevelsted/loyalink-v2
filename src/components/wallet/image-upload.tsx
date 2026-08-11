@@ -92,6 +92,58 @@ async function getCroppedFile(
   })
 }
 
+/**
+ * Recolor a (typically monochrome) logo to a single solid color, preserving
+ * the alpha channel — a flat "silhouette tint", like Canva's recolor for solid
+ * marks. The result is a baked PNG so it renders identically in the live
+ * preview AND on the real Apple/Google Wallet pass (both read the stored image).
+ *
+ * Remote (http) sources are fetched to a same-origin blob first, otherwise the
+ * canvas would be tainted by the cross-origin image and toBlob would throw.
+ */
+export async function tintImage(
+  imageSrc: string,
+  color: string,
+  fileName = 'logo-tinted.png'
+): Promise<File> {
+  let src = imageSrc
+  let revoke = false
+  if (/^https?:/i.test(imageSrc)) {
+    const res = await fetch(imageSrc)
+    if (!res.ok) throw new Error('Failed to load logo for recolor')
+    const blob = await res.blob()
+    src = URL.createObjectURL(blob)
+    revoke = true
+  }
+  try {
+    return await new Promise<File>((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.naturalWidth
+        canvas.height = img.naturalHeight
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0)
+        // Keep only the logo's alpha, fill it with the chosen color.
+        ctx.globalCompositeOperation = 'source-in'
+        ctx.fillStyle = color
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('Failed to recolor logo'))
+            return
+          }
+          resolve(new File([blob], fileName, { type: 'image/png' }))
+        }, 'image/png')
+      }
+      img.onerror = () => reject(new Error('Failed to load logo for recolor'))
+      img.src = src
+    })
+  } finally {
+    if (revoke) URL.revokeObjectURL(src)
+  }
+}
+
 export type ImageUploadHandle = {
   trigger: () => void
 }

@@ -231,6 +231,12 @@ export type TierTheme = {
   labelColor: string
   stripImage: string | null
   logoOverride: string | null
+  /** Untinted per-tier logo source. Kept so a recolor can be re-applied or
+   *  reverted without degrading the original. Falls back to the global logo. */
+  logoBase?: string | null
+  /** Solid color the per-tier logo is recolored to (baked into logoOverride).
+   *  null = original / no tint. */
+  logoTint?: string | null
   sortOrder: number
 }
 
