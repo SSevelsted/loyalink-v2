@@ -255,6 +255,33 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
     }
   }
 
+  // Re-open the crop dialog on the already-uploaded image so it can be
+  // repositioned/scaled without re-uploading. Remote images are fetched to a
+  // same-origin blob first, otherwise getCroppedFile's canvas would be tainted.
+  const handleAdjustCurrent = async () => {
+    if (!currentUrl) return
+    setRecolorOpen(false)
+    try {
+      let src = currentUrl
+      if (/^https?:/i.test(currentUrl)) {
+        const res = await fetch(currentUrl)
+        if (!res.ok) throw new Error('Failed to load image')
+        const blob = await res.blob()
+        src = URL.createObjectURL(blob)
+      }
+      setRawImage(src)
+      setCrop({ x: 0, y: 0 })
+      setZoom(1)
+      setCroppedArea(null)
+      croppedAreaRef.current = null
+      setComputedMinZoom(0.5)
+      setInitialFitZoom(1)
+      setCropOpen(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to open image')
+    }
+  }
+
   const onFileSelected = (file: File) => {
     if (!aspect) {
       onUpload(file)
@@ -422,6 +449,20 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-3" align="center">
+                    {/* Crop / reposition the current image */}
+                    <p className="text-[11px] font-medium text-foreground mb-1.5">Adjust</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAdjustCurrent}
+                      className="w-full justify-start gap-2 mb-3"
+                    >
+                      <Crop className="h-3.5 w-3.5" />
+                      Crop &amp; position
+                    </Button>
+
+                    <div className="border-t border-border/50 -mx-3 mb-3" />
+
                     <p className="text-[11px] font-medium text-foreground mb-0.5">Logo color</p>
                     <p className="text-[10px] text-muted-foreground mb-2 max-w-[180px]">
                       Recolor a solid logo. Keep Original for multi-color logos.
