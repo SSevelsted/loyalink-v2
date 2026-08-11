@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, email, phone, address, currency, language, streamink_workspace_id } = body
+    const { name, email, phone, address, currency, language, streamink_workspace_id, legacy_studio_id } = body
 
     if (!name?.trim()) {
       return apiError('name is required', 400)
@@ -31,6 +31,12 @@ export async function POST(request: NextRequest) {
     const studioCurrency = (currency || 'DKK').toUpperCase()
     const studioLanguage = language || 'en'
     const landingDefaults = getDefaultLandingPageCopy(name.trim(), studioLanguage)
+
+    // Optional: pre-enable legacy PassKit/Lovable loyalty for a migrated studio.
+    // `legacy_studio_id` is the exact studio_id from the legacy export (verbatim —
+    // often underscored and different from the Loyalink slug). Omitted for brand-new
+    // studios. Studios created here are always agency, so no extra gating is needed.
+    const legacyStudioId = typeof legacy_studio_id === 'string' ? legacy_studio_id.trim() : ''
 
     // Set welcome bonus based on currency
     const rewardsConfig = {
@@ -61,6 +67,18 @@ export async function POST(request: NextRequest) {
           currency: studioCurrency,
           language: studioLanguage,
           rewards_config: rewardsConfig,
+          ...(legacyStudioId
+            ? {
+                legacy_loyalty: {
+                  enabled: true,
+                  provider: 'passkit_lovable',
+                  legacy_studio_id: legacyStudioId,
+                  resolve_on_scan: true,
+                  create_shadow_on_resolve: true,
+                  passkit_update_enabled: true,
+                },
+              }
+            : {}),
         },
       })
       .select()
