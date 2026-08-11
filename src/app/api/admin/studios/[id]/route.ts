@@ -27,7 +27,7 @@ async function verifySuperAdmin() {
 
 /**
  * PATCH /api/admin/studios/[id]
- * Body: { action: 'remove_agency' | 'cancel' | 'reactivate' }
+ * Body: { action: 'remove_agency' | 'cancel' | 'enable_legacy_loyalty' | 'disable_legacy_loyalty', legacyStudioId? }
  */
 export async function PATCH(
   request: NextRequest,
@@ -37,7 +37,7 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await params
-  const { action } = await request.json() as { action: string }
+  const { action, legacyStudioId } = await request.json() as { action: string; legacyStudioId?: string }
 
   const { data: studio } = await supabase
     .from('studios')
@@ -88,6 +88,60 @@ export async function PATCH(
       .eq('id', id)
 
     return NextResponse.json({ success: true, status: 'cancelled' })
+  }
+
+  // Enable legacy loyalty on an existing studio. Agency-only, mirroring the
+  // create route — legacy migrations are decided after a studio already exists,
+  // so this is the only place they can be turned on without a manual SQL merge.
+  if (action === 'enable_legacy_loyalty') {
+    if (!studio.is_agency) {
+      return NextResponse.json({ error: 'Legacy loyalty can only be enabled for agency studios' }, { status: 400 })
+    }
+
+    const trimmedLegacyId = legacyStudioId?.trim()
+    if (!trimmedLegacyId) {
+      return NextResponse.json({ error: 'legacyStudioId is required' }, { status: 400 })
+    }
+
+    const currentSettings = (studio.settings ?? {}) as Record<string, unknown>
+    const settings = {
+      ...currentSettings,
+      legacy_loyalty: {
+        enabled: true,
+        provider: 'passkit_lovable',
+        legacy_studio_id: trimmedLegacyId,
+        resolve_on_scan: true,
+        create_shadow_on_resolve: true,
+        passkit_update_enabled: true,
+      },
+    }
+
+    const { error } = await supabase.from('studios').update({ settings }).eq('id', id)
+    if (error) {
+      console.error('[admin/studios] enable_legacy_loyalty error:', error)
+      return NextResponse.json({ error: 'Failed to enable legacy loyalty' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, legacyStudioId: trimmedLegacyId })
+  }
+
+  // Disable legacy loyalty. Keep legacy_studio_id so re-enabling is one click;
+  // flipping enabled/resolve_on_scan off is enough to stop the scan resolver.
+  if (action === 'disable_legacy_loyalty') {
+    const currentSettings = (studio.settings ?? {}) as Record<string, unknown>
+    const currentLegacy = (currentSettings.legacy_loyalty ?? {}) as Record<string, unknown>
+    const settings = {
+      ...currentSettings,
+      legacy_loyalty: { ...currentLegacy, enabled: false, resolve_on_scan: false },
+    }
+
+    const { error } = await supabase.from('studios').update({ settings }).eq('id', id)
+    if (error) {
+      console.error('[admin/studios] disable_legacy_loyalty error:', error)
+      return NextResponse.json({ error: 'Failed to disable legacy loyalty' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })

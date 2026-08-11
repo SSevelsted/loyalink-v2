@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAdminStudios, useCreateStudio, useUpdateStudioSubscription } from '@/hooks/use-admin'
+import { useAdminStudios, useCreateStudio, useUpdateStudioSubscription, useSetStudioLegacyLoyalty } from '@/hooks/use-admin'
 import { useStudio } from '@/hooks/use-studio'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -251,10 +251,122 @@ function NewStudioDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
   )
 }
 
+// ─── Legacy loyalty dialog ────────────────────────────────────────────────────
+
+function LegacyLoyaltyDialog({
+  studio,
+  open,
+  onOpenChange,
+}: {
+  studio: StudioWithCounts
+  open: boolean
+  onOpenChange: (v: boolean) => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Legacy loyalty</DialogTitle>
+        </DialogHeader>
+        {/* Mount the form only while open so its field seeds fresh from the
+            current settings on every open — no state-sync effect needed. */}
+        {open && <LegacyLoyaltyForm studio={studio} onDone={() => onOpenChange(false)} />}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function LegacyLoyaltyForm({ studio, onDone }: { studio: StudioWithCounts; onDone: () => void }) {
+  const legacy = (studio.settings?.legacy_loyalty ?? null) as
+    | { enabled?: boolean; legacy_studio_id?: string }
+    | null
+  const isEnabled = !!legacy?.enabled
+  const [legacyStudioId, setLegacyStudioId] = useState(legacy?.legacy_studio_id ?? '')
+  const { mutateAsync, isPending } = useSetStudioLegacyLoyalty()
+
+  async function handleEnable() {
+    const trimmed = legacyStudioId.trim()
+    if (!trimmed) {
+      toast.error('Enter the old legacy studio ID')
+      return
+    }
+    try {
+      await mutateAsync({ studioId: studio.id, enabled: true, legacyStudioId: trimmed })
+      toast.success('Legacy loyalty enabled')
+      onDone()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update')
+    }
+  }
+
+  async function handleDisable() {
+    try {
+      await mutateAsync({ studioId: studio.id, enabled: false })
+      toast.success('Legacy loyalty disabled')
+      onDone()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update')
+    }
+  }
+
+  return (
+    <>
+      <div className="space-y-4 py-2">
+        <p className="text-sm text-muted-foreground">
+          Let <span className="font-medium text-foreground">{studio.name}</span> scan old PassKit
+          cards and create linked Loyalink members. Agency studios only.
+        </p>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="edit-legacy-studio-id">Legacy studio ID</Label>
+          <Input
+            id="edit-legacy-studio-id"
+            value={legacyStudioId}
+            onChange={(e) => setLegacyStudioId(e.target.value)}
+            placeholder="e.g. skincut_tattoostudio"
+            autoComplete="off"
+            disabled={isPending}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Use the old PassKit/Lovable studio ID from the legacy export.
+          </p>
+        </div>
+
+        {isEnabled && (
+          <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+            <p className="text-xs text-emerald-400">
+              Currently enabled{legacy?.legacy_studio_id ? ` · ${legacy.legacy_studio_id}` : ''}.
+            </p>
+          </div>
+        )}
+      </div>
+
+      <DialogFooter className="gap-2 sm:gap-2">
+        {isEnabled && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleDisable}
+            disabled={isPending}
+            className="text-destructive hover:text-destructive"
+          >
+            Disable
+          </Button>
+        )}
+        <Button type="button" onClick={handleEnable} disabled={isPending}>
+          {isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+          {isEnabled ? 'Update' : 'Enable'}
+        </Button>
+      </DialogFooter>
+    </>
+  )
+}
+
 // ─── Studio row actions ───────────────────────────────────────────────────────
 
 function StudioActions({ studio }: { studio: StudioWithCounts }) {
   const { mutateAsync } = useUpdateStudioSubscription()
+  const [legacyOpen, setLegacyOpen] = useState(false)
 
   async function handleAction(action: 'remove_agency' | 'cancel') {
     try {
@@ -267,32 +379,45 @@ function StudioActions({ studio }: { studio: StudioWithCounts }) {
 
   const isAgency = studio.is_agency
   const isCancelled = studio.subscription_status === 'cancelled'
+  const legacyEnabled = !!(studio.settings?.legacy_loyalty as { enabled?: boolean } | undefined)?.enabled
 
   if (!isAgency && isCancelled) return null
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
-          <MoreHorizontal className="h-3.5 w-3.5" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        {isAgency && (
-          <DropdownMenuItem onClick={() => handleAction('remove_agency')} className="text-amber-400">
-            Remove agency discount
-          </DropdownMenuItem>
-        )}
-        {!isCancelled && (
-          <>
-            {isAgency && <DropdownMenuSeparator />}
-            <DropdownMenuItem onClick={() => handleAction('cancel')} className="text-destructive">
-              Cancel subscription
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          {isAgency && (
+            <>
+              <DropdownMenuItem onClick={() => setLegacyOpen(true)}>
+                {legacyEnabled ? 'Legacy loyalty · On' : 'Enable legacy loyalty'}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleAction('remove_agency')} className="text-amber-400">
+                Remove agency discount
+              </DropdownMenuItem>
+            </>
+          )}
+          {!isCancelled && (
+            <>
+              {isAgency && <DropdownMenuSeparator />}
+              <DropdownMenuItem onClick={() => handleAction('cancel')} className="text-destructive">
+                Cancel subscription
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {isAgency && (
+        <LegacyLoyaltyDialog studio={studio} open={legacyOpen} onOpenChange={setLegacyOpen} />
+      )}
+    </>
   )
 }
 
