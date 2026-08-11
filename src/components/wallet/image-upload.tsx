@@ -4,7 +4,7 @@ import { useCallback, useRef, useState, forwardRef, useImperativeHandle } from '
 import Cropper from 'react-easy-crop'
 import type { Area } from 'react-easy-crop'
 import 'react-easy-crop/react-easy-crop.css'
-import { Upload, X, Crop, Wand2, Minus, Plus, Maximize2 } from 'lucide-react'
+import { Upload, X, Crop, Wand2, Minus, Plus, Maximize2, Palette, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -12,6 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
 type ImageUploadProps = {
@@ -28,6 +34,21 @@ type ImageUploadProps = {
   targetHeight?: number
   className?: string
   removeBgType?: 'auto' | 'graphic'
+  /** When provided, an "Edit" (recolor) button appears in the hover overlay,
+   *  opening a popover to tint a solid logo to a chosen color. */
+  recolor?: RecolorConfig
+}
+
+/** Config for the in-overlay logo recolor control. Tint state + apply/clear
+ *  logic live in the parent (which bakes + uploads); this only renders the UI. */
+export type RecolorConfig = {
+  /** Current solid tint (null = original). */
+  tint: string | null
+  onTint: (color: string) => void
+  onClear: () => void
+  /** Card text color, offered as a "Text color" preset. */
+  textColor?: string | null
+  tinting?: boolean
 }
 
 function resizeImage(
@@ -162,6 +183,7 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
   targetHeight,
   className,
   removeBgType,
+  recolor,
 }: ImageUploadProps, ref) {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -179,6 +201,7 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
   const [initialFitZoom, setInitialFitZoom] = useState(1)
   const [removingBg, setRemovingBg] = useState(false)
   const [applying, setApplying] = useState(false)
+  const [recolorOpen, setRecolorOpen] = useState(false)
 
   const removeBackground = async (imageSource: string | Blob): Promise<Blob> => {
     let imageBlob: Blob
@@ -338,6 +361,16 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
 
   const zoomPercent = Math.round(zoom * 100)
 
+  // Recolor swatches (only used when `recolor` is provided).
+  const normColor = (c?: string | null) => (c ? c.toUpperCase() : null)
+  const tintPresets = [
+    { name: 'White', color: '#FFFFFF' },
+    { name: 'Black', color: '#111111' },
+    ...(recolor?.textColor ? [{ name: 'Text color', color: normColor(recolor.textColor)! }] : []),
+  ]
+  const activeTint = normColor(recolor?.tint)
+  const isCustomTint = Boolean(activeTint) && !tintPresets.some((t) => normColor(t.color) === activeTint)
+
   return (
     <div className={className}>
       <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">
@@ -355,13 +388,20 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
             alt={label}
             className="w-full h-24 object-contain p-2"
           />
-          {removingBg ? (
+          {removingBg || recolor?.tinting ? (
             <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1.5">
               <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              <span className="text-[10px] text-white font-medium">Removing background...</span>
+              <span className="text-[10px] text-white font-medium">
+                {removingBg ? 'Removing background...' : 'Recoloring...'}
+              </span>
             </div>
           ) : (
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-wrap items-center justify-center gap-1.5 p-2">
+            <div
+              className={cn(
+                'absolute inset-0 bg-black/50 transition-opacity flex flex-wrap items-center justify-center gap-1.5 p-2',
+                recolorOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              )}
+            >
               <Button
                 size="sm"
                 variant="secondary"
@@ -373,6 +413,93 @@ export const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(funct
                 <Wand2 className="h-3 w-3" />
                 Remove BG
               </Button>
+              {recolor && (
+                <Popover open={recolorOpen} onOpenChange={setRecolorOpen}>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="secondary" className="gap-1">
+                      <Palette className="h-3 w-3" />
+                      Color
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-3" align="center">
+                    <p className="text-[11px] font-medium text-foreground mb-0.5">Logo color</p>
+                    <p className="text-[10px] text-muted-foreground mb-2 max-w-[180px]">
+                      Recolor a solid logo. Keep Original for multi-color logos.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {/* Original (no tint) */}
+                      <button
+                        type="button"
+                        onClick={() => recolor.onClear()}
+                        title="Original (no recolor)"
+                        className={cn(
+                          'relative h-7 w-7 rounded-full border transition-all overflow-hidden',
+                          !activeTint ? 'border-primary ring-2 ring-primary/40' : 'border-border/50 hover:border-primary/40'
+                        )}
+                      >
+                        <span
+                          className="absolute inset-0"
+                          style={{
+                            backgroundImage:
+                              'linear-gradient(45deg, #b0b0b0 25%, transparent 25%), linear-gradient(-45deg, #b0b0b0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #b0b0b0 75%), linear-gradient(-45deg, transparent 75%, #b0b0b0 75%)',
+                            backgroundSize: '8px 8px',
+                            backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px',
+                            backgroundColor: '#f0f0f0',
+                          }}
+                        />
+                      </button>
+
+                      {tintPresets.map((t) => {
+                        const isActive = activeTint === normColor(t.color)
+                        return (
+                          <button
+                            key={t.name}
+                            type="button"
+                            onClick={() => recolor.onTint(t.color)}
+                            title={t.name}
+                            className={cn(
+                              'relative h-7 w-7 rounded-full border flex items-center justify-center transition-all',
+                              isActive ? 'border-primary ring-2 ring-primary/40' : 'border-border/50 hover:border-primary/40'
+                            )}
+                            style={{ backgroundColor: t.color }}
+                          >
+                            {isActive && (
+                              <Check
+                                className="h-3.5 w-3.5"
+                                style={{ color: normColor(t.color) === '#FFFFFF' ? '#111111' : '#FFFFFF' }}
+                              />
+                            )}
+                          </button>
+                        )
+                      })}
+
+                      {/* Custom color */}
+                      <label
+                        title="Custom color"
+                        className={cn(
+                          'relative h-7 w-7 rounded-full border cursor-pointer overflow-hidden transition-all',
+                          isCustomTint ? 'border-primary ring-2 ring-primary/40' : 'border-border/50 hover:border-primary/40'
+                        )}
+                        style={
+                          isCustomTint
+                            ? { backgroundColor: recolor.tint as string }
+                            : {
+                                background:
+                                  'conic-gradient(from 0deg, #ef4444, #f59e0b, #eab308, #22c55e, #3b82f6, #a855f7, #ef4444)',
+                              }
+                        }
+                      >
+                        <input
+                          type="color"
+                          value={isCustomTint ? (recolor.tint as string) : (normColor(recolor.textColor) ?? '#000000')}
+                          onChange={(e) => recolor.onTint(e.target.value)}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                        />
+                      </label>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
               {onRemove && (
                 <Button size="sm" variant="destructive" onClick={onRemove}>
                   <X className="h-3 w-3" />

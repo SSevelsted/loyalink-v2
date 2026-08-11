@@ -541,7 +541,6 @@ export default function WalletPage() {
                   logoOverride={currentTier.logoOverride}
                   onLogoOverrideUpload={handleTierLogoUpload}
                   onLogoOverrideRemove={() => handleTierChange({ logoOverride: null, logoBase: null, logoTint: null })}
-                  globalLogoUrl={logoUrl}
                   logoTint={currentTier.logoTint ?? null}
                   onLogoTint={handleTierLogoTint}
                   onLogoTintClear={handleTierLogoTintClear}
