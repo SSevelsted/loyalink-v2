@@ -68,6 +68,11 @@ export default function WalletPage() {
   // only (not the global "all cards" logo).
   const tierLogoRef = useRef<ImageUploadHandle>(null)
   const [tinting, setTinting] = useState(false)
+  // Global "all cards" logo recolor. logoBaseUrl holds the untinted source so
+  // the recolor stays reversible; logoTint is the current solid color (null = none).
+  const [logoBaseUrl, setLogoBaseUrl] = useState<string | null>(null)
+  const [logoTint, setLogoTint] = useState<string | null>(null)
+  const [logoTinting, setLogoTinting] = useState(false)
   const lpLogoTouchedRef = useRef(false)
 
   // Landing page state
@@ -188,6 +193,8 @@ export default function WalletPage() {
         setCardFields(fields)
       }
       setLogoUrl(template.logo_url)
+      setLogoBaseUrl(template.logo_url)
+      setLogoTint(null)
       setIconUrl(template.icon_url)
       const loadedThemes = template.tier_themes as Record<string, TierTheme> | undefined
       const firstTheme = loadedThemes ? loadedThemes[Object.keys(loadedThemes)[0]] : undefined
@@ -245,9 +252,44 @@ export default function WalletPage() {
   const handleLogoUpload = async (file: File) => {
     const url = await upload(file, 'logo.png')
     if (url) {
+      // A freshly uploaded logo becomes the new untinted base and clears any tint.
       setLogoUrl(url)
+      setLogoBaseUrl(url)
+      setLogoTint(null)
       setDirty(true)
     }
+  }
+
+  // Recolor the global logo to a solid color for all cards. Bakes the tint into a
+  // PNG (so the real pass shows it) and keeps the untinted source in logoBaseUrl.
+  const handleLogoTint = async (color: string) => {
+    const base = logoBaseUrl ?? logoUrl
+    if (!base) {
+      toast.error('Upload a logo first, then recolor it')
+      return
+    }
+    setLogoTinting(true)
+    try {
+      const file = await tintImage(base, color, 'logo_tint.png')
+      const url = await upload(file, 'logo_tint.png')
+      if (url) {
+        setLogoBaseUrl(base)
+        setLogoUrl(url)
+        setLogoTint(color)
+        setDirty(true)
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to recolor logo')
+    } finally {
+      setLogoTinting(false)
+    }
+  }
+
+  const handleLogoTintClear = () => {
+    if (!logoTint) return
+    setLogoUrl(logoBaseUrl)
+    setLogoTint(null)
+    setDirty(true)
   }
 
   const handleStripUpload = async (file: File) => {
@@ -480,9 +522,16 @@ export default function WalletPage() {
                   targetHeight={150}
                   currentUrl={logoUrl}
                   onUpload={handleLogoUpload}
-                  onRemove={() => { setLogoUrl(null); setDirty(true) }}
+                  onRemove={() => { setLogoUrl(null); setLogoBaseUrl(null); setLogoTint(null); setDirty(true) }}
                   uploading={uploading}
                   removeBgType="graphic"
+                  recolor={{
+                    tint: logoTint,
+                    onTint: handleLogoTint,
+                    onClear: handleLogoTintClear,
+                    textColor: currentTier.foregroundColor,
+                    tinting: logoTinting,
+                  }}
                 />
                 <ImageUpload
                   ref={stripUploadRef}
