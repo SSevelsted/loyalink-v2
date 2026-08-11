@@ -204,3 +204,37 @@ export function useUpdateStudioSubscription() {
     },
   })
 }
+
+/** Enable or disable legacy PassKit loyalty on an existing (agency) studio. */
+export function useSetStudioLegacyLoyalty() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      studioId,
+      enabled,
+      legacyStudioId,
+    }: {
+      studioId: string
+      enabled: boolean
+      legacyStudioId?: string
+    }) => {
+      const res = await fetch(`/api/admin/studios/${studioId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: enabled ? 'enable_legacy_loyalty' : 'disable_legacy_loyalty',
+          legacyStudioId,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error ?? `Error ${res.status}`)
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin_studios'] })
+    },
+  })
+}
