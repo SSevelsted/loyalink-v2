@@ -174,6 +174,7 @@ export async function sendSubscriptionConfirmed(studioId: string): Promise<void>
 /** 2.1 Customer welcome — after joining loyalty program */
 export async function sendCustomerWelcome(customerId: string, studioId: string): Promise<void> {
   if (!canSend()) return
+  if (await isAgencyStudio(studioId)) return
 
   const [{ data: customer }, { data: studio }, { data: pass }] = await Promise.all([
     supabase.from('customers').select('name, email, balance, cashback_rate, loyalty_stage, member_id, id, currency, language').eq('id', customerId).single(),
@@ -342,6 +343,7 @@ export async function sendTierUpgrade(
   customerId: string, studioId: string, fromTierSlug: string, toTierSlug: string,
 ): Promise<void> {
   if (!canSend()) return
+  if (await isAgencyStudio(studioId)) return
 
   const [{ data: customer }, { data: studio }] = await Promise.all([
     supabase.from('customers').select('name, email, balance, currency, language').eq('id', customerId).single(),
