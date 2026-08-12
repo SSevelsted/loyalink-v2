@@ -45,8 +45,35 @@ async function isAgencyStudio(studioId: string): Promise<boolean> {
   return !!data?.is_agency
 }
 
-async function send(to: string, email: { subject: string; html: string }): Promise<void> {
-  await getResend().emails.send({ from: FROM, to, subject: email.subject, html: email.html })
+type Sender = { from: string; replyTo?: string }
+
+/** Address part of the configured sender, e.g. "hello@loyalink.ai" */
+const FROM_ADDRESS = FROM.match(/<([^>]+)>/)?.[1]?.trim() ?? FROM.trim()
+
+/**
+ * Sender for customer-facing mail: the studio's own name over the verified
+ * Loyalink domain, with replies going to their business email when set.
+ * Studio names come from user input, so the display name is quoted and
+ * stripped of characters that would break the header.
+ */
+function studioSender(studioName: string, settings: Record<string, unknown> | null): Sender {
+  const name = studioName.replace(/["\\\r\n]/g, '').trim()
+  const businessEmail = typeof settings?.email === 'string' ? settings.email.trim() : ''
+  const replyTo = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(businessEmail) ? businessEmail : undefined
+
+  return { from: name ? `"${name}" <${FROM_ADDRESS}>` : FROM, replyTo }
+}
+
+async function send(
+  to: string, email: { subject: string; html: string }, sender?: Sender,
+): Promise<void> {
+  await getResend().emails.send({
+    from: sender?.from ?? FROM,
+    to,
+    replyTo: sender?.replyTo,
+    subject: email.subject,
+    html: email.html,
+  })
 }
 
 function getRewardsConfig(settings: Record<string, unknown> | null): RewardsConfig {
@@ -206,7 +233,8 @@ export async function sendCustomerWelcome(customerId: string, studioId: string):
     language,
   })
 
-  send(customer.email, tpl).catch(err => console.error('[email] customer welcome error:', err))
+  send(customer.email, tpl, studioSender(studio.name, settings))
+    .catch(err => console.error('[email] customer welcome error:', err))
 }
 
 /** 2.2 Pass reminder — 24-48h after signup, pass not installed */
@@ -221,7 +249,8 @@ export async function sendPassReminder(customerId: string, studioId: string): Pr
 
   if (!customer?.email || !studio) return
 
-  const language = (customer.language as string) ?? ((studio.settings as { language?: string } | null)?.language) ?? 'en'
+  const settings = studio.settings as Record<string, unknown> | null
+  const language = (customer.language as string) ?? (settings?.language as string) ?? 'en'
   const memberId = customer.member_id || customer.id
   const token = createCustomerAccessToken(customer.id, 24 * 60 * 60)
   const passLink = `${MARKETING_URL}/loyalty/${memberId}?addPass=1&token=${token}`
@@ -234,7 +263,7 @@ export async function sendPassReminder(customerId: string, studioId: string): Pr
     language,
   })
 
-  await send(customer.email, tpl)
+  await send(customer.email, tpl, studioSender(studio.name, settings))
 }
 
 /** 2.3 Pass removed from wallet */
@@ -265,7 +294,7 @@ export async function sendPassRemoved(customerId: string, studioId: string): Pro
     language,
   })
 
-  await send(customer.email, tpl)
+  await send(customer.email, tpl, studioSender(studio.name, settings))
 }
 
 /** 2.4 Transaction receipt */
@@ -309,7 +338,7 @@ export async function sendTransactionReceipt(
     ...txData,
   })
 
-  await send(customer.email, tpl)
+  await send(customer.email, tpl, studioSender(studio.name, settings))
 }
 
 /** 2.5 Resend pass link (manual request) */
@@ -323,7 +352,8 @@ export async function sendResendPassLink(customerId: string, studioId: string): 
 
   if (!customer?.email || !studio) return
 
-  const language = (customer.language as string) ?? ((studio.settings as { language?: string } | null)?.language) ?? 'en'
+  const settings = studio.settings as Record<string, unknown> | null
+  const language = (customer.language as string) ?? (settings?.language as string) ?? 'en'
   const memberId = customer.member_id || customer.id
   const token = createCustomerAccessToken(customer.id, 24 * 60 * 60)
   const passLink = `${MARKETING_URL}/loyalty/${memberId}?addPass=1&token=${token}`
@@ -335,7 +365,7 @@ export async function sendResendPassLink(customerId: string, studioId: string): 
     language,
   })
 
-  await send(customer.email, tpl)
+  await send(customer.email, tpl, studioSender(studio.name, settings))
 }
 
 /** 2.6 Tier upgrade notification */
@@ -382,7 +412,8 @@ export async function sendTierUpgrade(
     language: (customer.language as string) ?? (settings?.language as string) ?? 'en',
   })
 
-  send(customer.email, tpl).catch(err => console.error('[email] tier upgrade error:', err))
+  send(customer.email, tpl, studioSender(studio.name, settings))
+    .catch(err => console.error('[email] tier upgrade error:', err))
 }
 
 /** 2.7 Referral reward notification (to the referrer) */
@@ -412,7 +443,8 @@ export async function sendReferralReward(
     language,
   })
 
-  send(referrer.email, tpl).catch(err => console.error('[email] referral reward error:', err))
+  send(referrer.email, tpl, studioSender(studio.name, settings))
+    .catch(err => console.error('[email] referral reward error:', err))
 }
 
 /** 2.9 Win-back email for inactive customers */
@@ -459,5 +491,6 @@ export async function sendWinBack(customerId: string, studioId: string): Promise
     language,
   })
 
-  send(customer.email, tpl).catch(err => console.error('[email] win-back error:', err))
+  send(customer.email, tpl, studioSender(studio.name, settings))
+    .catch(err => console.error('[email] win-back error:', err))
 }
