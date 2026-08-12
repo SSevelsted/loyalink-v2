@@ -168,7 +168,8 @@ export async function POST(request: NextRequest) {
     }
 
     return apiSuccess(studio, 201)
-  } catch {
+  } catch (error) {
+    console.error('[v1/studios] unhandled error:', error)
     return apiError('Internal server error', 500)
   }
 }
