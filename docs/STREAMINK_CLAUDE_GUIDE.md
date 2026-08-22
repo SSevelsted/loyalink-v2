@@ -132,6 +132,8 @@ const res = await fetch('https://my.loyalink.ai/api/v1/transactions', {
     amount: 500,              // Total transaction amount
     cash_amount: 400,         // Optional — cash paid (if they used loyalty balance for part)
     is_deposit: false,        // Optional — true if this is a deposit, not a full payment
+    idempotency_key: `booking:${bookingId}`, // Optional — retry-safe: a replay returns the
+                              // original result (HTTP 200) instead of crediting twice
   }),
 })
 

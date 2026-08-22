@@ -59,6 +59,76 @@ type LegacyLoyaltyMetadata = {
   raw?: Record<string, unknown>
 }
 
+// ─── Idempotency ─────────────────────────────────────────────────────────────
+// A retried POST /api/v1/transactions (client timeout, crashed job runner)
+// must not credit the member twice. Callers pass an idempotency_key; the first
+// request claims a (studio_id, key) row, processes, and stores its result on
+// the row. A replay of the same key gets the stored result back instead of
+// re-processing.
+//
+// Fail-closed by design: a claim whose original request died mid-processing
+// stays 'pending' and keeps answering 409 — processTransaction's writes are
+// not transactional, so re-running after a partial credit could pay twice.
+// Resolving a stuck key means checking the member's transactions and deleting
+// the claim row by hand.
+
+export type IdempotencyClaim =
+  | { kind: 'proceed'; claimId: string }
+  | { kind: 'replay'; result: ProcessTransactionResult }
+  | { kind: 'in_flight' }
+
+export async function claimTransactionIdempotencyKey(
+  studioId: string,
+  idempotencyKey: string,
+  customerId: string,
+): Promise<IdempotencyClaim> {
+  const { data: claimed, error } = await adminSupabase
+    .from('transaction_idempotency_keys')
+    .insert({ studio_id: studioId, idempotency_key: idempotencyKey, customer_id: customerId })
+    .select('id')
+    .single()
+
+  if (claimed && !error) return { kind: 'proceed', claimId: claimed.id }
+  if (error && error.code !== '23505') {
+    throw new TransactionError(`Failed to reserve idempotency key: ${error.message}`, 500)
+  }
+
+  // Unique violation — an earlier request holds this key.
+  const { data: existing } = await adminSupabase
+    .from('transaction_idempotency_keys')
+    .select('status, result')
+    .eq('studio_id', studioId)
+    .eq('idempotency_key', idempotencyKey)
+    .single()
+
+  if (existing?.status === 'completed' && existing.result) {
+    return { kind: 'replay', result: existing.result as ProcessTransactionResult }
+  }
+  // Pending (or the twin released its claim between our insert and read):
+  // either way the caller should back off and retry.
+  return { kind: 'in_flight' }
+}
+
+export async function completeTransactionIdempotencyKey(
+  claimId: string,
+  result: ProcessTransactionResult,
+): Promise<void> {
+  const { error } = await adminSupabase
+    .from('transaction_idempotency_keys')
+    .update({ status: 'completed', result, completed_at: new Date().toISOString() })
+    .eq('id', claimId)
+  if (error) {
+    // The transaction itself went through; failing the request now would make
+    // the caller retry and 409 against its own claim. Log and move on — the
+    // key stays pending, which fails closed.
+    console.error('[transactions] failed to store idempotency result:', error.message)
+  }
+}
+
+export async function releaseTransactionIdempotencyKey(claimId: string): Promise<void> {
+  await adminSupabase.from('transaction_idempotency_keys').delete().eq('id', claimId)
+}
+
 export async function processTransaction(input: ProcessTransactionInput): Promise<ProcessTransactionResult> {
   const { customerId, studioId, amount, cashAmount, isDeposit, sourceTransactionId } = input
 

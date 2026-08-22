@@ -349,6 +349,7 @@ Auth: Studio key
 | `amount` | number | Yes | Total transaction amount |
 | `cash_amount` | number | No | Cash portion (if partial balance redemption) |
 | `is_deposit` | boolean | No | If true, doesn't count as "full payment" for tier triggers |
+| `idempotency_key` | string | No | Unique per studio, max 200 chars. A replay with the same key returns the original result with HTTP 200 instead of crediting the member again; a duplicate that arrives while the first request is still running (or after it was interrupted mid-processing) gets HTTP 409. Use a deterministic key derived from your side's source record, e.g. `loyalty_download_nudge:<consultation_id>` |
 
 **This is the core endpoint.** It automatically:
 - Updates the member's total spend

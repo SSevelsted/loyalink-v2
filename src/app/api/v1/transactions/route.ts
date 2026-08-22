@@ -2,17 +2,35 @@ import { NextRequest } from 'next/server'
 import { adminSupabase } from '@/lib/studio-access'
 import { validateApiKey } from '@/lib/api-keys'
 import { apiSuccess, apiError, apiPaginated } from '@/lib/api-response'
-import { processTransaction, TransactionError } from '@/lib/services/transaction-service'
+import {
+  processTransaction,
+  TransactionError,
+  claimTransactionIdempotencyKey,
+  completeTransactionIdempotencyKey,
+  releaseTransactionIdempotencyKey,
+} from '@/lib/services/transaction-service'
 
 export async function POST(request: NextRequest) {
+  let claimId: string | null = null
   try {
     const auth = await validateApiKey(request)
     if (!auth || !auth.studioId) return apiError('Unauthorized', 401)
 
-    const { customer_id, amount, cash_amount, is_deposit } = await request.json()
+    const { customer_id, amount, cash_amount, is_deposit, idempotency_key } = await request.json()
 
     if (!customer_id || amount == null) {
       return apiError('customer_id and amount are required', 400)
+    }
+
+    let idempotencyKey: string | null = null
+    if (idempotency_key != null) {
+      if (typeof idempotency_key !== 'string' || !idempotency_key.trim()) {
+        return apiError('idempotency_key must be a non-empty string', 400)
+      }
+      if (idempotency_key.length > 200) {
+        return apiError('idempotency_key must be at most 200 characters', 400)
+      }
+      idempotencyKey = idempotency_key.trim()
     }
 
     // Verify customer belongs to this studio
@@ -25,6 +43,19 @@ export async function POST(request: NextRequest) {
 
     if (!customer) return apiError('Customer not found in this studio', 404)
 
+    if (idempotencyKey) {
+      const claim = await claimTransactionIdempotencyKey(auth.studioId, idempotencyKey, customer_id)
+      // Replays return the originally stored result with 200 (vs 201 fresh).
+      if (claim.kind === 'replay') return apiSuccess(claim.result, 200)
+      if (claim.kind === 'in_flight') {
+        return apiError(
+          'A request with this idempotency_key is already in progress or was interrupted before completing',
+          409,
+        )
+      }
+      claimId = claim.claimId
+    }
+
     const result = await processTransaction({
       customerId: customer_id,
       studioId: auth.studioId,
@@ -34,8 +65,20 @@ export async function POST(request: NextRequest) {
       createdBy: 'api',
     })
 
+    if (claimId) {
+      await completeTransactionIdempotencyKey(claimId, result)
+      claimId = null
+    }
+
     return apiSuccess(result, 201)
   } catch (err) {
+    // TransactionError is only thrown by pre-write validation (customer not
+    // found, rewards disabled), so the key can be freed for a corrected retry.
+    // Unknown errors may have landed partial writes — keep the claim so
+    // retries fail closed (409) instead of risking a double credit.
+    if (claimId && err instanceof TransactionError) {
+      await releaseTransactionIdempotencyKey(claimId).catch(() => {})
+    }
     if (err instanceof TransactionError) {
       return apiError(err.message, err.status)
     }
