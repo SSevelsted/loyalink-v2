@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { NextRequest, NextResponse } from 'next/server'
+import { after, NextRequest, NextResponse } from 'next/server'
 import { adminSupabase } from '@/lib/studio-access'
 import { fireWebhook } from '@/lib/services/webhook-service'
 import type { WebhookEvent } from '@/lib/webhook-events'
@@ -55,11 +55,16 @@ export async function POST(request: NextRequest) {
       .eq('id', customerId)
       .single()
 
-    fireWebhook(studioId, event, customerId, {
-      platform: platform ?? 'apple',
-      serial_number: serialNumber ?? null,
-      member_id: customer?.member_id ?? null,
-    })
+    // after() keeps the serverless instance alive until delivery + logging
+    // finish; a bare fire-and-forget call dies when the instance freezes
+    // post-response, which silently dropped most card.installed events.
+    after(() =>
+      fireWebhook(studioId, event, customerId, {
+        platform: platform ?? 'apple',
+        serial_number: serialNumber ?? null,
+        member_id: customer?.member_id ?? null,
+      }),
+    )
 
     return NextResponse.json({ success: true, event })
   } catch {

@@ -98,7 +98,7 @@ appleWebServiceRoutes.post(
         .eq('id', walletPass.id);
 
       if (!wasInstalled) {
-        firePassLifecycle('card_installed', {
+        await firePassLifecycle('card_installed', {
           customerId: walletPass.customer_id,
           studioId: walletPass.studio_id,
           serialNumber,
@@ -178,7 +178,7 @@ appleWebServiceRoutes.delete(
         }).catch((err: unknown) => console.error('[unregister] Failed to trigger uninstall email:', err));
 
         // Dispatch card.uninstalled webhook
-        firePassLifecycle('card_uninstalled', {
+        await firePassLifecycle('card_uninstalled', {
           customerId: walletPass.customer_id,
           studioId: walletPass.studio_id,
           serialNumber,

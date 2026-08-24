@@ -62,7 +62,7 @@ googleRoutes.post('/callback', async (req: Request, res: Response) => {
         .update({ status: 'installed', installed_at: new Date().toISOString() })
         .eq('id', walletPass.id);
       if (!wasInstalled) {
-        firePassLifecycle('card_installed', {
+        await firePassLifecycle('card_installed', {
           customerId: walletPass.customer_id,
           studioId: walletPass.studio_id,
           serialNumber,
@@ -74,7 +74,7 @@ googleRoutes.post('/callback', async (req: Request, res: Response) => {
         .from('wallet_passes')
         .update({ status: 'uninstalled' })
         .eq('id', walletPass.id);
-      firePassLifecycle('card_uninstalled', {
+      await firePassLifecycle('card_uninstalled', {
         customerId: walletPass.customer_id,
         studioId: walletPass.studio_id,
         serialNumber,

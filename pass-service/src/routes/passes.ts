@@ -139,7 +139,7 @@ passRoutes.post('/generate', requireInternalAuth, async (req: Request, res: Resp
     // serve as the denominator for "offered vs. installed". Only on a genuinely
     // new pass, not a reuse/re-download of an existing one.
     if (isNewlyIssued) {
-      firePassLifecycle('card_issued', {
+      await firePassLifecycle('card_issued', {
         customerId,
         studioId: customer.studio_id,
         serialNumber,
