@@ -98,6 +98,7 @@ export type SignupTranslations = {
   forIPhoneAppleWatch: string
   forAndroid: string
   addInBrowser: string
+  passInAppExplainer: string
   openCameraAndPoint: string
 
   // Default headline fallback used on /join when none provided
@@ -189,6 +190,7 @@ const en: SignupTranslations = {
   forIPhoneAppleWatch: 'For iPhone & Apple Watch',
   forAndroid: 'For Android',
   addInBrowser: 'Add in browser',
+  passInAppExplainer: 'Your browser can’t add Wallet cards. Tap the ••• menu and choose “Open in Safari”, then add your card.',
   openCameraAndPoint: "Open your phone's camera app and point it at the QR code",
 
   fallbackHeadline: (r) => `Get ${r}% Back on Every Visit`,
@@ -277,6 +279,7 @@ const da: SignupTranslations = {
   forIPhoneAppleWatch: 'Til iPhone & Apple Watch',
   forAndroid: 'Til Android',
   addInBrowser: 'Tilføj i browseren',
+  passInAppExplainer: 'Din browser kan ikke tilføje Wallet-kort. Tryk på ••• og vælg ”Åbn i Safari”, og tilføj derefter dit kort.',
   openCameraAndPoint: 'Åbn telefonens kamera-app og peg den mod QR-koden',
 
   fallbackHeadline: (r) => `Få ${r}% tilbage på hvert besøg`,
@@ -365,6 +368,7 @@ const sv: SignupTranslations = {
   forIPhoneAppleWatch: 'Till iPhone & Apple Watch',
   forAndroid: 'Till Android',
   addInBrowser: 'Lägg till i webbläsaren',
+  passInAppExplainer: 'Din webbläsare kan inte lägga till Wallet-kort. Tryck på ••• och välj ”Öppna i Safari”, och lägg sedan till ditt kort.',
   openCameraAndPoint: 'Öppna telefonens kamera-app och rikta den mot QR-koden',
 
   fallbackHeadline: (r) => `Få ${r}% tillbaka på varje besök`,
@@ -453,6 +457,7 @@ const nb: SignupTranslations = {
   forIPhoneAppleWatch: 'Til iPhone & Apple Watch',
   forAndroid: 'Til Android',
   addInBrowser: 'Legg til i nettleseren',
+  passInAppExplainer: 'Nettleseren din kan ikke legge til Wallet-kort. Trykk på ••• og velg «Åpne i Safari», og legg deretter til kortet ditt.',
   openCameraAndPoint: 'Åpne kamera-appen på telefonen og rett den mot QR-koden',
 
   fallbackHeadline: (r) => `Få ${r}% tilbake på hvert besøk`,
@@ -542,6 +547,7 @@ const de: SignupTranslations = {
   forIPhoneAppleWatch: 'Für iPhone & Apple Watch',
   forAndroid: 'Für Android',
   addInBrowser: 'Im Browser hinzufügen',
+  passInAppExplainer: 'Dein Browser kann keine Wallet-Karten hinzufügen. Tippe auf ••• und wähle „In Safari öffnen“, um deine Karte hinzuzufügen.',
   openCameraAndPoint: 'Öffne die Kamera-App und richte sie auf den QR-Code',
 
   fallbackHeadline: (r) => `${r}% bei jedem Besuch zurückbekommen`,
@@ -631,6 +637,7 @@ const fr: SignupTranslations = {
   forIPhoneAppleWatch: 'Pour iPhone & Apple Watch',
   forAndroid: 'Pour Android',
   addInBrowser: 'Ajouter dans le navigateur',
+  passInAppExplainer: 'Votre navigateur ne peut pas ajouter de cartes Wallet. Touchez ••• puis choisissez « Ouvrir dans Safari » pour ajouter votre carte.',
   openCameraAndPoint: 'Ouvrez l\'appareil photo de votre téléphone et pointez-le vers le QR code',
 
   fallbackHeadline: (r) => `Récupérez ${r}% à chaque visite`,
@@ -720,6 +727,7 @@ const es: SignupTranslations = {
   forIPhoneAppleWatch: 'Para iPhone & Apple Watch',
   forAndroid: 'Para Android',
   addInBrowser: 'Añadir en el navegador',
+  passInAppExplainer: 'Tu navegador no puede añadir tarjetas de Wallet. Toca ••• y elige «Abrir en Safari» para añadir tu tarjeta.',
   openCameraAndPoint: 'Abre la cámara del móvil y apúntala al código QR',
 
   fallbackHeadline: (r) => `Recibe ${r}% en cada visita`,
@@ -809,6 +817,7 @@ const nl: SignupTranslations = {
   forIPhoneAppleWatch: 'Voor iPhone & Apple Watch',
   forAndroid: 'Voor Android',
   addInBrowser: 'In de browser toevoegen',
+  passInAppExplainer: 'Je browser kan geen Wallet-kaarten toevoegen. Tik op ••• en kies ‘Openen in Safari’ om je kaart toe te voegen.',
   openCameraAndPoint: 'Open de camera-app van je telefoon en richt hem op de QR-code',
 
   fallbackHeadline: (r) => `Krijg ${r}% terug bij elk bezoek`,
@@ -902,6 +911,7 @@ const pl: SignupTranslations = {
   forIPhoneAppleWatch: 'Dla iPhone & Apple Watch',
   forAndroid: 'Dla Androida',
   addInBrowser: 'Dodaj w przeglądarce',
+  passInAppExplainer: 'Twoja przeglądarka nie może dodać kart Wallet. Dotknij ••• i wybierz „Otwórz w Safari”, aby dodać kartę.',
   openCameraAndPoint: 'Otwórz aparat w telefonie i skieruj go na kod QR',
 
   fallbackHeadline: (r) => `Otrzymuj ${r}% z każdej wizyty`,
