@@ -1,8 +1,10 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { PassWallet } from './_components/pass-wallet'
+import { OpenInSafari } from './_components/open-in-safari'
 import { createCustomerAccessToken } from '@/lib/customer-access'
 import { adminSupabase } from '@/lib/studio-access'
+import { isAndroid, isIOS, isInAppBrowser } from '@/lib/user-agent'
 
 const PASS_SERVICE_URL = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
 
@@ -32,11 +34,21 @@ export default async function PassPage({ params, searchParams }: { params: Promi
 
   const headersList = await headers()
   const userAgent = headersList.get('user-agent') || ''
-  const isIOS = /iPhone|iPad|iPod/i.test(userAgent)
-  const isAndroid = /Android/i.test(userAgent)
+  const onIOS = isIOS(userAgent)
+  const onAndroid = isAndroid(userAgent)
+
+  // An embedded webview (WhatsApp, Instagram, Messenger) cannot install a
+  // .pkpass — redirecting there dumps the raw file on the customer as text.
+  // Send them to Safari instead, where the redirect below does work.
+  if (onIOS && isInAppBrowser(userAgent)) {
+    const host = headersList.get('host')
+    const proto = headersList.get('x-forwarded-proto') ?? 'https'
+    const passPageUrl = `${proto}://${host}/pass/${serialNumber}?token=${encodeURIComponent(token)}`
+    return <OpenInSafari passPageUrl={passPageUrl} language={studioLanguage} />
+  }
 
   // iOS: hand off directly to Apple Wallet
-  if (isIOS) {
+  if (onIOS) {
     redirect(appleDownloadUrl)
   }
 
@@ -55,7 +67,7 @@ export default async function PassPage({ params, searchParams }: { params: Promi
   }
 
   // Android: deep-link into Google Wallet app
-  if (isAndroid && googleSaveUrl) {
+  if (onAndroid && googleSaveUrl) {
     redirect(googleSaveUrl)
   }
 
