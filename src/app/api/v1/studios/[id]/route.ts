@@ -12,13 +12,23 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (!auth) return apiError('Unauthorized', 401)
     if (auth.studioId !== null && auth.studioId !== id) return apiError('Forbidden', 403)
 
+    // `rewards_config` is NOT a column — it lives inside `settings` jsonb, which
+    // is where POST /api/v1/studios writes it and /rewards-config reads it from.
+    // Selecting it made Postgres reject the whole query with 42703, and the
+    // `error || !studio` below reported that as a missing studio. Every single
+    // GET on this route has 404'd since it was written (5f4ccfa, 2026-04-09) —
+    // silently, because the caller swallows the failure.
     const { data: studio, error } = await adminSupabase
       .from('studios')
-      .select('id, name, slug, settings, rewards_config, subscription_status, created_at')
+      .select('id, name, slug, settings, subscription_status, created_at')
       .eq('id', id)
       .single()
 
-    if (error || !studio) return apiError('Studio not found', 404)
+    // Split the two cases. Collapsing them is what let a schema error spend
+    // four months disguised as "this studio does not exist". PGRST116 is
+    // .single() finding no row — the only one that is genuinely a 404.
+    if (error && error.code !== 'PGRST116') return apiError(error.message, 500)
+    if (!studio) return apiError('Studio not found', 404)
 
     return apiSuccess(studio)
   } catch {
