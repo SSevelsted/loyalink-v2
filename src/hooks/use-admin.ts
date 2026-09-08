@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useStudio } from './use-studio'
-import type { Studio, Transaction } from '@/types/database'
+import type { Studio, Transaction, TrialCode } from '@/types/database'
 import type { AdminTicket } from './use-support'
 
 type PlatformStats = {
@@ -235,6 +235,67 @@ export function useSetStudioLegacyLoyalty() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin_studios'] })
+    },
+  })
+}
+
+// ─── Trial codes ─────────────────────────────────────────────────────────────
+
+export type AdminTrialCode = TrialCode & {
+  signup_url: string
+  studios: { name: string; slug: string } | null
+}
+
+export function useTrialCodes() {
+  const { isSuperAdmin } = useStudio()
+
+  return useQuery({
+    queryKey: ['admin_trial_codes'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/trial-codes')
+      if (!res.ok) throw new Error('Failed to fetch trial codes')
+      return (await res.json()) as AdminTrialCode[]
+    },
+    enabled: isSuperAdmin,
+  })
+}
+
+export function useCreateTrialCode() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (input: { trialDays: number; note?: string; expiresInDays?: number | null }) => {
+      const res = await fetch('/api/admin/trial-codes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error ?? `Error ${res.status}`)
+      }
+      return (await res.json()) as AdminTrialCode
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin_trial_codes'] })
+    },
+  })
+}
+
+export function useRevokeTrialCode() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/admin/trial-codes/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error ?? `Error ${res.status}`)
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin_trial_codes'] })
     },
   })
 }

@@ -22,6 +22,19 @@ export type Studio = {
   updated_at: string
 }
 
+export type TrialCode = {
+  id: string
+  code: string
+  trial_days: number
+  note: string | null
+  expires_at: string | null
+  created_by: string | null
+  created_at: string
+  redeemed_at: string | null
+  redeemed_by_studio_id: string | null
+  redeemed_email: string | null
+}
+
 export type StudioMember = {
   id: string
   studio_id: string

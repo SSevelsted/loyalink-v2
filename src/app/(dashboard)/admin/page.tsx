@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useStudio } from '@/hooks/use-studio'
 import Link from 'next/link'
-import { BarChart3, Building2, Users, Activity, LifeBuoy, Mail } from 'lucide-react'
+import { BarChart3, Building2, Users, Activity, LifeBuoy, Mail, Ticket } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import { OverviewSection } from './_components/overview-section'
@@ -11,6 +11,7 @@ import { StudiosSection } from './_components/studios-section'
 import { UsersSection } from './_components/users-section'
 import { ActivitySection } from './_components/activity-section'
 import { SupportSection } from './_components/support-section'
+import { TrialCodesSection } from './_components/trial-codes-section'
 
 const SECTIONS = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -18,6 +19,7 @@ const SECTIONS = [
   { id: 'users', label: 'Users', icon: Users },
   { id: 'activity', label: 'Activity', icon: Activity },
   { id: 'support', label: 'Support', icon: LifeBuoy },
+  { id: 'trial-codes', label: 'Trial codes', icon: Ticket },
 ] as const
 
 type SectionId = (typeof SECTIONS)[number]['id']
@@ -86,6 +88,7 @@ export default function AdminPage() {
         {activeSection === 'users' && <UsersSection />}
         {activeSection === 'activity' && <ActivitySection />}
         {activeSection === 'support' && <SupportSection />}
+        {activeSection === 'trial-codes' && <TrialCodesSection />}
       </div>
     </div>
   )

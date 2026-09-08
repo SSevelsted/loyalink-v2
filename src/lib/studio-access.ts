@@ -87,3 +87,22 @@ export async function verifyStudioAccess(
     isSuperAdmin: !!superAdminRow,
   }
 }
+
+/**
+ * Resolve the session user only if they hold the super_admin role (granted on
+ * any studio_members row). Returns null for anonymous or non-admin users.
+ */
+export async function verifySuperAdmin() {
+  const user = await getSessionUser()
+  if (!user) return null
+
+  const { data } = await adminSupabase
+    .from('studio_members')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('role', 'super_admin')
+    .limit(1)
+    .maybeSingle()
+
+  return data ? user : null
+}

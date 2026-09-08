@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getStripe, resolvePromoCode } from '@/lib/stripe'
+import { DEFAULT_TRIAL_DAYS, lookupTrialCode, trialCodeErrorMessage } from '@/lib/trial-codes'
 import { signupLimiter, getIP } from '@/lib/rate-limit'
 import { isNativeRequest } from '@/lib/native-request'
 
@@ -64,15 +65,29 @@ export async function POST(request: NextRequest) {
 
     const stripe = getStripe()
 
-    const [customer, promo] = await Promise.all([
-      stripe.customers.create({
-        email: normalizedEmail,
-        name: normalizedStudioName,
-        metadata: { source: 'self_signup' },
-      }),
+    // A code is either one of our single-use trial codes (changes the trial
+    // length) or a Stripe promotion code (changes the price after the trial).
+    const [trialLookup, promo] = await Promise.all([
+      lookupTrialCode(supabase, promoCode),
       resolvePromoCode(stripe, promoCode),
     ])
-    const coupon = promo?.coupon ?? null
+    if (trialLookup.kind === 'invalid') {
+      return NextResponse.json({ error: trialCodeErrorMessage(trialLookup.status) }, { status: 400 })
+    }
+    const trialCode = trialLookup.kind === 'valid' ? trialLookup.code : null
+    const coupon = trialCode ? null : promo?.coupon ?? null
+    if (typeof promoCode === 'string' && promoCode.trim() && !trialCode && !coupon) {
+      return NextResponse.json(
+        { error: "That code isn't valid. Check the spelling, or remove it to continue." },
+        { status: 400 }
+      )
+    }
+
+    const customer = await stripe.customers.create({
+      email: normalizedEmail,
+      name: normalizedStudioName,
+      metadata: { source: 'self_signup' },
+    })
 
     const setupIntent = await stripe.setupIntents.create({
       customer: customer.id,
@@ -95,7 +110,9 @@ export async function POST(request: NextRequest) {
             name: coupon.name ?? null,
           }
         : null,
-      promoValid: !!coupon,
+      promoValid: !!coupon || !!trialCode,
+      trial: trialCode ? { code: trialCode.code, days: trialCode.trial_days } : null,
+      trialDays: trialCode?.trial_days ?? DEFAULT_TRIAL_DAYS,
     })
   } catch (err) {
     console.error('[signup/prepare]', err)

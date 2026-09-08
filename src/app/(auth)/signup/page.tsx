@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label'
 import { Loader2, ArrowLeft, Check, Zap, Wallet, Users, TrendingUp, Bell, Tag } from 'lucide-react'
 import { LogoMark } from '@/components/logo'
 import { isNative } from '@/lib/platform'
+import { DEFAULT_TRIAL_DAYS, trialDaysHint } from '@/lib/trial-code-format'
 
 type Plan = 'basic' | 'pro'
 
@@ -29,6 +30,8 @@ type CouponData = {
   durationInMonths: number | null
   name: string | null
 }
+
+type TrialData = { code: string; days: number }
 
 const PLAN_PRICES: Record<Plan, number> = { basic: 49, pro: 79 }
 
@@ -112,7 +115,17 @@ type PaymentStepProps = {
   step1: Step1Data
   customerId: string
   coupon: CouponData | null
+  trial: TrialData | null
+  trialDays: number
   onBack: () => void
+}
+
+function formatTrialEndDate(trialDays: number): string {
+  return new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -157,7 +170,7 @@ function getDiscountedPrice(plan: Plan, coupon: CouponData): number {
   return base
 }
 
-function PaymentStep({ step1, customerId, coupon, onBack }: PaymentStepProps) {
+function PaymentStep({ step1, customerId, coupon, trial, trialDays, onBack }: PaymentStepProps) {
   const stripe = useStripe()
   const elements = useElements()
   const router = useRouter()
@@ -165,11 +178,7 @@ function PaymentStep({ step1, customerId, coupon, onBack }: PaymentStepProps) {
   const [loading, setLoading] = useState(false)
   const plan = PLANS[step1.plan]
 
-  const [trialEndDate] = useState(() => new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }))
+  const [trialEndDate] = useState(() => formatTrialEndDate(trialDays))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -281,7 +290,15 @@ function PaymentStep({ step1, customerId, coupon, onBack }: PaymentStepProps) {
             </div>
           ))}
         </div>
-        {step1.promoCode && coupon && (
+        {trial ? (
+          <div className="border-t border-border/40 pt-3">
+            <div className="flex items-center gap-2 rounded-lg bg-emerald-500/8 border border-emerald-500/20 px-3 py-2">
+              <Tag className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+              <span className="text-xs font-medium text-emerald-400">{trial.code}</span>
+              <span className="text-xs text-muted-foreground">— extended {trial.days}-day free trial</span>
+            </div>
+          </div>
+        ) : step1.promoCode && coupon ? (
           <div className="border-t border-border/40 pt-3">
             <div className="flex items-center gap-2 rounded-lg bg-emerald-500/8 border border-emerald-500/20 px-3 py-2">
               <Tag className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
@@ -289,9 +306,9 @@ function PaymentStep({ step1, customerId, coupon, onBack }: PaymentStepProps) {
               <span className="text-xs text-muted-foreground">— {formatDiscountLabel(coupon)}</span>
             </div>
           </div>
-        )}
+        ) : null}
         <div className="border-t border-border/40 pt-3 space-y-1.5">
-          {['14-day free trial', 'Cancel anytime before day 15'].map((item) => (
+          {[`${trialDays}-day free trial`, `Cancel anytime before day ${trialDays + 1}`].map((item) => (
             <div key={item} className="flex items-center gap-2">
               <div className="flex-shrink-0 h-4 w-4 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
                 <Check className="h-2.5 w-2.5 text-emerald-400" />
@@ -338,6 +355,8 @@ function PaymentStep({ step1, customerId, coupon, onBack }: PaymentStepProps) {
 function SignupForm() {
   const searchParams = useSearchParams()
   const initialPlan = (searchParams.get('plan') === 'basic' ? 'basic' : 'pro') as Plan
+  // Trial-code links look like /signup?code=TRIAL45-XXXXXX; `promo` is accepted as an alias
+  const initialCode = (searchParams.get('code') ?? searchParams.get('promo') ?? '').trim().toUpperCase()
 
   const stripePromiseRef = useRef<ReturnType<typeof loadStripe> | null>(null)
   const [stripePromise, setStripePromise] = useState<ReturnType<typeof loadStripe> | null>(null)
@@ -391,18 +410,22 @@ function SignupForm() {
   }, [])
 
   const [step, setStep] = useState<1 | 2>(1)
-  const [showPromo, setShowPromo] = useState(false)
+  const [showPromo, setShowPromo] = useState(!!initialCode)
   const [step1, setStep1] = useState<Step1Data>({
     studioName: '',
     name: '',
     email: '',
     password: '',
     plan: initialPlan,
-    promoCode: '',
+    promoCode: initialCode,
   })
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [customerId, setCustomerId] = useState<string | null>(null)
   const [coupon, setCoupon] = useState<CouponData | null>(null)
+  const [trial, setTrial] = useState<TrialData | null>(null)
+  const [trialDays, setTrialDays] = useState(DEFAULT_TRIAL_DAYS)
+  // Before the server has validated the code, read the length off its prefix for the copy
+  const hintedTrialDays = trialDaysHint(step1.promoCode) ?? DEFAULT_TRIAL_DAYS
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -442,6 +465,8 @@ function SignupForm() {
       setClientSecret(data.clientSecret)
       setCustomerId(data.customerId)
       setCoupon(data.coupon ?? null)
+      setTrial(data.trial ?? null)
+      setTrialDays(typeof data.trialDays === 'number' ? data.trialDays : DEFAULT_TRIAL_DAYS)
       setStep(2)
     } catch {
       setError('We could not start secure payment setup. Please try again.')
@@ -615,7 +640,7 @@ function SignupForm() {
 
           {/* Trust row */}
           <div className="flex items-center justify-center gap-3 pt-1">
-            {['14 days free', 'Cancel anytime', '5-min setup'].map((t) => (
+            {[`${hintedTrialDays} days free`, 'Cancel anytime', '5-min setup'].map((t) => (
               <span key={t} className="flex items-center gap-1 text-[10px] text-muted-foreground">
                 <Check className="h-2.5 w-2.5 text-emerald-400 shrink-0" />
                 {t}
@@ -666,6 +691,8 @@ function SignupForm() {
             step1={step1}
             customerId={customerId}
             coupon={coupon}
+            trial={trial}
+            trialDays={trialDays}
             onBack={() => setStep(1)}
           />
         </Elements>
@@ -679,6 +706,15 @@ function SignupForm() {
       ) : null}
     </div>
   )
+}
+
+/** Header copy that reflects a trial-code link (?code=TRIAL45-…) before the form has validated it. */
+function TrialSubtitle({ variant }: { variant: 'mobile' | 'desktop' }) {
+  const searchParams = useSearchParams()
+  const days = trialDaysHint(searchParams.get('code') ?? searchParams.get('promo')) ?? DEFAULT_TRIAL_DAYS
+  return variant === 'mobile'
+    ? <>{days} days free. No charge until day {days + 1}.</>
+    : <>{days} days free · No charge until day {days + 1}</>
 }
 
 function NativeSignupBlocked() {
@@ -793,7 +829,9 @@ export default function SignupPage() {
               Start your free trial
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              14 days free. No charge until day 15.
+              <Suspense fallback={<>{DEFAULT_TRIAL_DAYS} days free. No charge until day {DEFAULT_TRIAL_DAYS + 1}.</>}>
+                <TrialSubtitle variant="mobile" />
+              </Suspense>
             </p>
           </div>
 
@@ -803,7 +841,9 @@ export default function SignupPage() {
               Create your account
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              14 days free · No charge until day 15
+              <Suspense fallback={<>{DEFAULT_TRIAL_DAYS} days free · No charge until day {DEFAULT_TRIAL_DAYS + 1}</>}>
+                <TrialSubtitle variant="desktop" />
+              </Suspense>
             </p>
           </div>
 

@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { adminSupabase } from '@/lib/studio-access'
 import { getStripe, resolvePromoCode } from '@/lib/stripe'
+import {
+  DEFAULT_TRIAL_DAYS,
+  lookupTrialCode,
+  redeemTrialCode,
+  trialCodeErrorMessage,
+  trialEndsAtFromDays,
+} from '@/lib/trial-codes'
 import { sendStudioWelcome } from '@/lib/email/send'
 import { generateUniqueSlug } from '@/lib/slug'
 import { signupLimiter, getIP } from '@/lib/rate-limit'
 import { isNativeRequest } from '@/lib/native-request'
-
-const TRIAL_DAYS = 14
 
 const PLAN_PRICE_IDS: Record<string, string | undefined> = {
   basic: process.env.STRIPE_BASIC_PRICE_ID,
@@ -65,9 +70,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Trial codes are validated before anything is created so a burnt code
+    // fails fast instead of leaving behind a half-made studio.
+    const trialLookup = await lookupTrialCode(adminSupabase, promoCode)
+    if (trialLookup.kind === 'invalid') {
+      return NextResponse.json({ error: trialCodeErrorMessage(trialLookup.status) }, { status: 400 })
+    }
+    const trialCode = trialLookup.kind === 'valid' ? trialLookup.code : null
+    let trialDays = trialCode?.trial_days ?? DEFAULT_TRIAL_DAYS
+    let trialEndsAt = trialEndsAtFromDays(trialDays)
+
     // 1. Create studio
     const slug = await generateUniqueSlug(studioName)
-    const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString()
 
     const { data: studio, error: studioError } = await adminSupabase
       .from('studios')
@@ -77,7 +91,11 @@ export async function POST(request: NextRequest) {
         subscription_status: 'trial',
         trial_ends_at: trialEndsAt,
         is_agency: false,
-        settings: { plan: selectedPlan, source: 'loyalink' },
+        settings: {
+          plan: selectedPlan,
+          source: 'loyalink',
+          ...(trialCode ? { trial_code: trialCode.code } : {}),
+        },
       })
       .select()
       .single()
@@ -100,14 +118,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to set up studio membership' }, { status: 500 })
     }
 
+    // 2b. Burn the trial code. If a concurrent signup redeemed it first, this
+    // studio silently gets the default trial rather than a second free ride.
+    if (trialCode) {
+      const redeemed = await redeemTrialCode(adminSupabase, trialCode.id, { studioId: studio.id, email: email || null })
+      if (!redeemed) {
+        console.warn('[onboarding/subscribe/complete] trial code already redeemed, falling back to default trial:', trialCode.code)
+        trialDays = DEFAULT_TRIAL_DAYS
+        trialEndsAt = trialEndsAtFromDays(trialDays)
+        await adminSupabase.from('studios').update({ trial_ends_at: trialEndsAt }).eq('id', studio.id)
+      }
+    }
+
     // 3. Stripe subscription with flat base + metered member price
     if (process.env.STRIPE_SECRET_KEY && customerId && paymentMethodId) {
       try {
         const stripe = getStripe()
 
+        // A trial code is not a Stripe discount, so skip the promo lookup for it
         const [, promo] = await Promise.all([
           stripe.paymentMethods.attach(paymentMethodId, { customer: customerId }),
-          resolvePromoCode(stripe, promoCode),
+          trialCode ? Promise.resolve(null) : resolvePromoCode(stripe, promoCode),
         ])
 
         const basePriceId = PLAN_PRICE_IDS[selectedPlan]
@@ -128,7 +159,7 @@ export async function POST(request: NextRequest) {
                 { price: memberPriceId },
               ],
               default_payment_method: paymentMethodId,
-              trial_period_days: TRIAL_DAYS,
+              trial_period_days: trialDays,
               trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
               metadata: { studio_id: studio.id, plan: selectedPlan },
               ...(promo?.promotionCodeId
