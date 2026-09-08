@@ -4,7 +4,7 @@ import { isNativeRequest } from '@/lib/native-request'
 
 // Business-account registration / paid subscription flows are blocked on the
 // native app shell (App Store guideline 3.1.1).
-const NATIVE_BLOCKED_PATHS = ['/signup', '/onboarding/subscribe']
+const NATIVE_BLOCKED_PATHS = ['/signup', '/onboarding/subscribe', '/trial']
 
 function isNativeBlockedPath(path: string): boolean {
   return NATIVE_BLOCKED_PATHS.some(
@@ -140,6 +140,7 @@ export async function updateSession(request: NextRequest) {
     path.startsWith('/join') ||
     path.startsWith('/loyalty') ||
     path.startsWith('/refer') ||
+    path.startsWith('/trial') ||
     path.startsWith('/referral-success') ||
     path.startsWith('/auth/callback') ||
     path.startsWith('/auth/confirm') ||
