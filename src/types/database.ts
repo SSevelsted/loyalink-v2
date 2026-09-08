@@ -28,11 +28,19 @@ export type TrialCode = {
   trial_days: number
   note: string | null
   expires_at: string | null
+  /** null = unlimited redemptions */
+  max_uses: number | null
+  use_count: number
   created_by: string | null
   created_at: string
-  redeemed_at: string | null
-  redeemed_by_studio_id: string | null
-  redeemed_email: string | null
+}
+
+export type TrialCodeRedemption = {
+  id: string
+  trial_code_id: string
+  studio_id: string | null
+  email: string | null
+  redeemed_at: string
 }
 
 export type StudioMember = {

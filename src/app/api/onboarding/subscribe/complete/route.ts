@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     // fails fast instead of leaving behind a half-made studio.
     const trialLookup = await lookupTrialCode(adminSupabase, promoCode)
     if (trialLookup.kind === 'invalid') {
-      return NextResponse.json({ error: trialCodeErrorMessage(trialLookup.status) }, { status: 400 })
+      return NextResponse.json({ error: trialCodeErrorMessage(trialLookup.status, trialLookup.code) }, { status: 400 })
     }
     const trialCode = trialLookup.kind === 'valid' ? trialLookup.code : null
     let trialDays = trialCode?.trial_days ?? DEFAULT_TRIAL_DAYS
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
     if (trialCode) {
       const redeemed = await redeemTrialCode(adminSupabase, trialCode.id, { studioId: studio.id, email: email || null })
       if (!redeemed) {
-        console.warn('[onboarding/subscribe/complete] trial code already redeemed, falling back to default trial:', trialCode.code)
+        console.warn('[onboarding/subscribe/complete] trial code exhausted at claim time, falling back to default trial:', trialCode.code)
         trialDays = DEFAULT_TRIAL_DAYS
         trialEndsAt = trialEndsAtFromDays(trialDays)
         await adminSupabase.from('studios').update({ trial_ends_at: trialEndsAt }).eq('id', studio.id)

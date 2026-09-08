@@ -17,7 +17,8 @@ import { Label } from '@/components/ui/label'
 import { Loader2, ArrowLeft, Check, Zap, Wallet, Users, TrendingUp, Bell, Tag } from 'lucide-react'
 import { LogoMark } from '@/components/logo'
 import { isNative } from '@/lib/platform'
-import { DEFAULT_TRIAL_DAYS, trialDaysHint } from '@/lib/trial-code-format'
+import { DEFAULT_TRIAL_DAYS } from '@/lib/trial-code-format'
+import { useTrialCodeCheck } from '@/hooks/use-trial-code'
 
 type Plan = 'basic' | 'pro'
 
@@ -424,8 +425,10 @@ function SignupForm() {
   const [coupon, setCoupon] = useState<CouponData | null>(null)
   const [trial, setTrial] = useState<TrialData | null>(null)
   const [trialDays, setTrialDays] = useState(DEFAULT_TRIAL_DAYS)
-  // Before the server has validated the code, read the length off its prefix for the copy
-  const hintedTrialDays = trialDaysHint(step1.promoCode) ?? DEFAULT_TRIAL_DAYS
+  // Resolve the code against the server so campaign links show their real
+  // trial length while the visitor is still filling in the form.
+  const codeCheck = useTrialCodeCheck(step1.promoCode)
+  const previewTrialDays = codeCheck.status === 'valid' ? codeCheck.trialDays : DEFAULT_TRIAL_DAYS
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -597,8 +600,17 @@ function SignupForm() {
                 className="bg-secondary/50 h-12"
                 placeholder="e.g. WELCOME2025"
                 autoComplete="off"
-                autoFocus
+                autoFocus={!initialCode}
               />
+              {codeCheck.status === 'valid' && (
+                <p className="flex items-center gap-1.5 text-xs text-emerald-400">
+                  <Check className="h-3 w-3 shrink-0" />
+                  {codeCheck.trialDays}-day free trial applied
+                </p>
+              )}
+              {(codeCheck.status === 'used_up' || codeCheck.status === 'expired') && codeCheck.reason && (
+                <p className="text-xs text-destructive">{codeCheck.reason}</p>
+              )}
             </div>
           )}
           {error && (
@@ -640,7 +652,7 @@ function SignupForm() {
 
           {/* Trust row */}
           <div className="flex items-center justify-center gap-3 pt-1">
-            {[`${hintedTrialDays} days free`, 'Cancel anytime', '5-min setup'].map((t) => (
+            {[`${previewTrialDays} days free`, 'Cancel anytime', '5-min setup'].map((t) => (
               <span key={t} className="flex items-center gap-1 text-[10px] text-muted-foreground">
                 <Check className="h-2.5 w-2.5 text-emerald-400 shrink-0" />
                 {t}
@@ -708,10 +720,12 @@ function SignupForm() {
   )
 }
 
-/** Header copy that reflects a trial-code link (?code=TRIAL45-…) before the form has validated it. */
+/** Header copy that reflects a trial-code link (/signup?code=…) once the code checks out. */
 function TrialSubtitle({ variant }: { variant: 'mobile' | 'desktop' }) {
   const searchParams = useSearchParams()
-  const days = trialDaysHint(searchParams.get('code') ?? searchParams.get('promo')) ?? DEFAULT_TRIAL_DAYS
+  const linkCode = (searchParams.get('code') ?? searchParams.get('promo') ?? '').trim().toUpperCase()
+  const check = useTrialCodeCheck(linkCode)
+  const days = check.status === 'valid' ? check.trialDays : DEFAULT_TRIAL_DAYS
   return variant === 'mobile'
     ? <>{days} days free. No charge until day {days + 1}.</>
     : <>{days} days free · No charge until day {days + 1}</>

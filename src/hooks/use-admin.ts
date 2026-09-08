@@ -3,7 +3,8 @@
 import { createClient } from '@/lib/supabase/client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useStudio } from './use-studio'
-import type { Studio, Transaction, TrialCode } from '@/types/database'
+import type { Studio, Transaction } from '@/types/database'
+import type { AdminTrialCode } from '@/app/api/admin/trial-codes/route'
 import type { AdminTicket } from './use-support'
 
 type PlatformStats = {
@@ -241,10 +242,7 @@ export function useSetStudioLegacyLoyalty() {
 
 // ─── Trial codes ─────────────────────────────────────────────────────────────
 
-export type AdminTrialCode = TrialCode & {
-  signup_url: string
-  studios: { name: string; slug: string } | null
-}
+export type { AdminTrialCode }
 
 export function useTrialCodes() {
   const { isSuperAdmin } = useStudio()
@@ -264,7 +262,15 @@ export function useCreateTrialCode() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (input: { trialDays: number; note?: string; expiresInDays?: number | null }) => {
+    mutationFn: async (input: {
+      trialDays: number
+      note?: string
+      expiresInDays?: number | null
+      /** null = unlimited redemptions */
+      maxUses?: number | null
+      /** optional readable code for a campaign link */
+      code?: string
+    }) => {
       const res = await fetch('/api/admin/trial-codes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -288,6 +294,36 @@ export function useRevokeTrialCode() {
   return useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/admin/trial-codes/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error ?? `Error ${res.status}`)
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin_trial_codes'] })
+    },
+  })
+}
+
+/** Adjust a live code's cap or expiry without reissuing the link already in the wild. */
+export function useUpdateTrialCode() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...body
+    }: {
+      id: string
+      maxUses?: number | null
+      expiresInDays?: number | null
+    }) => {
+      const res = await fetch(`/api/admin/trial-codes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error ?? `Error ${res.status}`)

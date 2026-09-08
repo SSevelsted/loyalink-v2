@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       resolvePromoCode(stripe, promoCode),
     ])
     if (trialLookup.kind === 'invalid') {
-      return NextResponse.json({ error: trialCodeErrorMessage(trialLookup.status) }, { status: 400 })
+      return NextResponse.json({ error: trialCodeErrorMessage(trialLookup.status, trialLookup.code) }, { status: 400 })
     }
     const trialCode = trialLookup.kind === 'valid' ? trialLookup.code : null
     const coupon = trialCode ? null : promo?.coupon ?? null

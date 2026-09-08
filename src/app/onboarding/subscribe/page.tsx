@@ -17,7 +17,8 @@ import { Label } from '@/components/ui/label'
 import { Loader2, ArrowLeft, Check, Zap, Tag, LogOut } from 'lucide-react'
 import { LogoMark } from '@/components/logo'
 import { isNative } from '@/lib/platform'
-import { DEFAULT_TRIAL_DAYS, trialDaysHint } from '@/lib/trial-code-format'
+import { DEFAULT_TRIAL_DAYS } from '@/lib/trial-code-format'
+import { useTrialCodeCheck } from '@/hooks/use-trial-code'
 
 type Plan = 'basic' | 'pro'
 
@@ -328,8 +329,10 @@ export default function OnboardingSubscribePage() {
   const [trialDays, setTrialDays] = useState(DEFAULT_TRIAL_DAYS)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  // Before the server has validated the code, read the length off its prefix for the copy
-  const hintedTrialDays = trialDaysHint(step1.promoCode) ?? DEFAULT_TRIAL_DAYS
+  // Resolve the code against the server so an extended-trial code shows its
+  // real length while the user is still filling in the form.
+  const codeCheck = useTrialCodeCheck(step1.promoCode)
+  const previewTrialDays = codeCheck.status === 'valid' ? codeCheck.trialDays : DEFAULT_TRIAL_DAYS
 
   // Protect route: require auth, block on native (App Store 3.1.1).
   useEffect(() => {
@@ -553,6 +556,15 @@ export default function OnboardingSubscribePage() {
                     autoComplete="off"
                     autoFocus
                   />
+                  {codeCheck.status === 'valid' && (
+                    <p className="flex items-center gap-1.5 text-xs text-emerald-400">
+                      <Check className="h-3 w-3 shrink-0" />
+                      {codeCheck.trialDays}-day free trial applied
+                    </p>
+                  )}
+                  {(codeCheck.status === 'used_up' || codeCheck.status === 'expired') && codeCheck.reason && (
+                    <p className="text-xs text-destructive">{codeCheck.reason}</p>
+                  )}
                 </div>
               )}
 
@@ -595,7 +607,7 @@ export default function OnboardingSubscribePage() {
               </Button>
 
               <div className="flex items-center justify-center gap-3 pt-1">
-                {[`${hintedTrialDays} days free`, 'Cancel anytime', '5-min setup'].map((t) => (
+                {[`${previewTrialDays} days free`, 'Cancel anytime', '5-min setup'].map((t) => (
                   <span key={t} className="flex items-center gap-1 text-[10px] text-muted-foreground">
                     <Check className="h-2.5 w-2.5 text-emerald-400 shrink-0" />
                     {t}
