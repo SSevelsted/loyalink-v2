@@ -3,6 +3,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import type { AudienceFilter } from '@/types/database'
 import { passServiceFetch } from '@/lib/pass-service'
 import { verifyStudioAccess } from '@/lib/studio-access'
+import { applyContentActions, type ContentAction } from '@/lib/services/campaign-actions-service'
 
 const supabase = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,83 +54,6 @@ function buildCustomerQuery(studioId: string, audienceType: string, filter: Audi
   return query
 }
 
-type ContentAction = {
-  announcement?: string
-  action?: 'none' | 'add_balance' | 'cashback_boost'
-  amount?: number
-  cashback_rate?: number
-  cashback_duration_days?: number
-}
-
-async function applyContentActions(
-  customerIds: string[],
-  studioId: string,
-  content: ContentAction,
-) {
-  if (!content || content.action === 'none') return
-
-  if (content.action === 'add_balance' && content.amount && content.amount > 0) {
-    // Credit each customer's balance and create a transaction
-    for (const customerId of customerIds) {
-      const { data: customer } = await supabase
-        .from('customers')
-        .select('balance')
-        .eq('id', customerId)
-        .single()
-
-      if (customer) {
-        await supabase
-          .from('customers')
-          .update({ balance: Number(customer.balance) + content.amount })
-          .eq('id', customerId)
-
-        await supabase.from('transactions').insert({
-          customer_id: customerId,
-          studio_id: studioId,
-          type: 'adjustment',
-          amount: content.amount,
-          description: content.announcement || 'Campaign bonus',
-        })
-      }
-    }
-  }
-
-  if (content.action === 'cashback_boost' && content.cashback_rate && content.cashback_rate > 0) {
-    // Temporarily boost each customer's cashback rate
-    // Store the boost info in customer metadata so it can expire
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + (content.cashback_duration_days || 30))
-
-    for (const customerId of customerIds) {
-      const { data: customer } = await supabase
-        .from('customers')
-        .select('cashback_rate, metadata')
-        .eq('id', customerId)
-        .single()
-
-      if (customer) {
-        const currentRate = Number(customer.cashback_rate || 0)
-        const metadata = (customer.metadata || {}) as Record<string, unknown>
-
-        await supabase
-          .from('customers')
-          .update({
-            cashback_rate: currentRate + content.cashback_rate,
-            metadata: {
-              ...metadata,
-              cashback_boost: {
-                original_rate: currentRate,
-                bonus_rate: content.cashback_rate,
-                expires_at: expiresAt.toISOString(),
-              },
-            },
-          })
-          .eq('id', customerId)
-      }
-    }
-  }
-}
-
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -175,7 +99,7 @@ export async function POST(
     const content = (campaign.content || {}) as ContentAction
 
     // Apply content actions (add balance, cashback boost, etc.)
-    await applyContentActions(customerIds, campaign.studio_id, content)
+    await applyContentActions(customerIds, campaign.studio_id, content, { source: 'campaign' })
 
     // Fire push via pass service (to refresh passes with new data)
     // Pass the campaign announcement as pushMessage — it becomes the notification text
