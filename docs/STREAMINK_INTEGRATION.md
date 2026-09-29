@@ -334,8 +334,8 @@ Auth: Studio key
 Returns `400` if tier slug doesn't exist in the rewards config.
 
 **During an active promotion** the promotion stays the member's main deal, and the new tier + rate become its fallback (what the member returns to when it ends or is revoked):
-- `cashback_boost`: the tier changes now; purchases keep paying the boost rate until the promotion ends.
-- `tier_override`: the override stays in force; the new tier + rate apply when it ends. To change only the rate during a `tier_override`, send the member's own tier (the promotion's `original_tier_slug`), not `loyalty_stage`, which holds the override.
+- `cashback_boost`: the tier changes now. Until the promotion ends, purchases pay the higher of the boost rate and the new rate.
+- `tier_override`: the override tier stays in force until it ends; purchases pay the higher of the override tier's rate and the new rate. To change only the rate during a `tier_override`, send the member's own tier (the promotion's `original_tier_slug`), not `loyalty_stage`, which holds the override.
 
 **Response:** `{ "data": { "tier_slug": "gold", "cashback_rate": 15, "effective_tier_slug": "gold", "effective_cashback_rate": 20, "deferred_by_promotion": "<member_promotion id>" | null } }`. `tier_slug` / `cashback_rate` are the permanent values; the `effective_*` fields are what is in force now.
 
@@ -359,8 +359,8 @@ Auth: Studio key
 
 **This is the core endpoint.** It automatically:
 - Updates the member's total spend
-- Checks and applies tier upgrades
-- **Checks for active promotions** — uses promo cashback rate if active
+- Checks and applies tier upgrades, from the member's own tier (during a promotion the upgrade becomes the promotion's fallback, so it survives the end). The purchase that triggers an upgrade still earns the rate in force before it
+- **Checks for active promotions** — pays the best deal: the higher of the promotion's rate and the member's own rate
 - Calculates and credits cashback
 - Activates referrals if conditions are met
 - Credits referral commissions to referrers
@@ -502,8 +502,9 @@ Auth: Studio key
 Only one active promotion per member. Returns `409` if member already has one.
 
 **What happens:**
-- `cashback_boost`: Member's cashback rate is immediately updated. On next transaction(s), the boosted rate is used. When the promotion expires (usage or time), the member reverts to their original rate.
-- `tier_override`: Member is immediately moved to the specified tier (with new card design, pass colors). When it expires, they revert to their original tier.
+- `cashback_boost`: On next transaction(s), the member earns the higher of the boost rate and their own rate (best deal). When the promotion expires (usage or time), the member reverts to their own rate.
+- `tier_override`: Member is immediately moved to the specified tier (with new card design, pass colors) and earns the higher of that tier's rate and their own rate. When it expires, they revert to their own tier. `tier_slug` must be a tier in the studio's rewards config (else `400`).
+- The member's `cashback_rate` (member GET, wallet pass) always shows the rate in force. A permanent change while the promotion runs (tier change, automatic upgrade, referral bonus, campaign boost, rewards-config migration) updates the rate the member reverts to.
 
 ---
 

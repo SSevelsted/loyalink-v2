@@ -3,7 +3,7 @@ import { adminSupabase, verifyStudioAccess } from '@/lib/studio-access'
 import { passServiceFetch } from '@/lib/pass-service'
 import { migrateRewardsConfig, DEFAULT_REWARDS_CONFIG } from '@/types/database'
 import type { RewardsConfig } from '@/types/database'
-import { applyFriendRateToMembers } from '@/lib/services/rewards-migration-service'
+import { applyFriendRateToMembers, RewardsMigrationError } from '@/lib/services/rewards-migration-service'
 
 type ReferralMigrationRequest = {
   studioId: string
@@ -46,11 +46,19 @@ export async function POST(request: NextRequest) {
 
     // 1. Update friend cashback rate for existing referred customers
     if (applyFriendRate && oldConfig.referrals?.friend_tier_slug) {
-      updatedFriends = await applyFriendRateToMembers({
-        studioId,
-        friendSlug: oldConfig.referrals.friend_tier_slug,
-        rate: configToSave.referrals.friend_cashback_rate,
-      })
+      try {
+        updatedFriends = await applyFriendRateToMembers({
+          studioId,
+          config: configToSave,
+          friendSlug: oldConfig.referrals.friend_tier_slug,
+          rate: configToSave.referrals.friend_cashback_rate,
+        })
+      } catch (err) {
+        if (err instanceof RewardsMigrationError) {
+          return NextResponse.json({ error: err.message }, { status: err.status })
+        }
+        throw err
+      }
     }
 
     // 2. Recalculate commission_expires_at for activated referrals

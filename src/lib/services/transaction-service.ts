@@ -1,12 +1,21 @@
 import { adminSupabase } from '@/lib/studio-access'
 import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig, getReferralUnlockTier } from '@/types/database'
-import type { RewardsConfig, UpgradeTriggerConfig } from '@/types/database'
+import type { RewardsConfig, TierConfig, UpgradeTriggerConfig } from '@/types/database'
 import { passServiceFetch } from '@/lib/pass-service'
 import { expirePromotion } from '@/lib/services/promotion-service'
 import { fireWebhook } from '@/lib/services/webhook-service'
 import { sendTierUpgrade, sendReferralReward } from '@/lib/email/send'
 import { buildTransactionPushMessage } from '@/lib/pass-push-messages'
 import { syncLegacyPasskitCustomer } from '@/lib/services/legacy-passkit-sync-service'
+import {
+  applyPermanentDeal,
+  effectiveCashbackRate,
+  loadMemberDeal,
+  MemberDealError,
+  memberDeal,
+  promotionPays,
+  type PermanentDealResult,
+} from '@/lib/services/member-deal-service'
 
 type ProcessTransactionInput = {
   customerId: string
@@ -132,11 +141,13 @@ export async function releaseTransactionIdempotencyKey(claimId: string): Promise
 export async function processTransaction(input: ProcessTransactionInput): Promise<ProcessTransactionResult> {
   const { customerId, studioId, amount, cashAmount, isDeposit, sourceTransactionId } = input
 
-  // Fetch customer
+  // Fetch customer. Scoped to the studio: the dashboard route passes a
+  // client-supplied customerId after checking access to studioId only.
   const { data: customer, error: custErr } = await adminSupabase
     .from('customers')
     .select('*')
     .eq('id', customerId)
+    .eq('studio_id', studioId)
     .single()
 
   if (custErr || !customer) {
@@ -166,33 +177,84 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
   }
   const newSpendTotal = Number(customer.total_real_spend || 0) + amount
 
-  // 1. Always update spend total and has_purchased
-  const baseUpdates: Record<string, unknown> = {
-    total_real_spend: newSpendTotal,
-  }
-  if (!customer.has_purchased) {
-    baseUpdates.has_purchased = true
-  }
+  // 1. Active promotion. One past its end date ends first: it no longer pays,
+  // and a tier upgrade below is not overwritten by its stale fallback.
+  const { data: activePromo, error: promoErr } = await adminSupabase
+    .from('member_promotions')
+    .select('*')
+    .eq('customer_id', customerId)
+    .eq('studio_id', studioId)
+    .eq('status', 'active')
+    .maybeSingle()
+  if (promoErr) throw new TransactionError(`Failed to load active promotion: ${promoErr.message}`, 500)
 
-  // 2. Check N-tier upgrades
-  let tierChanged = false
-  const currentIdx = config.tiers.findIndex(t => t.slug === customer.loyalty_stage)
+  let promo = activePromo
+  let rowState = { loyalty_stage: customer.loyalty_stage as string, cashback_rate: customer.cashback_rate }
+  if (promo && promo.expires_at && new Date(promo.expires_at) <= new Date()) {
+    await expirePromotion(promo.id, customerId, promo.original_tier_slug, Number(promo.original_cashback_rate))
+    results.push(`Promotion expired (time limit reached)`)
+    queueWebhook(studioId, 'promotion.expired', customerId, { reason: 'time_limit' })
+    rowState = { loyalty_stage: promo.original_tier_slug, cashback_rate: promo.original_cashback_rate }
+    promo = null
+  }
+  const deal = memberDeal({ ...customer, ...rowState }, promo, config.tiers)
+
+  // 2. The rate this purchase pays: the deal in force before it (an upgrade
+  // below pays from the next purchase). Best deal while a promotion runs.
+  const cashbackRate = effectiveCashbackRate(promo, deal.permanentRate, config.tiers)
+  const promoApplied = promotionPays(promo, deal.permanentRate, config.tiers)
+
+  // 3. N-tier upgrades, from the member's OWN tier (during a tier_override
+  // that is the promotion's fallback, not the override on the row).
+  let upgradeTo: TierConfig | null = null
+  const currentIdx = config.tiers.findIndex(t => t.slug === deal.permanentTier)
   for (let i = Math.max(currentIdx, 0) + 1; i < config.tiers.length; i++) {
     const tier = config.tiers[i]
     if (!tier.upgrade_trigger) continue
     if (shouldUpgrade(customer, tier.upgrade_trigger, newSpendTotal, isDeposit)) {
-      baseUpdates.loyalty_stage = tier.slug
-      baseUpdates.cashback_rate = tier.cashback_rate
-      tierChanged = true
+      upgradeTo = tier
       results.push(`Upgraded to ${tier.slug} at ${tier.cashback_rate}%`)
     } else {
       break
     }
   }
+  const tierChanged = upgradeTo != null
 
-  await adminSupabase.from('customers').update(baseUpdates).eq('id', customerId)
+  // 4. Spend total, has_purchased and any upgrade in one member write. During
+  // a promotion the upgrade lands in its fallback, and the row shows the best
+  // deal. Also writes the tier_change event.
+  const spendUpdates: Record<string, unknown> = { total_real_spend: newSpendTotal }
+  if (!customer.has_purchased) spendUpdates.has_purchased = true
+  let dealAfter: PermanentDealResult
+  try {
+    dealAfter = await applyPermanentDeal({
+      studioId,
+      customerId,
+      tierSlug: upgradeTo?.slug,
+      source: 'purchase',
+      config,
+      current: deal,
+      customerFields: spendUpdates,
+      onEventError: 'log',
+    })
+  } catch (err) {
+    if (err instanceof MemberDealError) throw new TransactionError(err.message, err.status)
+    throw err
+  }
 
-  // 3. Referral activation
+  if (upgradeTo) {
+    queueWebhook(studioId, 'tier.upgraded', customerId, {
+      from_tier: deal.permanentTier,
+      to_tier: upgradeTo.slug,
+      to_tier_name: upgradeTo.name,
+      cashback_rate: upgradeTo.cashback_rate,
+    })
+
+    // Send tier upgrade email (fire-and-forget)
+    sendTierUpgrade(customerId, studioId, deal.permanentTier, upgradeTo.slug)
+  }
+
+  // 5. Referral activation
   const { data: referralRow } = await adminSupabase
     .from('referrals')
     .select('*')
@@ -217,107 +279,10 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
       })
       .eq('id', referralRow.id)
 
-    const { data: referrer } = await adminSupabase
-      .from('customers')
-      .select('referral_count, cashback_rate')
-      .eq('id', referralRow.referrer_customer_id)
-      .single()
-
-    if (referrer) {
-      const newCount = (referrer.referral_count || 0) + 1
-      const currentRate = Number(referrer.cashback_rate || getReferralUnlockTier(config)?.cashback_rate || config.tiers[0].cashback_rate)
-      const newRate = Math.min(
-        currentRate + config.referrals.referrer_cashback_bonus_per_ref,
-        config.referrals.referrer_cashback_cap
-      )
-
-      await adminSupabase
-        .from('customers')
-        .update({ referral_count: newCount, cashback_rate: newRate })
-        .eq('id', referralRow.referrer_customer_id)
-
-      results.push(`Referral activated. Referrer now at ${newRate}% cashback`)
-
-      queueWebhook(studioId, 'referral.activated', customerId, {
-        referrer_customer_id: referralRow.referrer_customer_id,
-        referrer_new_cashback_rate: newRate,
-        referrer_referral_count: newCount,
-      })
-
-      // Send referral reward email to the referrer (fire-and-forget)
-      const { data: referredCustomer } = await adminSupabase
-        .from('customers')
-        .select('name')
-        .eq('id', customerId)
-        .single()
-
-      sendReferralReward(
-        referralRow.referrer_customer_id,
-        studioId,
-        referredCustomer?.name ?? 'A friend',
-        config.referrals.referrer_cashback_bonus_per_ref,
-      )
-
-      triggerPassUpdate(referralRow.referrer_customer_id)
-    }
+    await creditReferrer(referralRow.referrer_customer_id, customerId, studioId, config, results, queueWebhook)
   }
 
-  if (tierChanged) {
-    const newTierSlug = baseUpdates.loyalty_stage as string
-    const newTier = config.tiers.find(t => t.slug === newTierSlug)
-    await adminSupabase.from('analytics_events').insert({
-      studio_id: studioId,
-      event_type: 'tier_change',
-      customer_id: customerId,
-      metadata: {
-        from_tier: customer.loyalty_stage,
-        to_tier: newTierSlug,
-        to_tier_name: newTier?.name ?? newTierSlug,
-        from_tier_name: config.tiers.find(t => t.slug === customer.loyalty_stage)?.name ?? customer.loyalty_stage,
-        cashback_rate: newTier?.cashback_rate,
-      },
-    })
-
-    queueWebhook(studioId, 'tier.upgraded', customerId, {
-      from_tier: customer.loyalty_stage,
-      to_tier: newTierSlug,
-      to_tier_name: newTier?.name ?? newTierSlug,
-      cashback_rate: newTier?.cashback_rate,
-    })
-
-    // Send tier upgrade email (fire-and-forget)
-    sendTierUpgrade(customerId, studioId, customer.loyalty_stage, newTierSlug)
-  }
-
-  // 4. Check for active promotion
-  const { data: activePromo } = await adminSupabase
-    .from('member_promotions')
-    .select('*')
-    .eq('customer_id', customerId)
-    .eq('status', 'active')
-    .single()
-
-  // Expire time-based promotions that have passed
-  let promo = activePromo
-  if (promo && promo.expires_at && new Date(promo.expires_at) <= new Date()) {
-    await expirePromotion(promo.id, customerId, promo.original_tier_slug, Number(promo.original_cashback_rate))
-    results.push(`Promotion expired (time limit reached)`)
-    queueWebhook(studioId, 'promotion.expired', customerId, { reason: 'time_limit' })
-    promo = null
-  }
-
-  // Determine effective cashback rate
-  let cashbackRate: number
-  let promoApplied = false
-
-  if (promo && promo.type === 'cashback_boost' && promo.cashback_rate != null) {
-    cashbackRate = Number(promo.cashback_rate)
-    promoApplied = true
-  } else {
-    cashbackRate = Number(customer.cashback_rate ?? config.tiers[0].cashback_rate)
-  }
-
-  // 5. Cashback calculation
+  // 6. Cashback calculation
   const cashableAmount = cashAmount != null ? cashAmount : amount
   const cashbackAmount = cashableAmount * cashbackRate / 100
 
@@ -369,9 +334,9 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
       name: customer.name,
       email: customer.email,
       phone: customer.phone,
-      loyalty_stage: baseUpdates.loyalty_stage ?? customer.loyalty_stage,
+      loyalty_stage: dealAfter.effective_tier_slug,
       balance: Number(customer.balance ?? 0) + cashbackAmount,
-      cashback_rate: baseUpdates.cashback_rate ?? customer.cashback_rate,
+      cashback_rate: dealAfter.effective_cashback_rate,
       referral_code: customer.referral_code,
       referral_count: customer.referral_count,
       has_purchased: true,
@@ -388,11 +353,8 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
     ...(legacyLoyalty ? { legacy_loyalty: legacyLoyalty } : {}),
   })
 
-  const tierUpgradeForMessage = tierChanged && baseUpdates.loyalty_stage
-    ? (() => {
-        const t = config.tiers.find(x => x.slug === baseUpdates.loyalty_stage)
-        return t ? { name: t.name, cashbackRate: t.cashback_rate } : null
-      })()
+  const tierUpgradeForMessage = upgradeTo
+    ? { name: upgradeTo.name, cashbackRate: upgradeTo.cashback_rate }
     : null
 
   const cashbackForMessage = cashbackAmount > 0
@@ -452,24 +414,26 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
 
   triggerPassUpdate(customerId)
 
-  // 6. Handle promotion usage decrement / expiry after transaction.
+  // 7. Handle promotion usage decrement / expiry after transaction.
   // Deposits are not completed transactions, so they don't consume a usage-based
   // boost — mirrors the deposit exclusion in shouldUpgrade() for tier upgrades.
-  if (promo && promo.remaining_transactions != null && !isDeposit) {
-    const remaining = promo.remaining_transactions - 1
+  // The fallback restored is the one step 4 wrote (it holds any upgrade).
+  const livePromo = dealAfter.promotion ? promo : null
+  if (livePromo && livePromo.remaining_transactions != null && !isDeposit) {
+    const remaining = livePromo.remaining_transactions - 1
     if (remaining <= 0) {
-      await expirePromotion(promo.id, customerId, promo.original_tier_slug, Number(promo.original_cashback_rate))
+      await expirePromotion(livePromo.id, customerId, dealAfter.tier_slug, dealAfter.cashback_rate)
       results.push(`Promotion expired (usage limit reached)`)
       queueWebhook(studioId, 'promotion.expired', customerId, { reason: 'usage_limit' })
     } else {
       await adminSupabase
         .from('member_promotions')
         .update({ remaining_transactions: remaining })
-        .eq('id', promo.id)
+        .eq('id', livePromo.id)
     }
   }
 
-  // 5. Referral commission
+  // 8. Referral commission
   if (config.referrals.enabled) {
     const { data: activeReferral } = await adminSupabase
       .from('referrals')
@@ -517,8 +481,9 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
     }
   }
 
-  // Build summary
-  const updatedTierSlug = (baseUpdates.loyalty_stage as string) ?? customer.loyalty_stage
+  // Build summary. Tiers here are the member's own (permanent) tier, which
+  // upgrades and next-tier progress are measured on.
+  const updatedTierSlug = dealAfter.tier_slug
   const updatedTierIdx = config.tiers.findIndex(t => t.slug === updatedTierSlug)
   const updatedTier = config.tiers[updatedTierIdx] ?? config.tiers[0]
   const nextTier = updatedTierIdx >= 0 && updatedTierIdx < config.tiers.length - 1
@@ -543,9 +508,9 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
     summary: {
       tierUpgraded: tierChanged,
       previousTier: tierChanged ? {
-        slug: customer.loyalty_stage,
-        name: config.tiers.find(t => t.slug === customer.loyalty_stage)?.name ?? customer.loyalty_stage,
-        cashbackRate,
+        slug: deal.permanentTier,
+        name: config.tiers.find(t => t.slug === deal.permanentTier)?.name ?? deal.permanentTier,
+        cashbackRate: deal.permanentRate,
       } : null,
       currentTier: {
         slug: updatedTier.slug,
@@ -566,6 +531,73 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
       totalSpend: newSpendTotal,
       isMaxTier: nextTier === null,
     },
+  }
+}
+
+/**
+ * Referral bonus: raise the referrer's permanent rate by the per-referral
+ * bonus, up to the cap (a bonus never lowers a rate already above the cap).
+ * During a promotion the bonus lands in its fallback, and the row shows the
+ * best deal. A failure is reported in `results`, not thrown: the friend's
+ * purchase has already been recorded.
+ */
+async function creditReferrer(
+  referrerId: string,
+  referredId: string,
+  studioId: string,
+  config: RewardsConfig,
+  results: string[],
+  queueWebhook: (...args: Parameters<typeof fireWebhook>) => void,
+) {
+  try {
+    const referrer = await loadMemberDeal(studioId, referrerId, config.tiers)
+    if (!referrer) return
+
+    const newCount = (referrer.customer.referral_count || 0) + 1
+    const currentRate = referrer.permanentRate || getReferralUnlockTier(config)?.cashback_rate || config.tiers[0].cashback_rate
+    const newRate = Math.max(
+      currentRate,
+      Math.min(currentRate + config.referrals.referrer_cashback_bonus_per_ref, config.referrals.referrer_cashback_cap),
+    )
+
+    const after = await applyPermanentDeal({
+      studioId,
+      customerId: referrerId,
+      cashbackRate: newRate,
+      source: 'referral',
+      config,
+      current: referrer,
+      customerFields: { referral_count: newCount },
+      tierChangeEvent: 'never',
+    })
+
+    results.push(`Referral activated. Referrer now at ${after.effective_cashback_rate}% cashback`)
+
+    queueWebhook(studioId, 'referral.activated', referredId, {
+      referrer_customer_id: referrerId,
+      referrer_new_cashback_rate: after.effective_cashback_rate,
+      referrer_referral_count: newCount,
+    })
+
+    // Send referral reward email to the referrer (fire-and-forget)
+    const { data: referredCustomer } = await adminSupabase
+      .from('customers')
+      .select('name')
+      .eq('id', referredId)
+      .single()
+
+    sendReferralReward(
+      referrerId,
+      studioId,
+      referredCustomer?.name ?? 'A friend',
+      config.referrals.referrer_cashback_bonus_per_ref,
+    )
+
+    triggerPassUpdate(referrerId)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('[transactions] referral bonus failed:', { referrerId, studioId, message })
+    results.push(`Referral activated but the referrer's rate update failed: ${message}`)
   }
 }
 

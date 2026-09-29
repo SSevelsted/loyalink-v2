@@ -34,10 +34,11 @@ export async function GET(request: NextRequest) {
     members[row.loyalty_stage] = (members[row.loyalty_stage] ?? 0) + 1
   }
 
-  // Count active promotions referencing these tier slugs
+  // Count this studio's active promotions whose fallback is one of these tiers
   const { data: promoRows, error: promoError } = await adminSupabase
     .from('member_promotions')
     .select('original_tier_slug')
+    .eq('studio_id', studioId)
     .eq('status', 'active')
     .in('original_tier_slug', slugs)
 
