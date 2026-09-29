@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminSupabase, verifyStudioAccess } from '@/lib/studio-access'
 import { passServiceFetch } from '@/lib/pass-service'
 import { migrateRewardsConfig, syncReferralFriendRate } from '@/types/database'
+import { migrateExistingMembers, RewardsMigrationError } from '@/lib/services/rewards-migration-service'
 import type { RewardsConfig } from '@/types/database'
 
 type MigrationRequest = {
@@ -34,92 +35,20 @@ export async function POST(request: NextRequest) {
     let migratedPromotions = 0
 
     if (applyToExisting) {
-      // 1. Apply tier mappings (removed tiers → new tiers)
-      for (const [oldSlug, newSlug] of Object.entries(mappings)) {
-        const newTier = newTierMap.get(newSlug)
-        if (!newTier) continue
-
-        // Fetch affected customers for analytics logging
-        const { data: affected } = await adminSupabase
-          .from('customers')
-          .select('id, loyalty_stage')
-          .eq('studio_id', studioId)
-          .eq('loyalty_stage', oldSlug)
-
-        if (affected && affected.length > 0) {
-          // Batch update customers
-          const { error: updateError } = await adminSupabase
-            .from('customers')
-            .update({
-              loyalty_stage: newSlug,
-              cashback_rate: newTier.cashback_rate,
-            })
-            .eq('studio_id', studioId)
-            .eq('loyalty_stage', oldSlug)
-
-          if (updateError) {
-            console.error('[rewards/migration] tier update error:', updateError)
-            return NextResponse.json({ error: 'Failed to migrate tier. Please try again.' }, { status: 500 })
-          }
-
-          migratedMembers += affected.length
-
-          // Log analytics events in chunks
-          const events = affected.map((c) => ({
-            studio_id: studioId,
-            event_type: 'tier_change' as const,
-            customer_id: c.id,
-            metadata: {
-              from_tier: oldSlug,
-              to_tier: newSlug,
-              to_tier_name: newTier.name,
-              cashback_rate: newTier.cashback_rate,
-              source: 'migration',
-            },
-          }))
-
-          for (let i = 0; i < events.length; i += 500) {
-            await adminSupabase.from('analytics_events').insert(events.slice(i, i + 500))
-          }
+      try {
+        const migrated = await migrateExistingMembers({
+          studioId,
+          config: normalizedConfig,
+          mappings,
+          applyRateChanges,
+        })
+        migratedMembers = migrated.migratedMembers
+        migratedPromotions = migrated.migratedPromotions
+      } catch (err) {
+        if (err instanceof RewardsMigrationError) {
+          return NextResponse.json({ error: err.message }, { status: err.status })
         }
-
-        // Update active promotion snapshots
-        const { data: promoCount } = await adminSupabase
-          .from('member_promotions')
-          .update({
-            original_tier_slug: newSlug,
-            original_cashback_rate: newTier.cashback_rate,
-          })
-          .eq('original_tier_slug', oldSlug)
-          .eq('status', 'active')
-          .select('id')
-
-        migratedPromotions += promoCount?.length ?? 0
-      }
-
-      // 2. Apply cashback rate changes (same slug, new rate)
-      if (applyRateChanges) {
-        for (const [slug, tier] of newTierMap) {
-          // Only update if this slug was NOT already handled by mappings
-          if (Object.values(mappings).includes(slug) && !Object.keys(mappings).includes(slug)) continue
-
-          const { data: rateAffected } = await adminSupabase
-            .from('customers')
-            .update({ cashback_rate: tier.cashback_rate })
-            .eq('studio_id', studioId)
-            .eq('loyalty_stage', slug)
-            .neq('cashback_rate', tier.cashback_rate)
-            .select('id')
-
-          migratedMembers += rateAffected?.length ?? 0
-
-          // Also update promotion snapshots for rate changes
-          await adminSupabase
-            .from('member_promotions')
-            .update({ original_cashback_rate: tier.cashback_rate })
-            .eq('original_tier_slug', slug)
-            .eq('status', 'active')
-        }
+        throw err
       }
     }
 

@@ -246,7 +246,7 @@ export default function CustomerDetailPage() {
 
       if (data?.deferred_by_promotion && data.effective_tier_slug !== data.tier_slug) {
         toast.success(`${tier.name} applies when the current promotion ends`)
-      } else if (data?.deferred_by_promotion) {
+      } else if (data?.deferred_by_promotion && data.effective_cashback_rate > data.cashback_rate) {
         toast.success(`Tier changed to ${tier.name}. The promotion rate stays until it ends`)
       } else {
         toast.success(`Tier changed to ${tier.name}`)
@@ -399,8 +399,8 @@ export default function CustomerDetailPage() {
                     {activePromo && (
                       <p className="text-sm text-muted-foreground">
                         {activePromo.type === 'tier_override'
-                          ? 'A tier promotion is active. The tier you pick applies when it ends.'
-                          : 'A cashback promotion is active. The tier changes now; the promotion rate stays until it ends.'}
+                          ? 'A tier promotion is active. The tier you pick applies when it ends. Until then the member earns the higher of the two rates.'
+                          : 'A cashback promotion is active. The tier changes now. Until the promotion ends the member earns the higher of the two rates.'}
                       </p>
                     )}
                     {(rewardsConfig?.tiers ?? []).map((tier) => {

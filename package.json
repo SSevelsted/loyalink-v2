@@ -8,7 +8,7 @@
     "analyze": "ANALYZE=true next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import tsx --test src/lib/services/member-admin-service.test.ts",
+    "test": "node --import tsx --test src/lib/services/*.test.ts",
     "mobile:sync": "cap sync && node scripts/copy-mobile-assets.mjs"
   },
   "dependencies": {

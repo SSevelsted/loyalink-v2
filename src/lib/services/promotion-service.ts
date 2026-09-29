@@ -1,5 +1,7 @@
 import { adminSupabase } from '@/lib/studio-access'
 import { passServiceFetch } from '@/lib/pass-service'
+import type { RewardsConfig } from '@/types/database'
+import { dealRow, loadRewardsConfig, MemberDealError } from '@/lib/services/member-deal-service'
 
 type ApplyPromotionInput = {
   studioId: string
@@ -13,6 +15,12 @@ type ApplyPromotionInput = {
   appliedBy?: string
 }
 
+/**
+ * Start a promotion for a member. The member's current tier + rate become its
+ * fallback snapshot (restored by revoke/expire), and the customer row shows
+ * the deal in force: the override tier for a tier_override, and the best-deal
+ * rate (the higher of the promotion's rate and the fallback rate).
+ */
 export async function applyPromotion(input: ApplyPromotionInput) {
   const { studioId, customerId, promotionId, type, cashbackRate, tierSlug, durationType, durationValue, appliedBy } = input
 
@@ -40,6 +48,17 @@ export async function applyPromotion(input: ApplyPromotionInput) {
     throw new PromotionError('Customer not found', 404)
   }
 
+  let config: RewardsConfig
+  try {
+    config = await loadRewardsConfig(studioId)
+  } catch (err) {
+    if (err instanceof MemberDealError) throw new PromotionError(err.message, err.status)
+    throw err
+  }
+  if (type === 'tier_override' && !config.tiers.some((t) => t.slug === tierSlug)) {
+    throw new PromotionError(`Tier "${tierSlug ?? ''}" not found in rewards config`, 400)
+  }
+
   // Calculate expires_at for time-based
   let expiresAt: string | null = null
   let remainingTransactions: number | null = null
@@ -52,6 +71,9 @@ export async function applyPromotion(input: ApplyPromotionInput) {
     remainingTransactions = durationValue
   }
 
+  const fallbackTier = customer.loyalty_stage as string
+  const fallbackRate = Number(customer.cashback_rate ?? 0)
+
   // Create member_promotion
   const { data: memberPromo, error } = await adminSupabase
     .from('member_promotions')
@@ -62,8 +84,8 @@ export async function applyPromotion(input: ApplyPromotionInput) {
       type,
       cashback_rate: type === 'cashback_boost' ? cashbackRate : null,
       tier_slug: type === 'tier_override' ? tierSlug : null,
-      original_tier_slug: customer.loyalty_stage,
-      original_cashback_rate: Number(customer.cashback_rate ?? 0),
+      original_tier_slug: fallbackTier,
+      original_cashback_rate: fallbackRate,
       remaining_transactions: remainingTransactions,
       expires_at: expiresAt,
       status: 'active',
@@ -79,41 +101,27 @@ export async function applyPromotion(input: ApplyPromotionInput) {
     throw new PromotionError(error.message, 500)
   }
 
-  // If tier_override, update customer's tier + rate immediately
-  if (type === 'tier_override' && tierSlug) {
-    // Fetch the tier's cashback rate from rewards config
-    const { data: studio } = await adminSupabase
-      .from('studios')
-      .select('settings')
-      .eq('id', studioId)
-      .single()
-
-    const settings = studio?.settings as Record<string, unknown> | null
-    const rewardsConfig = settings?.rewards_config as Record<string, unknown> | null
-    const tiers = (rewardsConfig?.tiers as Array<{ slug: string; cashback_rate: number }>) ?? []
-    const tier = tiers.find(t => t.slug === tierSlug)
-
-    await adminSupabase
-      .from('customers')
-      .update({
-        loyalty_stage: tierSlug,
-        cashback_rate: tier?.cashback_rate ?? cashbackRate ?? customer.cashback_rate,
-      })
-      .eq('id', customerId)
-
-    // Push pass update
-    void passServiceFetch(`/api/push/customer/${customerId}`, { method: 'POST' }).catch(() => {})
+  const row = dealRow(
+    {
+      type,
+      cashback_rate: type === 'cashback_boost' ? cashbackRate ?? null : null,
+      tier_slug: type === 'tier_override' ? tierSlug ?? null : null,
+    },
+    fallbackTier,
+    fallbackRate,
+    config.tiers,
+    fallbackTier,
+  )
+  const { error: rowError } = await adminSupabase
+    .from('customers')
+    .update(row)
+    .eq('id', customerId)
+    .eq('studio_id', studioId)
+  if (rowError) {
+    throw new PromotionError(`Promotion started but the member row failed to update: ${rowError.message}`, 500)
   }
 
-  // If cashback_boost, update the cashback rate immediately
-  if (type === 'cashback_boost' && cashbackRate != null) {
-    await adminSupabase
-      .from('customers')
-      .update({ cashback_rate: cashbackRate })
-      .eq('id', customerId)
-
-    void passServiceFetch(`/api/push/customer/${customerId}`, { method: 'POST' }).catch(() => {})
-  }
+  void passServiceFetch(`/api/push/customer/${customerId}`, { method: 'POST' }).catch(() => {})
 
   return memberPromo
 }
