@@ -103,6 +103,7 @@ export default function CustomerDetailPage() {
   // Admin overrides
   const isAdmin = membership?.role === 'owner' || membership?.role === 'admin' || membership?.role === 'super_admin'
   const [editTierOpen, setEditTierOpen] = useState(false)
+  const [changingTier, setChangingTier] = useState(false)
   const [editBalanceOpen, setEditBalanceOpen] = useState(false)
   const [editBalanceValue, setEditBalanceValue] = useState('')
   const [adjustOpen, setAdjustOpen] = useState(false)
@@ -222,22 +223,44 @@ export default function CustomerDetailPage() {
     )
   }
 
+  // Goes through the shared changeTier service (not a direct row update) so a
+  // change during an active promotion becomes its fallback, and the
+  // tier_change event is written for the Tier History card.
   const handleChangeTier = async (tierSlug: string) => {
     const tier = rewardsConfig?.tiers.find((t) => t.slug === tierSlug)
-    if (!tier) return
-    await updateCustomer.mutateAsync({
-      id: customer.id,
-      loyalty_stage: tier.slug,
-      cashback_rate: tier.cashback_rate,
-    })
-    toast.success(`Tier changed to ${tier.name}`)
-    setEditTierOpen(false)
-    if (currentStudio) {
+    if (!tier || !currentStudio) return
+    setChangingTier(true)
+    try {
+      const res = await fetch(`/api/members/${customer.id}/tier`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studioId: currentStudio.id, tierSlug: tier.slug }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error ?? 'Failed to change tier')
+
+      queryClient.invalidateQueries({ queryKey: ['customers'] })
+      queryClient.invalidateQueries({ queryKey: ['customer', customer.id] })
+      queryClient.invalidateQueries({ queryKey: ['customer_events', customer.id] })
+      refetchPromos()
+
+      if (data?.deferred_by_promotion && data.effective_tier_slug !== data.tier_slug) {
+        toast.success(`${tier.name} applies when the current promotion ends`)
+      } else if (data?.deferred_by_promotion) {
+        toast.success(`Tier changed to ${tier.name}. The promotion rate stays until it ends`)
+      } else {
+        toast.success(`Tier changed to ${tier.name}`)
+      }
+      setEditTierOpen(false)
       fetch('/api/pass/push/customer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customerId: customer.id }),
       }).catch(() => {})
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to change tier')
+    } finally {
+      setChangingTier(false)
     }
   }
 
@@ -373,15 +396,27 @@ export default function CustomerDetailPage() {
                     <p className="text-sm text-muted-foreground">
                       Override this customer&apos;s tier. This will also update their cashback rate.
                     </p>
+                    {activePromo && (
+                      <p className="text-sm text-muted-foreground">
+                        {activePromo.type === 'tier_override'
+                          ? 'A tier promotion is active. The tier you pick applies when it ends.'
+                          : 'A cashback promotion is active. The tier changes now; the promotion rate stays until it ends.'}
+                      </p>
+                    )}
                     {(rewardsConfig?.tiers ?? []).map((tier) => {
                       const idx = getTierIndex(tier.slug, rewardsConfig)
                       const p = TIER_COLOR_PALETTE[idx % TIER_COLOR_PALETTE.length]
-                      const isCurrent = customer.loyalty_stage === tier.slug
+                      // During a tier_override the member's own tier is the
+                      // promotion's fallback, not the override on the row.
+                      const permanentTier = activePromo?.type === 'tier_override'
+                        ? activePromo.original_tier_slug
+                        : customer.loyalty_stage
+                      const isCurrent = permanentTier === tier.slug
                       return (
                         <button
                           key={tier.slug}
                           onClick={() => handleChangeTier(tier.slug)}
-                          disabled={isCurrent || updateCustomer.isPending}
+                          disabled={isCurrent || changingTier}
                           className={`w-full rounded-2xl border p-3 text-left transition-colors ${
                             isCurrent
                               ? `${p.border} ${p.bg} opacity-60 cursor-default`

@@ -333,6 +333,12 @@ Auth: Studio key
 
 Returns `400` if tier slug doesn't exist in the rewards config.
 
+**During an active promotion** the promotion stays the member's main deal, and the new tier + rate become its fallback (what the member returns to when it ends or is revoked):
+- `cashback_boost`: the tier changes now; purchases keep paying the boost rate until the promotion ends.
+- `tier_override`: the override stays in force; the new tier + rate apply when it ends. To change only the rate during a `tier_override`, send the member's own tier (the promotion's `original_tier_slug`), not `loyalty_stage`, which holds the override.
+
+**Response:** `{ "data": { "tier_slug": "gold", "cashback_rate": 15, "effective_tier_slug": "gold", "effective_cashback_rate": 20, "deferred_by_promotion": "<member_promotion id>" | null } }`. `tier_slug` / `cashback_rate` are the permanent values; the `effective_*` fields are what is in force now.
+
 ---
 
 ### Transactions
