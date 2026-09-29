@@ -86,7 +86,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             appliedBy: 'embed',
           })
         } else {
-          // Permanent rate override rides on the member's current tier.
+          // Permanent rate override rides on the member's own tier. While a
+          // tier_override runs, loyalty_stage holds the override, so the own
+          // tier is the promotion's fallback. Passing the override here would
+          // make it permanent (changeTier writes the fallback). A
+          // cashback_boost leaves loyalty_stage as the member's own tier.
           const { data: customer } = await adminSupabase
             .from('customers')
             .select('loyalty_stage')
@@ -96,10 +100,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           if (!customer?.loyalty_stage) {
             return NextResponse.json({ error: 'Member not found' }, { status: 404 })
           }
+          const { data: activePromo, error: promoError } = await adminSupabase
+            .from('member_promotions')
+            .select('type, original_tier_slug')
+            .eq('customer_id', customerId)
+            .eq('studio_id', studioId)
+            .eq('status', 'active')
+            .maybeSingle()
+          if (promoError) {
+            return NextResponse.json({ error: 'Failed to load active promotion' }, { status: 500 })
+          }
           await changeTier({
             studioId,
             customerId,
-            tierSlug: customer.loyalty_stage,
+            tierSlug: activePromo?.type === 'tier_override'
+              ? activePromo.original_tier_slug
+              : customer.loyalty_stage,
             cashbackRate: body.cashbackRate,
             source: 'embed',
           })
