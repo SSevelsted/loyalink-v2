@@ -1,16 +1,16 @@
 import { adminSupabase } from '@/lib/studio-access'
-import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig, getReferralUnlockTier } from '@/types/database'
+import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig } from '@/types/database'
 import type { RewardsConfig, TierConfig, UpgradeTriggerConfig } from '@/types/database'
 import { passServiceFetch } from '@/lib/pass-service'
 import { expirePromotion } from '@/lib/services/promotion-service'
 import { fireWebhook } from '@/lib/services/webhook-service'
-import { sendTierUpgrade, sendReferralReward } from '@/lib/email/send'
+import { sendTierUpgrade } from '@/lib/email/send'
+import { activateReferral, referralTriggerMet } from '@/lib/services/referral-service'
 import { buildTransactionPushMessage } from '@/lib/pass-push-messages'
 import { syncLegacyPasskitCustomer } from '@/lib/services/legacy-passkit-sync-service'
 import {
   applyPermanentDeal,
   effectiveCashbackRate,
-  loadMemberDeal,
   MemberDealError,
   memberDeal,
   promotionPays,
@@ -254,32 +254,26 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
     sendTierUpgrade(customerId, studioId, deal.permanentTier, upgradeTo.slug)
   }
 
-  // 5. Referral activation
-  const { data: referralRow } = await adminSupabase
-    .from('referrals')
-    .select('*')
-    .eq('referred_customer_id', customerId)
-    .eq('status', 'pending')
-    .single()
-
-  if (referralRow && shouldUpgrade(
-    { ...customer, has_purchased: true, total_real_spend: newSpendTotal },
-    config.referrals.activation_trigger,
-    newSpendTotal
-  )) {
-    const commissionExpires = new Date()
-    commissionExpires.setDate(commissionExpires.getDate() + config.referrals.referrer_commission_duration_days)
-
-    await adminSupabase
+  // 5. Referral activation: this friend's first transaction that meets the
+  // studio's trigger (referralTriggerMet), once per referral.
+  if (config.referrals.enabled) {
+    const { data: referralRow, error: referralErr } = await adminSupabase
       .from('referrals')
-      .update({
-        status: 'activated',
-        activated_at: new Date().toISOString(),
-        commission_expires_at: commissionExpires.toISOString(),
-      })
-      .eq('id', referralRow.id)
-
-    await creditReferrer(referralRow.referrer_customer_id, customerId, studioId, config, results, queueWebhook)
+      .select('id, referrer_customer_id, referred_customer_id')
+      .eq('referred_customer_id', customerId)
+      .eq('studio_id', studioId)
+      .eq('status', 'pending')
+      .maybeSingle()
+    if (referralErr) {
+      console.error('[transactions] pending referral lookup failed:', referralErr.message)
+      results.push(`Referral check failed: ${referralErr.message}`)
+    } else if (referralRow && referralTriggerMet(
+      config.referrals.activation_trigger,
+      customer,
+      { newSpendTotal, isDeposit },
+    )) {
+      await activateReferral({ referral: referralRow, studioId, config, results, queueWebhook })
+    }
   }
 
   // 6. Cashback calculation
@@ -433,17 +427,20 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
     }
   }
 
-  // 8. Referral commission
+  // 8. Referral commission, on every friend purchase inside the window
+  // (including the one that activated the referral). A NULL expiry is an
+  // unlimited window (referrer_commission_duration_days = 0).
   if (config.referrals.enabled) {
     const { data: activeReferral } = await adminSupabase
       .from('referrals')
       .select('*')
       .eq('referred_customer_id', customerId)
       .eq('status', 'activated')
-      .gt('commission_expires_at', new Date().toISOString())
-      .single()
+      .maybeSingle()
+    const inWindow = activeReferral != null
+      && (activeReferral.commission_expires_at == null || new Date(activeReferral.commission_expires_at) > new Date())
 
-    if (activeReferral) {
+    if (activeReferral && inWindow) {
       const commission = amount * config.referrals.referrer_commission_rate / 100
 
       if (commission > 0) {
@@ -531,73 +528,6 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
       totalSpend: newSpendTotal,
       isMaxTier: nextTier === null,
     },
-  }
-}
-
-/**
- * Referral bonus: raise the referrer's permanent rate by the per-referral
- * bonus, up to the cap (a bonus never lowers a rate already above the cap).
- * During a promotion the bonus lands in its fallback, and the row shows the
- * best deal. A failure is reported in `results`, not thrown: the friend's
- * purchase has already been recorded.
- */
-async function creditReferrer(
-  referrerId: string,
-  referredId: string,
-  studioId: string,
-  config: RewardsConfig,
-  results: string[],
-  queueWebhook: (...args: Parameters<typeof fireWebhook>) => void,
-) {
-  try {
-    const referrer = await loadMemberDeal(studioId, referrerId, config.tiers)
-    if (!referrer) return
-
-    const newCount = (referrer.customer.referral_count || 0) + 1
-    const currentRate = referrer.permanentRate || getReferralUnlockTier(config)?.cashback_rate || config.tiers[0].cashback_rate
-    const newRate = Math.max(
-      currentRate,
-      Math.min(currentRate + config.referrals.referrer_cashback_bonus_per_ref, config.referrals.referrer_cashback_cap),
-    )
-
-    const after = await applyPermanentDeal({
-      studioId,
-      customerId: referrerId,
-      cashbackRate: newRate,
-      source: 'referral',
-      config,
-      current: referrer,
-      customerFields: { referral_count: newCount },
-      tierChangeEvent: 'never',
-    })
-
-    results.push(`Referral activated. Referrer now at ${after.effective_cashback_rate}% cashback`)
-
-    queueWebhook(studioId, 'referral.activated', referredId, {
-      referrer_customer_id: referrerId,
-      referrer_new_cashback_rate: after.effective_cashback_rate,
-      referrer_referral_count: newCount,
-    })
-
-    // Send referral reward email to the referrer (fire-and-forget)
-    const { data: referredCustomer } = await adminSupabase
-      .from('customers')
-      .select('name')
-      .eq('id', referredId)
-      .single()
-
-    sendReferralReward(
-      referrerId,
-      studioId,
-      referredCustomer?.name ?? 'A friend',
-      config.referrals.referrer_cashback_bonus_per_ref,
-    )
-
-    triggerPassUpdate(referrerId)
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    console.error('[transactions] referral bonus failed:', { referrerId, studioId, message })
-    results.push(`Referral activated but the referrer's rate update failed: ${message}`)
   }
 }
 

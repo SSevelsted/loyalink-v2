@@ -3,14 +3,14 @@
 // Owner rules under test (2026-09-29):
 //   - Best deal: while a promotion runs, a purchase pays the higher of the
 //     promotion's rate and the member's fallback rate.
-//   - A permanent change during a promotion (tier upgrade, referral bonus)
-//     lands in the promotion's fallback snapshot, so it survives the end.
+//   - A permanent change during a promotion (tier upgrade) lands in the
+//     promotion's fallback snapshot, so it survives the end.
+// Referral activation and the referral bonus: referral-service.test.ts.
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { createFakeSupabase, setTestEnv, stubFetch, wireFake, type FakeSupabase, type Row } from '@/test/fake-supabase'
 import {
   OTHER_STUDIO_ID,
-  REWARDS_CONFIG,
   STUDIO_ID,
   customerRow,
   promotionRow,
@@ -25,12 +25,12 @@ let adminSupabase: AdminClient
 let originalFrom: AdminClient['from']
 let fetchStub: ReturnType<typeof stubFetch>
 
-function seed(tables: { customers: Row[]; member_promotions?: Row[]; referrals?: Row[]; studios?: Row[] }): FakeSupabase {
+function seed(tables: { customers: Row[]; member_promotions?: Row[]; studios?: Row[] }): FakeSupabase {
   const fake = createFakeSupabase({
     studios: tables.studios ?? [studioRow(STUDIO_ID)],
     customers: tables.customers,
     member_promotions: tables.member_promotions ?? [],
-    referrals: tables.referrals ?? [],
+    referrals: [],
     transactions: [],
     analytics_events: [],
     studio_webhooks: [],
@@ -222,48 +222,6 @@ describe('processTransaction: automatic tier upgrade during a promotion', () => 
     assert.equal(row.cashback_rate, 15)
     assert.equal(row.has_purchased, true)
     assert.equal(row.total_real_spend, 1000)
-  })
-})
-
-describe('processTransaction: referral bonus', () => {
-  // days_member 0 activates the referral on any purchase by the friend.
-  const referralConfig = {
-    ...REWARDS_CONFIG,
-    referrals: { ...REWARDS_CONFIG.referrals, activation_trigger: { type: 'days_member', threshold: 0 } },
-  }
-  const referral = { id: 'ref-1', studio_id: STUDIO_ID, referrer_customer_id: 'referrer', referred_customer_id: 'friend', status: 'pending', total_commission_earned: 0 }
-
-  it('during a boost the bonus goes to the fallback; the row keeps the better deal', async () => {
-    const fake = seed({
-      studios: [studioRow(STUDIO_ID, referralConfig)],
-      customers: [customerRow('referrer', { cashback_rate: 20 }), customerRow('friend')],
-      member_promotions: [promotionRow('promo', 'referrer', {
-        type: 'cashback_boost', cashback_rate: 20, original_tier_slug: 'base', original_cashback_rate: 7.5,
-      })],
-      referrals: [referral],
-    })
-
-    await purchase('friend')
-
-    assert.equal(fake.row('referrals', 'ref-1').status, 'activated')
-    assert.equal(fake.row('member_promotions', 'promo').original_cashback_rate, 10)
-    const referrer = fake.row('customers', 'referrer')
-    assert.equal(referrer.cashback_rate, 20)
-    assert.equal(referrer.referral_count, 1)
-  })
-
-  it('no promotion: the bonus raises the member\'s rate', async () => {
-    const fake = seed({
-      studios: [studioRow(STUDIO_ID, referralConfig)],
-      customers: [customerRow('referrer'), customerRow('friend')],
-      referrals: [referral],
-    })
-
-    await purchase('friend')
-
-    const referrer = fake.row('customers', 'referrer')
-    assert.equal(referrer.cashback_rate, 10)
-    assert.equal(referrer.referral_count, 1)
   })
 })
 
