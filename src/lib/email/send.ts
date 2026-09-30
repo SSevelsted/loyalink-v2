@@ -421,6 +421,7 @@ export async function sendReferralReward(
   referrerCustomerId: string, studioId: string, referredName: string, rewardAmount: number,
 ): Promise<void> {
   if (!canSend()) return
+  if (await isAgencyStudio(studioId)) return
 
   const [{ data: referrer }, { data: studio }] = await Promise.all([
     supabase.from('customers').select('name, email, balance, currency, language').eq('id', referrerCustomerId).single(),
