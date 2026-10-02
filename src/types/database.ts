@@ -474,6 +474,11 @@ export type RewardsConfig = {
     gift_counter_enabled?: boolean
   }
   cashback_on_cashback_balance: boolean
+  /**
+   * Set once by scripts/switch-day.ts when the studio moved to the StreamInk
+   * pilot rewards (ISO time). StreamInk reads it from the rewards-config API.
+   */
+  pilot_switched_at?: string
 }
 
 export const MAX_TIERS = 6
