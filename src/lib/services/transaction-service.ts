@@ -279,19 +279,21 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
   // 6. Cashback calculation
   const cashableAmount = cashAmount != null ? cashAmount : amount
   const cashbackAmount = cashableAmount * cashbackRate / 100
+  let cashbackTransactionId: string | null = null
 
   if (cashbackAmount > 0) {
     const desc = promoApplied
       ? `${cashbackRate}% cashback (promotion) on ${amount} kr purchase`
       : `${cashbackRate}% cashback on ${amount} kr purchase`
 
-    await adminSupabase.from('transactions').insert({
+    const { data: cashbackRow } = await adminSupabase.from('transactions').insert({
       customer_id: customerId,
       studio_id: studioId,
       type: 'cashback',
       amount: cashbackAmount,
       description: desc,
-    })
+    }).select('id').maybeSingle()
+    cashbackTransactionId = (cashbackRow?.id as string | undefined) ?? null
 
     const newBalance = Number(customer.balance ?? 0) + cashbackAmount
     await adminSupabase.from('customers').update({ balance: newBalance }).eq('id', customerId)
@@ -318,6 +320,12 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
     amount_cents: Math.round(amount * 100),
     cash_amount: cashAmount ?? amount,
     payment_type: isDeposit ? 'deposit' : 'full_payment',
+    // Additive (2026-10-01): explicit flags and ids for StreamInk's "full
+    // payment with no chair that day" check. Never rename or remove fields.
+    is_deposit: isDeposit === true,
+    customer_id: customerId,
+    source_transaction_id: sourceTransactionId ?? null,
+    cashback_transaction_id: cashbackTransactionId,
     currency: (customer.currency as string | null | undefined) ?? (settings?.currency as string | null | undefined) ?? 'DKK',
     transacted_at: transactedAt,
     total_spend: newSpendTotal,

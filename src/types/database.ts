@@ -474,6 +474,23 @@ export type RewardsConfig = {
     gift_counter_enabled?: boolean
   }
   cashback_on_cashback_balance: boolean
+  /**
+   * Set once by scripts/switch-day.ts when the studio moved to the StreamInk
+   * pilot rewards (ISO time). StreamInk reads it from the rewards-config API.
+   */
+  pilot_switched_at?: string
+  /** Which switch ran: 'full' (new studios) or 'referral_only' (current studios). */
+  pilot_switch_mode?: PilotSwitchMode
+}
+
+export type PilotSwitchMode = 'full' | 'referral_only'
+
+/** Keep the switch-day markers through normalization; drop malformed values. */
+function pilotSwitchFields(obj: Record<string, unknown>): Pick<RewardsConfig, 'pilot_switched_at' | 'pilot_switch_mode'> {
+  const out: Pick<RewardsConfig, 'pilot_switched_at' | 'pilot_switch_mode'> = {}
+  if (typeof obj.pilot_switched_at === 'string' && obj.pilot_switched_at) out.pilot_switched_at = obj.pilot_switched_at
+  if (obj.pilot_switch_mode === 'full' || obj.pilot_switch_mode === 'referral_only') out.pilot_switch_mode = obj.pilot_switch_mode
+  return out
 }
 
 export const MAX_TIERS = 6
@@ -586,6 +603,9 @@ export function migrateRewardsConfig(raw: unknown): RewardsConfig {
   // V2 format — already has tiers[]
   if (Array.isArray(obj.tiers)) {
     const config = { ...DEFAULT_REWARDS_CONFIG, ...obj } as RewardsConfig
+    delete config.pilot_switched_at
+    delete config.pilot_switch_mode
+    Object.assign(config, pilotSwitchFields(obj))
 
     // Ensure tiers have all required fields
     config.tiers = config.tiers.map((t, i) => {
@@ -672,6 +692,7 @@ export function migrateRewardsConfig(raw: unknown): RewardsConfig {
         activation_trigger: normalizeUpgradeTriggerConfig(referrals.activation_trigger) ?? DEFAULT_REWARDS_CONFIG.referrals.activation_trigger,
       },
       cashback_on_cashback_balance: (v1.cashback_on_cashback_balance as boolean) ?? false,
+      ...pilotSwitchFields(v1),
     })
   }
 
