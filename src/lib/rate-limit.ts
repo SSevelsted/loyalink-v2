@@ -32,6 +32,7 @@ export const joinLimiter = rateLimit({ interval: 60_000, uniqueTokenPerInterval:
 export const signupLimiter = rateLimit({ interval: 60_000, uniqueTokenPerInterval: 500 })
 export const resendPassLimiter = rateLimit({ interval: 60_000, uniqueTokenPerInterval: 500 })
 export const referralLimiter = rateLimit({ interval: 60_000, uniqueTokenPerInterval: 500 })
+export const invitationLimiter = rateLimit({ interval: 60_000, uniqueTokenPerInterval: 500 })
 
 // Per-API-key limiter for authenticated API routes (100 req/min per key)
 export const apiKeyLimiter = rateLimit({ interval: 60_000, uniqueTokenPerInterval: 1000 })

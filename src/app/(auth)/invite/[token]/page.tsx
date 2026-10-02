@@ -2,22 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
-import type { Invitation, Studio } from '@/types/database'
+import type { InvitationPreview } from '@/lib/services/invitation-service'
 import { LogoMark } from '@/components/logo'
 
 export default function AcceptInvitePage() {
   const params = useParams<{ token: string }>()
   const router = useRouter()
   const { user } = useAuth()
-  const supabase = createClient()
 
-  const [invitation, setInvitation] = useState<(Invitation & { studios: Studio }) | null>(null)
+  const [invitation, setInvitation] = useState<InvitationPreview | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [email, setEmail] = useState('')
@@ -26,31 +24,27 @@ export default function AcceptInvitePage() {
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabase
-        .from('invitations')
-        .select('*, studios(*)')
-        .eq('token', params.token)
-        .is('accepted_at', null)
-        .single()
+      // Read through the server: RLS gives an invitee no access to invitations.
+      const res = await fetch('/api/invitations/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: params.token }),
+      }).catch(() => null)
 
-      if (error || !data) {
-        setError('Invalid or expired invitation')
+      if (!res || !res.ok) {
+        const body = res ? await res.json().catch(() => ({})) : {}
+        setError(body.error || 'Invalid or expired invitation')
         setLoading(false)
         return
       }
 
-      if (new Date(data.expires_at) < new Date()) {
-        setError('This invitation has expired')
-        setLoading(false)
-        return
-      }
-
-      setInvitation(data as Invitation & { studios: Studio })
+      const data = (await res.json()) as InvitationPreview
+      setInvitation(data)
       setEmail(data.email)
       setLoading(false)
     }
     load()
-  }, [params.token, supabase])
+  }, [params.token])
 
   const handleAccept = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -120,7 +114,7 @@ export default function AcceptInvitePage() {
     <>
       <div className="text-center mb-6 -mt-4">
         <h1 className="text-display-lg text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
-          Join {invitation?.studios?.name}
+          Join {invitation?.studioName}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           You&apos;ve been invited as <span className="font-medium text-foreground">{invitation?.role}</span>

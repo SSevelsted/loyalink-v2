@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og'
-import { createClient } from '@/lib/supabase/server'
+import { adminSupabase } from '@/lib/studio-access'
 import { getSignupTranslations } from '@/lib/i18n/signup'
 
 export const alt = 'Join the loyalty program'
@@ -24,7 +24,7 @@ function shade(hex: string, percent: number): string {
 
 export default async function Image({ params }: Props) {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = adminSupabase
 
   const { data: page } = await supabase
     .from('studio_landing_pages')

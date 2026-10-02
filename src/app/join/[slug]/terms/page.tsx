@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { adminSupabase } from '@/lib/studio-access'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -20,7 +20,7 @@ const SUPERVISORY_AUTHORITY: Record<string, string> = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = adminSupabase
   const { data } = await supabase
     .from('studio_landing_pages')
     .select('studios(name)')
@@ -73,7 +73,7 @@ function Section({
 
 export default async function TermsPage({ params }: Props) {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = adminSupabase
 
   const { data: page } = await supabase
     .from('studio_landing_pages')

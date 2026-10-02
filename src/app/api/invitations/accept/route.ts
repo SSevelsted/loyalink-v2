@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { auditLog } from '@/lib/audit-log'
+import { addInvitedMember, claimInvitation, releaseInvitation } from '@/lib/services/invitation-service'
 
 export async function POST(request: NextRequest) {
   const { token, email, password } = await request.json()
@@ -9,29 +10,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Token is required' }, { status: 400 })
   }
 
+  // The session client is only for auth (who is signed in, sign up + session
+  // cookies). The invitee is not a studio member yet, so RLS hides the
+  // invitation from them: claim it and add the membership with the service key.
   const supabase = await createClient()
 
   // Atomically claim the invitation to prevent race conditions
-  const { data: invitation, error: invError } = await supabase
-    .from('invitations')
-    .update({ accepted_at: new Date().toISOString() })
-    .eq('token', token)
-    .is('accepted_at', null)
-    .select('*')
-    .single()
-
-  if (invError || !invitation) {
+  const claim = await claimInvitation(token)
+  if (claim.status === 'not_found') {
     return NextResponse.json({ error: 'Invalid or expired invitation' }, { status: 404 })
   }
-
-  if (new Date(invitation.expires_at) < new Date()) {
-    // Revert — invitation was expired but we claimed it
-    await supabase
-      .from('invitations')
-      .update({ accepted_at: null })
-      .eq('id', invitation.id)
+  if (claim.status === 'expired') {
     return NextResponse.json({ error: 'Invitation has expired' }, { status: 410 })
   }
+  const invitation = claim.invitation
 
   // Check if user is already authenticated
   const { data: { user: existingUser } } = await supabase.auth.getUser()
@@ -43,16 +35,13 @@ export async function POST(request: NextRequest) {
   } else {
     // Create new user via sign up
     if (!email || !password) {
+      await releaseInvitation(invitation.id)
       return NextResponse.json({ error: 'Email and password required for new account' }, { status: 400 })
     }
 
     // Ensure the email matches the invitation to prevent token hijacking
-    if (email.toLowerCase() !== invitation.email.toLowerCase()) {
-      // Revert the claimed invitation
-      await supabase
-        .from('invitations')
-        .update({ accepted_at: null })
-        .eq('id', invitation.id)
+    if (String(email).toLowerCase() !== invitation.email.toLowerCase()) {
+      await releaseInvitation(invitation.id)
       return NextResponse.json({ error: 'Email does not match invitation' }, { status: 400 })
     }
 
@@ -62,24 +51,18 @@ export async function POST(request: NextRequest) {
     })
 
     if (signUpError || !signUpData.user) {
+      await releaseInvitation(invitation.id)
       return NextResponse.json({ error: signUpError?.message ?? 'Failed to create account' }, { status: 400 })
     }
 
     userId = signUpData.user.id
   }
 
-  // Add user to studio
-  const { error: memberError } = await supabase.from('studio_members').insert({
-    studio_id: invitation.studio_id,
-    user_id: userId,
-    role: invitation.role,
-  })
-
-  if (memberError) {
-    // Might already be a member
-    if (!memberError.message.includes('duplicate')) {
-      return NextResponse.json({ error: 'Failed to add to studio' }, { status: 500 })
-    }
+  // Add user to studio (an existing membership counts as success)
+  const { ok } = await addInvitedMember(invitation, userId)
+  if (!ok) {
+    await releaseInvitation(invitation.id)
+    return NextResponse.json({ error: 'Failed to add to studio' }, { status: 500 })
   }
 
   void auditLog({
