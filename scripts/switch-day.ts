@@ -8,8 +8,9 @@
  *   ... --welcome-bonus=25 --currency=EUR   (defaults: EUR 25, SEK 250; other currencies need --welcome-bonus)
  *
  * --referral-only (current studios): only the gift/referral rules below
- * change (welcome bonus, no giver bonus, no commission, first full payment).
- * Tiers, the friend tier and every member's deal stay as they are.
+ * change (welcome bonus, no giver bonus, no commission, first full payment),
+ * and the giver tier (tiers[2]) becomes manual only (total_spend 999999).
+ * Tier rates, the friend tier and every member's deal stay as they are.
  *
  * Target (src/lib/services/pilot-switch-service.ts, full mode, new studios):
  *   - tiers 5% base, 10% after the tattoo (first full payment), 15% giver (manual only,
@@ -22,7 +23,9 @@
  *
  * --apply writes, and refuses when the dry run shows a blocker:
  *   - rows with no rate are pinned to today's rate (no event, no pass push)
- *   - studios.settings.rewards_config = target, with pilot_switched_at
+ *   - studios.settings.rewards_config = target, with pilot_switched_at and
+ *     pilot_switch_mode ('full' | 'referral_only'); StreamInk reads both from
+ *     GET /api/v1/studios/:id/rewards-config
  *   - studios.settings.pilot_switch = { switched_at, tier_slugs, rates,
  *     friend_welcome_bonus, currency, previous_rewards_config }
  * No webhook, email, message or wallet-pass push is sent.

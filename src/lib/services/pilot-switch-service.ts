@@ -3,6 +3,7 @@ import {
   DEFAULT_REWARDS_CONFIG,
   migrateRewardsConfig,
   syncReferralFriendRate,
+  type PilotSwitchMode,
   type RewardsConfig,
   type TierConfig,
 } from '@/types/database'
@@ -46,10 +47,11 @@ export const PILOT_SWITCH_VERSION = 1
 
 /**
  * full           new studios: pilot tiers + the gift/referral rules
- * referral_only  current studios: the gift/referral rules only. Tiers, the
- *                friend tier and every member's deal stay as they are.
+ * referral_only  current studios: the gift/referral rules, and the giver tier
+ *                (tiers[2]) becomes manual only. Tier rates, the friend tier
+ *                and every member's deal stay as they are.
  */
-export type PilotSwitchMode = 'full' | 'referral_only'
+export type { PilotSwitchMode }
 
 /** "Never automatic": the spend threshold today's promo-only inner_circle uses. */
 export const PILOT_MANUAL_ONLY_TRIGGER = { type: 'total_spend', threshold: 999999 } as const
@@ -92,9 +94,12 @@ export function pilotTargetConfig(
   if (opts.mode === 'referral_only') {
     // The friend keeps the studio's friend tier: in this config a friend's
     // rate is always its tier's rate (syncReferralFriendRate), so "at least
-    // 10%" without a tier change is not possible. Owner decision pending.
+    // 10%" without a tier change is not possible (the platform adds a boost).
+    // Rates stay; only the giver tier (tiers[2]) becomes manual only, as in
+    // the full setup: the platform lifts givers by PATCH tier.
     return {
       ...current,
+      tiers: current.tiers.map((t, i) => (i === 2 ? { ...t, upgrade_trigger: { ...PILOT_MANUAL_ONLY_TRIGGER } } : t)),
       referrals: {
         ...current.referrals,
         enabled: true,
@@ -105,6 +110,7 @@ export function pilotTargetConfig(
         activation_trigger: { type: 'first_full_payment' },
       },
       pilot_switched_at: opts.switchedAt,
+      pilot_switch_mode: 'referral_only',
     }
   }
   const slugs = pilotTierSlugs(current)
@@ -148,6 +154,7 @@ export function pilotTargetConfig(
       activation_trigger: { type: 'first_full_payment' },
     },
     pilot_switched_at: opts.switchedAt,
+    pilot_switch_mode: 'full',
   })
 }
 
@@ -406,7 +413,7 @@ export function planPilotSwitch(
     slugs,
     mode,
     welcomeBonus: welcomeBonus ?? 0,
-    diff: diffConfig(current, target).filter((d) => d.path !== 'pilot_switched_at'),
+    diff: diffConfig(current, target).filter((d) => d.path !== 'pilot_switched_at' && d.path !== 'pilot_switch_mode'),
     alreadySwitchedAt,
     tiersNow,
     members: { total: input.members.length, keep, pin, change },
@@ -428,7 +435,7 @@ export function describePilotSwitchPlan(plan: PilotSwitchPlan): string[] {
   const out: string[] = []
   const json = (v: unknown) => JSON.stringify(v)
   out.push(`Studio: ${plan.studio.name} (${plan.studio.id}), currency ${plan.studio.currency}, agency ${plan.studio.is_agency}`)
-  out.push(`Mode: ${plan.mode}${plan.mode === 'referral_only' ? ' (tiers, friend tier and member deals untouched)' : ''}`)
+  out.push(`Mode: ${plan.mode}${plan.mode === 'referral_only' ? ' (tier rates, friend tier and member deals untouched; giver tier manual only)' : ''}`)
   out.push(plan.alreadySwitchedAt ? `Already switched at ${plan.alreadySwitchedAt}` : 'Not switched yet')
   out.push('')
   out.push('Current rewards_config:')
@@ -437,7 +444,7 @@ export function describePilotSwitchPlan(plan: PilotSwitchPlan): string[] {
   out.push('Target rewards_config:')
   out.push(JSON.stringify(plan.target, null, 2))
   out.push('')
-  out.push(`Diff (${plan.diff.length} fields; pilot_switched_at is set on --apply):`)
+  out.push(`Diff (${plan.diff.length} fields; pilot_switched_at + pilot_switch_mode are set on --apply):`)
   for (const d of plan.diff) out.push(`  ${d.path}: ${json(d.from)} -> ${json(d.to)}`)
   out.push('')
   out.push(`Tier slugs: base=${plan.slugs.base}, after tattoo=${plan.slugs.after_tattoo}, giver=${plan.slugs.giver}`)
