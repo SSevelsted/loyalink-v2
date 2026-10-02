@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { supabase, appUrl } from '../config.js';
 import { firePassLifecycle } from '../utils/lifecycle.js';
+import { createMemberLinkToken } from '../utils/customerAccess.js';
 
 export const appleWebServiceRoutes = Router();
 
@@ -313,6 +314,7 @@ appleWebServiceRoutes.get(
         cashbackRate: customer.cashback_rate,
         loyaltyTier: customer.loyalty_stage || 'base',
         memberId: customer.member_id || customer.id,
+        memberLinkToken: createMemberLinkToken(customer.id, (customer as { link_token_version?: number }).link_token_version),
         currency: customer.currency || 'DKK',
         language: customer.language || studioLanguage,
         pushMessage: walletPass.push_message || undefined,

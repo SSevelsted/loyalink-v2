@@ -204,10 +204,19 @@ Auth: Studio key
   "data": {
     "customerId": "uuid",
     "passUrl": "https://...",
-    "customerAccessToken": "..."
+    "customerAccessToken": "...",
+    "invite_link": "https://loyalink.ai/loyalty/<member_id>?addPass=1&token=<member link token>",
+    "referral_linked": true
   }
 }
 ```
+
+`referral_linked` is `null` when no `referral_code` was sent, `true` when the
+new member is linked to the referrer, and `false` when the code did not link.
+On `false` the member is still created, and `referral_not_linked_reason` is one
+of `referrals_disabled`, `code_not_found`, `self_referral`,
+`pre_existing_client`, `insert_failed`. One referral code links any number of
+friends.
 
 This automatically:
 - Creates the member with a referral code
@@ -226,6 +235,26 @@ Auth: Studio key
 ```
 
 **Response:** Full member object including `balance`, `loyalty_stage`, `cashback_rate`, `referral_code`, `total_real_spend`, `tags`, `metadata`.
+
+---
+
+#### Member Links (invite_link) and Rotation
+
+`invite_link` (on create, `GET /api/v1/members/:id` and `GET /api/v1/members`)
+opens the member page in **full view** (balance, activity, friends) and adds
+the wallet pass on mobile. It carries a member link token with no expiry.
+Send it to the client only; never put it in a QR code.
+
+A `/loyalty/{id}` link without a token (the card QR, links stored before
+2026-10) shows the **public view**: Add to Wallet and the studio offer, no
+personal data. Re-read `GET /api/v1/members/:id` to get the current link.
+
+```
+POST /api/v1/members/:id/link-token
+Auth: Studio key
+```
+Revokes every link sent so far (they fall back to the public view) and
+returns `{ "invite_link", "link_token_version" }`. Store the new link.
 
 ---
 

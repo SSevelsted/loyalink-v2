@@ -91,6 +91,8 @@ const { data } = await res.json()
 // data.customerId → UUID of the new member
 // data.passUrl    → Download URL for their wallet pass
 // data.customerAccessToken → Short-lived token for member-facing pages
+// data.referral_linked → null (no code sent), true (linked), false (not linked;
+//                        see data.referral_not_linked_reason; the member is still created)
 ```
 
 ### Search members

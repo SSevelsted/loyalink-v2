@@ -87,6 +87,8 @@ export type LoyaltyTranslations = {
 
   // Avatar
   changePhoto: string
+  /** Public view (no access token): where the member finds the balance instead. */
+  balanceOnWalletCard: string
 
   // Time
   justNow: string
@@ -158,6 +160,8 @@ const en: LoyaltyTranslations = {
     credit: 'Purchase Recorded',
     debit: 'Balance Redeemed',
     adjustment: 'Balance Adjustment',
+    welcome_bonus: 'Welcome gift',
+    bonus_added: 'Bonus added',
     cashback: 'Cashback Earned',
     referral_commission: 'Referral Bonus',
   },
@@ -179,6 +183,7 @@ const en: LoyaltyTranslations = {
   activatedTimeAgo: (time) => `Activated ${time}`,
 
   changePhoto: 'Change photo',
+  balanceOnWalletCard: 'Your balance is on your wallet card.',
 
   justNow: 'just now',
   minutesAgo: (m) => `${m}m ago`,
@@ -249,6 +254,8 @@ const da: LoyaltyTranslations = {
     credit: 'Køb registreret',
     debit: 'Saldo indløst',
     adjustment: 'Saldojustering',
+    welcome_bonus: 'Velkomstgave',
+    bonus_added: 'Bonus tilføjet',
     cashback: 'Cashback optjent',
     referral_commission: 'Henvisningsbonus',
   },
@@ -270,6 +277,7 @@ const da: LoyaltyTranslations = {
   activatedTimeAgo: (time) => `Aktiveret ${time}`,
 
   changePhoto: 'Skift foto',
+  balanceOnWalletCard: 'Din saldo står på dit wallet-kort.',
 
   justNow: 'lige nu',
   minutesAgo: (m) => `${m} min. siden`,
@@ -340,6 +348,8 @@ const sv: LoyaltyTranslations = {
     credit: 'Köp registrerat',
     debit: 'Saldo inlöst',
     adjustment: 'Saldojustering',
+    welcome_bonus: 'Välkomstgåva',
+    bonus_added: 'Bonus tillagd',
     cashback: 'Cashback intjänad',
     referral_commission: 'Hänvisningsbonus',
   },
@@ -361,6 +371,7 @@ const sv: LoyaltyTranslations = {
   activatedTimeAgo: (time) => `Aktiverad ${time}`,
 
   changePhoto: 'Byt foto',
+  balanceOnWalletCard: 'Ditt saldo står på ditt wallet-kort.',
 
   justNow: 'just nu',
   minutesAgo: (m) => `${m} min sedan`,
@@ -431,6 +442,8 @@ const nb: LoyaltyTranslations = {
     credit: 'Kjøp registrert',
     debit: 'Saldo innløst',
     adjustment: 'Saldojustering',
+    welcome_bonus: 'Velkomstgave',
+    bonus_added: 'Bonus lagt til',
     cashback: 'Cashback opptjent',
     referral_commission: 'Henvisningsbonus',
   },
@@ -452,6 +465,7 @@ const nb: LoyaltyTranslations = {
   activatedTimeAgo: (time) => `Aktivert ${time}`,
 
   changePhoto: 'Bytt foto',
+  balanceOnWalletCard: 'Saldoen din står på wallet-kortet ditt.',
 
   justNow: 'akkurat nå',
   minutesAgo: (m) => `${m} min siden`,
@@ -522,6 +536,8 @@ const de: LoyaltyTranslations = {
     credit: 'Einkauf erfasst',
     debit: 'Guthaben eingelöst',
     adjustment: 'Guthabenanpassung',
+    welcome_bonus: 'Willkommensgeschenk',
+    bonus_added: 'Bonus gutgeschrieben',
     cashback: 'Cashback verdient',
     referral_commission: 'Empfehlungsbonus',
   },
@@ -543,6 +559,7 @@ const de: LoyaltyTranslations = {
   activatedTimeAgo: (time) => `Aktiviert ${time}`,
 
   changePhoto: 'Foto ändern',
+  balanceOnWalletCard: 'Dein Guthaben steht auf deiner Wallet-Karte.',
 
   justNow: 'gerade eben',
   minutesAgo: (m) => `vor ${m} Min.`,
@@ -614,6 +631,8 @@ const fr: LoyaltyTranslations = {
     credit: 'Achat enregistré',
     debit: 'Solde utilisé',
     adjustment: 'Ajustement du solde',
+    welcome_bonus: 'Cadeau de bienvenue',
+    bonus_added: 'Bonus ajouté',
     cashback: 'Cashback gagné',
     referral_commission: 'Bonus de parrainage',
   },
@@ -635,6 +654,7 @@ const fr: LoyaltyTranslations = {
   activatedTimeAgo: (time) => `Activé ${time}`,
 
   changePhoto: 'Changer la photo',
+  balanceOnWalletCard: 'Votre solde figure sur votre carte Wallet.',
 
   justNow: 'à l\'instant',
   minutesAgo: (m) => `il y a ${m} min`,
@@ -706,6 +726,8 @@ const es: LoyaltyTranslations = {
     credit: 'Compra registrada',
     debit: 'Saldo canjeado',
     adjustment: 'Ajuste de saldo',
+    welcome_bonus: 'Regalo de bienvenida',
+    bonus_added: 'Bono añadido',
     cashback: 'Cashback ganado',
     referral_commission: 'Bono de recomendación',
   },
@@ -727,6 +749,7 @@ const es: LoyaltyTranslations = {
   activatedTimeAgo: (time) => `Activado ${time}`,
 
   changePhoto: 'Cambiar foto',
+  balanceOnWalletCard: 'Tu saldo aparece en tu tarjeta del Wallet.',
 
   justNow: 'ahora mismo',
   minutesAgo: (m) => `hace ${m} min`,
@@ -798,6 +821,8 @@ const nl: LoyaltyTranslations = {
     credit: 'Aankoop geregistreerd',
     debit: 'Saldo gebruikt',
     adjustment: 'Saldo-aanpassing',
+    welcome_bonus: 'Welkomstcadeau',
+    bonus_added: 'Bonus toegevoegd',
     cashback: 'Cashback verdiend',
     referral_commission: 'Verwijzingsbonus',
   },
@@ -819,6 +844,7 @@ const nl: LoyaltyTranslations = {
   activatedTimeAgo: (time) => `Geactiveerd ${time}`,
 
   changePhoto: 'Foto wijzigen',
+  balanceOnWalletCard: 'Je saldo staat op je Wallet-kaart.',
 
   justNow: 'zojuist',
   minutesAgo: (m) => `${m} min geleden`,
@@ -893,6 +919,8 @@ const pl: LoyaltyTranslations = {
     credit: 'Zarejestrowano zakup',
     debit: 'Wykorzystano saldo',
     adjustment: 'Korekta salda',
+    welcome_bonus: 'Prezent powitalny',
+    bonus_added: 'Dodano bonus',
     cashback: 'Naliczony cashback',
     referral_commission: 'Bonus za polecenie',
   },
@@ -914,6 +942,7 @@ const pl: LoyaltyTranslations = {
   activatedTimeAgo: (time) => `Aktywowane ${time}`,
 
   changePhoto: 'Zmień zdjęcie',
+  balanceOnWalletCard: 'Twoje saldo widać na karcie w Wallet.',
 
   justNow: 'przed chwilą',
   minutesAgo: (m) => `${m} min temu`,

@@ -40,6 +40,7 @@ import {
 import type { Transaction } from '@/types/database'
 import { TRANSACTION_LABELS, TRANSACTION_META, groupByDateLabel, groupRelatedTransactions, type TransactionGroup } from '@/lib/format'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
+import { amountSign, signedTransactionAmount } from '@/lib/transaction-display'
 
 type TransactionWithCustomer = Transaction & { customers: { name: string } | null }
 
@@ -70,10 +71,6 @@ const TYPE_FILTERS: { value: TypeFilter; label: string }[] = [
   { value: 'referral_commission', label: 'Referral Bonus' },
 ]
 
-
-function isPositive(type: string) {
-  return type === 'credit' || type === 'cashback' || type === 'referral_commission'
-}
 
 function getDateCutoff(preset: DatePreset): Date | null {
   if (preset === 'all') return null
@@ -170,10 +167,7 @@ export default function TransactionsPage() {
   const stats = useMemo(() => {
     const count = txGroups.length
     const volume = txGroups.reduce((sum, g) => sum + Math.abs(Number(g.primary.amount)), 0)
-    const net = txGroups.reduce((sum, g) => {
-      const amt = Math.abs(Number(g.primary.amount))
-      return sum + (isPositive(g.primary.type) ? amt : -amt)
-    }, 0)
+    const net = txGroups.reduce((sum, g) => sum + signedTransactionAmount(g.primary.type, g.primary.amount), 0)
     const avg = count > 0 ? volume / count : 0
     return { count, volume, net, avg }
   }, [txGroups])
@@ -416,7 +410,7 @@ export default function TransactionsPage() {
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           <p className={`text-sm font-semibold ${meta.amount}`}>
-                            {meta.sign}{formatAmount(Math.abs(Number(tx.amount)), currencyConfig)}
+                            {amountSign(signedTransactionAmount(tx.type, tx.amount))}{formatAmount(Math.abs(Number(tx.amount)), currencyConfig)}
                           </p>
                           <Badge
                             variant="outline"
@@ -455,7 +449,7 @@ export default function TransactionsPage() {
                 {/* Amount highlight */}
                 <div className="text-center py-4">
                   <p className={`text-4xl font-bold ${meta.amount}`}>
-                    {meta.sign}{formatAmount(Math.abs(Number(selectedTx.amount)), currencyConfig)}
+                    {amountSign(signedTransactionAmount(selectedTx.type, selectedTx.amount))}{formatAmount(Math.abs(Number(selectedTx.amount)), currencyConfig)}
                   </p>
                   <Badge
                     variant="outline"

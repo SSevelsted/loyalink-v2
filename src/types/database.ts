@@ -70,6 +70,8 @@ export type Customer = {
   phone: string | null
   contact_id: string | null
   member_id: string | null
+  /** Bumped to revoke every member link token (invite_link, pass back link). Migration 028. */
+  link_token_version?: number
   balance: number
   cashback_rate: number | null
   loyalty_stage: string

@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeftRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { amountSign, signedTransactionAmount } from '@/lib/transaction-display'
 
 const TIME_RANGES = [
   { id: '24h', label: '24h' },
@@ -66,11 +67,11 @@ export function ActivitySection() {
                 >
                   <div className="flex items-center gap-3">
                     <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-xs font-medium ${
-                      tx.type === 'credit' || tx.type === 'cashback'
+                      signedTransactionAmount(tx.type, tx.amount) >= 0
                         ? 'bg-emerald-500/10 text-emerald-400'
                         : 'bg-red-500/10 text-red-400'
                     }`}>
-                      {tx.type === 'credit' || tx.type === 'cashback' ? '+' : '-'}
+                      {amountSign(signedTransactionAmount(tx.type, tx.amount))}
                     </div>
                     <div>
                       <p className="text-sm font-medium text-foreground">
@@ -85,10 +86,10 @@ export function ActivitySection() {
                     </Badge>
                     <div className="text-right">
                       <span className={`text-sm font-semibold ${
-                        tx.type === 'credit' || tx.type === 'cashback' ? 'text-emerald-400' : 'text-red-400'
+                        signedTransactionAmount(tx.type, tx.amount) >= 0 ? 'text-emerald-400' : 'text-red-400'
                       }`}>
-                        {tx.type === 'credit' || tx.type === 'cashback' ? '+' : '-'}
-                        {Math.abs(Number(tx.amount)).toFixed(2)} kr
+                        {amountSign(signedTransactionAmount(tx.type, tx.amount))}
+                        {Math.abs(signedTransactionAmount(tx.type, tx.amount)).toFixed(2)} kr
                       </span>
                       <p className="text-xs text-muted-foreground">
                         {new Date(tx.created_at).toLocaleString(undefined, {

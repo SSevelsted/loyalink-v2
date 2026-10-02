@@ -19,6 +19,7 @@ import { TRANSACTION_META, groupRelatedTransactions } from '@/lib/format'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { DownloadAppCard } from '@/components/layout/download-app-card'
 import { ActivationChecklist } from '../_components/activation-checklist'
+import { amountSign, signedTransactionAmount } from '@/lib/transaction-display'
 
 function ScanButton() {
   const [open, setOpen] = useState(false)
@@ -289,7 +290,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="text-right">
                       <span className={`text-sm font-semibold ${meta.amount}`}>
-                        {meta.sign}{formatAmount(Math.abs(Number(tx.amount)), currencyCfg)}
+                        {amountSign(signedTransactionAmount(tx.type, tx.amount))}{formatAmount(Math.abs(Number(tx.amount)), currencyCfg)}
                       </span>
                       <p className="text-xs text-muted-foreground">
                         {new Date(tx.created_at).toLocaleDateString()}
