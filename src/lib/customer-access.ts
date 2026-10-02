@@ -4,6 +4,13 @@ type CustomerAccessPayload = {
   customerId: string
   scope: 'customer_access'
   exp: number
+  /**
+   * Set on the token the public /loyalty page hands to a visitor who came
+   * without a token. It can add the wallet pass (generate + download) and
+   * nothing else: it never opens the member's balance, activity or friends.
+   * The pass-service checks only scope, customerId and exp, so it accepts it.
+   */
+  pass_only?: true
 }
 
 function getSigningSecret(): string {
@@ -21,11 +28,16 @@ function sign(value: string): string {
     .digest('base64url')
 }
 
-export function createCustomerAccessToken(customerId: string, ttlSeconds = 60 * 60): string {
+export function createCustomerAccessToken(
+  customerId: string,
+  ttlSeconds = 60 * 60,
+  options: { passOnly?: boolean } = {},
+): string {
   const payload: CustomerAccessPayload = {
     customerId,
     scope: 'customer_access',
     exp: Math.floor(Date.now() / 1000) + ttlSeconds,
+    ...(options.passOnly ? { pass_only: true as const } : {}),
   }
 
   const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url')
@@ -58,6 +70,15 @@ export function verifyCustomerAccessToken(token: string | null | undefined): Cus
   } catch {
     return null
   }
+}
+
+/**
+ * Does this token open the member's personal data (balance, activity,
+ * friends)? It must be valid, belong to this customer, and not be pass-only.
+ */
+export function hasPersonalDataAccess(token: string | null | undefined, customerId: string): boolean {
+  const payload = verifyCustomerAccessToken(token)
+  return !!payload && payload.customerId === customerId && !payload.pass_only
 }
 
 export function getBearerToken(headerValue: string | null): string | null {

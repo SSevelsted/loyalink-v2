@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { amountSign, signedTransactionAmount } from '@/lib/transaction-display'
 
 const TYPE_COLORS: Record<string, string> = {
   credit: 'bg-emerald-500/10 text-emerald-400',
@@ -62,8 +63,8 @@ export default function EmbedTransactions() {
                   <Badge className={TYPE_COLORS[t.type as string] ?? 'bg-secondary text-secondary-foreground'}>
                     {t.type as string}
                   </Badge>
-                  <span className={`text-sm font-semibold tabular-nums ${Number(t.amount) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {Number(t.amount) >= 0 ? '+' : ''}{Number(t.amount).toFixed(0)} kr
+                  <span className={`text-sm font-semibold tabular-nums ${signedTransactionAmount(t.type as string, t.amount as number) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {amountSign(signedTransactionAmount(t.type as string, t.amount as number))}{Math.abs(signedTransactionAmount(t.type as string, t.amount as number)).toFixed(0)} kr
                   </span>
                 </div>
               </CardContent>

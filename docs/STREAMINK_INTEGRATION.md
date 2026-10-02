@@ -204,10 +204,18 @@ Auth: Studio key
   "data": {
     "customerId": "uuid",
     "passUrl": "https://...",
-    "customerAccessToken": "..."
+    "customerAccessToken": "...",
+    "referral_linked": true
   }
 }
 ```
+
+`referral_linked` is `null` when no `referral_code` was sent, `true` when the
+new member is linked to the referrer, and `false` when the code did not link.
+On `false` the member is still created, and `referral_not_linked_reason` is one
+of `referrals_disabled`, `code_not_found`, `self_referral`,
+`pre_existing_client`, `insert_failed`. One referral code links any number of
+friends.
 
 This automatically:
 - Creates the member with a referral code

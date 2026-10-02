@@ -23,10 +23,24 @@ type CreateMemberInput = {
   landingPageId?: string | null
 }
 
+/**
+ * Why a referral code did not link the new member to a referrer.
+ * The member is still created in every case.
+ */
+export type ReferralNotLinkedReason =
+  | 'referrals_disabled'
+  | 'code_not_found'
+  | 'self_referral'
+  | 'pre_existing_client'
+  | 'insert_failed'
+
 type CreateMemberResult = {
   customerId: string
   passUrl: string | null
   customerAccessToken: string
+  /** null: no referral code was given. false: a code was given and did not link (see the reason). */
+  referral_linked: boolean | null
+  referral_not_linked_reason?: ReferralNotLinkedReason
 }
 
 export async function createMember(input: CreateMemberInput): Promise<CreateMemberResult> {
@@ -77,6 +91,10 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
   // Referred customers inherit the referrer's market (currency/language/page).
   let referrerMarket: { currency: string | null; language: string | null; landing_page_id: string | null } | null = null
 
+  // A referral code that does not link is reported back to the caller, never dropped silently.
+  let referralNotLinkedReason: ReferralNotLinkedReason | null = null
+  if (referralCode && !config.referrals.enabled) referralNotLinkedReason = 'referrals_disabled'
+
   // Check referral code
   if (referralCode && config.referrals.enabled) {
     const { data: referrer } = await adminSupabase
@@ -95,7 +113,11 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
         loyaltyStage = config.referrals.friend_tier_slug
         const r = referrer as unknown as { currency: string | null; language: string | null; landing_page_id: string | null }
         referrerMarket = { currency: r.currency ?? null, language: r.language ?? null, landing_page_id: r.landing_page_id ?? null }
+      } else {
+        referralNotLinkedReason = 'self_referral'
       }
+    } else {
+      referralNotLinkedReason = 'code_not_found'
     }
   }
 
@@ -118,6 +140,7 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
     const { data: blocked } = await blockQuery.maybeSingle()
     if (blocked) {
       referrerCustomerId = null
+      referralNotLinkedReason = 'pre_existing_client'
       cashbackRate = config.tiers[0].cashback_rate
       loyaltyStage = config.tiers[0].slug
     }
@@ -175,9 +198,13 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
     throw new Error(custError?.message ?? 'Failed to create customer')
   }
 
-  // If referred, create referral row and welcome bonus
+  // If referred, create referral row and welcome bonus.
+  // The member already exists, so a failed referral insert does not fail the
+  // signup. It is logged and returned as referral_linked: false, and the
+  // welcome bonus (which belongs to the referral) is not credited.
+  let referralLinked = false
   if (referrerCustomerId && config.referrals.enabled) {
-    await adminSupabase.from('referrals').insert({
+    const { error: referralError } = await adminSupabase.from('referrals').insert({
       studio_id: studioId,
       referrer_customer_id: referrerCustomerId,
       referred_customer_id: customer.id,
@@ -185,7 +212,22 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
       status: 'pending',
     })
 
-    if (config.referrals.friend_welcome_bonus > 0) {
+    if (referralError) {
+      console.error('[referrals] referral insert failed, member created WITHOUT a referrer', {
+        studioId,
+        customerId: customer.id,
+        referrerCustomerId,
+        referralCode: referralCode!.toUpperCase(),
+        message: referralError.message,
+        code: (referralError as { code?: string }).code,
+      })
+      referralNotLinkedReason = 'insert_failed'
+      referrerCustomerId = null
+    } else {
+      referralLinked = true
+    }
+
+    if (referralLinked && config.referrals.friend_welcome_bonus > 0) {
       await adminSupabase.from('transactions').insert({
         customer_id: customer.id,
         studio_id: studioId,
@@ -310,6 +352,10 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
     customerId: customer.id,
     passUrl,
     customerAccessToken: createCustomerAccessToken(customer.id, 30 * 60),
+    referral_linked: referralCode ? referralLinked : null,
+    ...(referralCode && !referralLinked && referralNotLinkedReason
+      ? { referral_not_linked_reason: referralNotLinkedReason }
+      : {}),
   }
 }
 

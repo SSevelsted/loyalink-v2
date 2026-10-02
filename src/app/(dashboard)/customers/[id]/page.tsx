@@ -54,6 +54,7 @@ import { getTierDisplayName, getTierIndex, TRANSACTION_LABELS, TRANSACTION_META,
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { QRCodeSVG } from 'qrcode.react'
 import { DirectionalTransition } from '@/components/transitions/directional-transition'
+import { amountSign, signedTransactionAmount } from '@/lib/transaction-display'
 
 type DatePreset = '7d' | '30d' | '90d' | 'all'
 
@@ -1114,7 +1115,7 @@ export default function CustomerDetailPage() {
                       </div>
                     </div>
                     <span className={`text-sm font-semibold ${meta.amount} shrink-0 ml-2`}>
-                      {meta.sign}{formatAmount(Math.abs(Number(tx.amount)), currencyConfig)}
+                      {amountSign(signedTransactionAmount(tx.type, tx.amount))}{formatAmount(Math.abs(Number(tx.amount)), currencyConfig)}
                     </span>
                   </div>
                 )

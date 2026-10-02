@@ -17,6 +17,7 @@ import { getTierDisplayName, getTierIndex } from '@/lib/format'
 import { rewardsConfigFromStudio } from '@/lib/embed-rewards'
 import { TIER_COLOR_PALETTE } from '@/types/database'
 import { MemberManageDialog } from '@/components/embed/member-manage-dialog'
+import { amountSign, signedTransactionAmount } from '@/lib/transaction-display'
 
 type Customer = {
   id: string
@@ -401,8 +402,8 @@ export default function EmbedCustomerProfilePage() {
                     <Badge className={TYPE_COLORS[t.type] ?? 'bg-secondary text-secondary-foreground'}>
                       {t.type.replace(/_/g, ' ')}
                     </Badge>
-                    <span className={`text-sm font-semibold tabular-nums ${Number(t.amount) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {Number(t.amount) >= 0 ? '+' : ''}{formatAmount(Number(t.amount), currencyConfig)}
+                    <span className={`text-sm font-semibold tabular-nums ${signedTransactionAmount(t.type, t.amount) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {amountSign(signedTransactionAmount(t.type, t.amount))}{formatAmount(Math.abs(signedTransactionAmount(t.type, t.amount)), currencyConfig)}
                     </span>
                   </div>
                 </div>

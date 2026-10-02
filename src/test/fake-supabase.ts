@@ -9,7 +9,9 @@
 // maybeSingle; `.select()` after a write returns the written rows. Like
 // PostgREST, neq and the range filters never match NULL, and a select returns
 // at most 1000 rows. member_promotions enforces one active promotion per
-// customer (the unique index in prod).
+// customer (the unique index in prod). `or` takes PostgREST's
+// "col.eq.value,col.eq.value" form (eq only). The `unique` option adds unique
+// constraints: an insert that repeats a key returns error code 23505.
 import { randomUUID } from 'node:crypto'
 
 export type Row = Record<string, unknown>
@@ -55,6 +57,8 @@ type FakeOptions = {
   beforeExecute?: (call: FakeCall, tables: Tables) => void
   /** PostgREST's max-rows cap on a select. Default 1000, as in prod. */
   maxRows?: number
+  /** Unique constraints per table, each a list of columns, e.g. { referrals: [['referred_customer_id']] }. */
+  unique?: Record<string, string[][]>
 }
 
 export function createFakeSupabase(seed: Tables, options: FakeOptions = {}) {
@@ -103,6 +107,19 @@ export function createFakeSupabase(seed: Tables, options: FakeOptions = {}) {
               const clash = r.status === 'active'
                 && rows(table).some((p) => p.status === 'active' && p.customer_id === r.customer_id)
               if (clash) return { data: null, error: { message: 'duplicate key', code: '23505' } }
+            }
+          }
+          for (const columns of options.unique?.[table] ?? []) {
+            const key = (r: Row) => JSON.stringify(columns.map((c) => r[c] ?? null))
+            const seen = new Set(rows(table).map(key))
+            for (const r of inserted) {
+              if (seen.has(key(r))) {
+                return {
+                  data: null,
+                  error: { code: '23505', message: `duplicate key value violates unique constraint (${columns.join(', ')})` },
+                }
+              }
+              seen.add(key(r))
             }
           }
           rows(table).push(...inserted)
@@ -167,6 +184,15 @@ export function createFakeSupabase(seed: Tables, options: FakeOptions = {}) {
           if (operator === 'eq') return !same(r[c], v)
           throw new Error(`fake-supabase: not.${operator} is not supported`)
         }),
+      or: (expression: string) => {
+        const parts = expression.split(',').map((part) => {
+          const [column, operator, ...rest] = part.split('.')
+          if (operator !== 'eq') throw new Error(`fake-supabase: or(${operator}) is not supported`)
+          return { column, value: rest.join('.') }
+        })
+        return filter(parts.map((p) => p.column).join('|'), 'or', expression, (r) =>
+          parts.some((p) => same(r[p.column], p.value)))
+      },
       order: (column: string, opts?: { ascending?: boolean }) => {
         orderBy = { column, ascending: opts?.ascending ?? true }
         return builder

@@ -14,7 +14,8 @@ export async function POST(
   const { memberId } = await params
   const access = verifyCustomerAccessToken(getBearerToken(request.headers.get('authorization')))
 
-  if (!access) {
+  // A pass-only token (public member page) may add the wallet pass, not change the photo.
+  if (!access || access.pass_only) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

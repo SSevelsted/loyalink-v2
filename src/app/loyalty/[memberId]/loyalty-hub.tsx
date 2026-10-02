@@ -18,31 +18,12 @@ import { MARKETING_URL } from '@/lib/constants'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { getLoyaltyTranslations } from '@/lib/loyalty-translations'
 import type { LoyaltyTranslations } from '@/lib/loyalty-translations'
-import type { RewardsConfig, Referral, Transaction } from '@/types/database'
+import type { RewardsConfig, Transaction } from '@/types/database'
 import { getReferralUnlockTier, computeReferralMilestones } from '@/types/database'
+import type { MemberPageData, MemberPageReferral } from '@/lib/services/member-page-service'
+import { amountSign, memberTransactionLabel, signedTransactionAmount } from '@/lib/transaction-display'
 
-type Props = {
-  memberId: string
-  customerAccessToken: string
-  avatarUrl: string | null
-  customer: {
-    id: string
-    name: string
-    balance: number
-    cashback_rate: number | null
-    loyalty_stage: string
-    referral_code: string | null
-    referral_count: number
-  }
-  studio: { id: string; name: string; slug: string }
-  branding: Record<string, unknown>
-  logoUrl: string | null
-  rewardsConfig: RewardsConfig
-  referrals: (Referral & { referred_customer: { name: string; has_purchased: boolean; metadata: Record<string, unknown> | null } })[]
-  transactions: Transaction[]
-  currency: string
-  language: string
-}
+type Props = MemberPageData & { memberId: string }
 
 function timeAgo(dateStr: string, t: LoyaltyTranslations): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
@@ -71,7 +52,7 @@ function getReferralSteps(
   status: 'pending' | 'activated' | 'expired',
   t: LoyaltyTranslations,
   triggerText: string,
-  referredCustomer?: { has_purchased: boolean; metadata: Record<string, unknown> | null },
+  referredCustomer?: MemberPageReferral['referred_customer'],
 ): ReferralStep[] {
   const passDownloaded = !!referredCustomer?.metadata?.pass_downloaded
 
@@ -162,8 +143,6 @@ const TRANSACTION_ICONS: Record<string, { icon: typeof CreditCard; color: string
   adjustment: { icon: TrendingUp, color: 'text-blue-500' },
 }
 
-const POSITIVE_TYPES = new Set(['credit', 'cashback', 'referral_commission'])
-
 type TxDisplayRow = {
   id: string
   type: string
@@ -221,13 +200,15 @@ function detectPlatform(): 'apple' | 'google' {
   return 'apple'
 }
 
-function AddToWalletCard({ memberId, customerId, customerAccessToken, brandColor, autoAdd, tokenOverride }: {
+function AddToWalletCard({ memberId, customerId, customerAccessToken, brandColor, autoAdd, tokenOverride, qrToken }: {
   memberId: string
   customerId: string
   customerAccessToken: string
   brandColor: string
   autoAdd?: boolean
   tokenOverride?: string | null
+  /** Full-access token to carry into the phone link; null in the public view. */
+  qrToken: string | null
 }) {
   const [loading, setLoading] = useState(false)
   const [added, setAdded] = useState(false)
@@ -309,7 +290,7 @@ function AddToWalletCard({ memberId, customerId, customerAccessToken, brandColor
   // Desktop: wallet apps live on the phone, so show a QR the visitor can scan
   // to open this same page (with auto-add) on their device.
   if (isDesktop) {
-    const qrValue = `${window.location.origin}/loyalty/${memberId}?addPass=1`
+    const qrValue = `${window.location.origin}/loyalty/${memberId}?addPass=1${qrToken ? `&token=${encodeURIComponent(qrToken)}` : ''}`
     return (
       <Card className="rounded-xl">
         <CardContent className="p-4 text-center space-y-3">
@@ -382,14 +363,15 @@ function AddToWalletCard({ memberId, customerId, customerAccessToken, brandColor
   )
 }
 
-export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer, studio, branding, logoUrl, rewardsConfig, referrals, transactions, currency, language }: Props) {
+export function LoyaltyHub({ access, memberId, customerAccessToken, avatarUrl, customer, studio, branding, logoUrl, rewardsConfig, referrals, transactions, currency, language }: Props) {
   const searchParams = useSearchParams()
   const autoAddPass = searchParams.get('addPass') === '1'
   const tokenFromQR = searchParams.get('token')
+  // Public view (no valid ?token=): the card and Add to Wallet only. The
+  // server sends no balance, activity or friends in that case.
+  const isFull = access === 'full'
   const [copied, setCopied] = useState(false)
-  const [selectedReferral, setSelectedReferral] = useState<
-    (Referral & { referred_customer: { name: string; has_purchased: boolean; metadata: Record<string, unknown> | null } }) | null
-  >(null)
+  const [selectedReferral, setSelectedReferral] = useState<MemberPageReferral | null>(null)
   const [avatarSrc, setAvatarSrc] = useState<string | null>(avatarUrl)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -534,9 +516,10 @@ export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer,
             <div className="relative z-10">
               <button
                 type="button"
-                className="relative h-16 w-16 rounded-full overflow-hidden border-2 border-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="relative h-16 w-16 rounded-full overflow-hidden border-2 border-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
                 onClick={() => fileInputRef.current?.click()}
                 aria-label={t.changePhoto}
+                disabled={!isFull}
               >
                 {uploading ? (
                   <div className="flex h-full w-full items-center justify-center bg-secondary">
@@ -553,9 +536,11 @@ export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer,
                   </div>
                 )}
               </button>
-              <div className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-secondary">
-                <Camera className="h-3 w-3 text-muted-foreground" />
-              </div>
+              {isFull && (
+                <div className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-secondary">
+                  <Camera className="h-3 w-3 text-muted-foreground" />
+                </div>
+              )}
             </div>
             <input
               ref={fileInputRef}
@@ -586,9 +571,14 @@ export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer,
           brandColor={brandColor}
           autoAdd={autoAddPass}
           tokenOverride={tokenFromQR}
+          qrToken={isFull ? (tokenFromQR || customerAccessToken) : null}
         />
 
         {/* ===== 2. QUICK STATS ===== */}
+        {!isFull && (
+          <p className="text-center text-xs text-muted-foreground">{t.balanceOnWalletCard}</p>
+        )}
+        {isFull && (
         <div className="grid grid-cols-2 gap-3">
           <Card className="rounded-xl">
             <CardContent className="p-3 text-center">
@@ -598,11 +588,12 @@ export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer,
           </Card>
           <Card className="rounded-xl">
             <CardContent className="p-3 text-center">
-              <p className="text-2xl font-bold">{formatAmount(customer.balance, currencyConfig)}</p>
+              <p className="text-2xl font-bold">{formatAmount(customer.balance ?? 0, currencyConfig)}</p>
               <p className="text-xs text-muted-foreground">{t.balance}</p>
             </CardContent>
           </Card>
         </div>
+        )}
 
         {/* ===== 3. REWARDS HERO (redesigned) ===== */}
         {showReferralSection && (
@@ -812,7 +803,7 @@ export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer,
         )}
 
         {/* ===== 7. CASHBACK PROGRESSION ===== */}
-        {showReferralSection && milestones.length > 1 && (
+        {isFull && showReferralSection && milestones.length > 1 && (
           <Card className="rounded-xl">
             <CardContent className="p-4 space-y-4">
               <div className="flex items-center justify-between">
@@ -907,6 +898,7 @@ export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer,
         )}
 
         {/* ===== 8. RECENT ACTIVITY ===== */}
+        {isFull && (
         <Card className="rounded-xl">
           <CardContent className="p-4 space-y-3">
             <p className="text-sm font-semibold">{t.recentActivity}</p>
@@ -917,8 +909,9 @@ export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer,
                 {groupTransactions(transactions).map((tx) => {
                   const iconConfig = TRANSACTION_ICONS[tx.type] ?? TRANSACTION_ICONS.adjustment
                   const Icon = iconConfig.icon
-                  const isPositive = POSITIVE_TYPES.has(tx.type)
-                  const label = t.transactionLabels[tx.type] ?? tx.type
+                  const signed = signedTransactionAmount(tx.type, tx.amount)
+                  const isPositive = signed >= 0
+                  const label = memberTransactionLabel(tx, t.transactionLabels)
 
                   return (
                     <div key={tx.id} className="flex items-center gap-3 rounded-lg px-2 py-2">
@@ -935,7 +928,7 @@ export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer,
                         </p>
                       </div>
                       <span className={`text-sm font-semibold shrink-0 ${isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {isPositive ? '+' : '-'}{formatAmount(Math.abs(tx.amount), currencyConfig)}
+                        {amountSign(signed)}{formatAmount(Math.abs(signed), currencyConfig)}
                       </span>
                     </div>
                   )
@@ -944,6 +937,7 @@ export function LoyaltyHub({ memberId, customerAccessToken, avatarUrl, customer,
             )}
           </CardContent>
         </Card>
+        )}
 
         {/* ===== 9. REFERRAL HISTORY (clickable) ===== */}
         {sortedReferrals.length > 0 && (
