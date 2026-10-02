@@ -235,6 +235,8 @@ interface PassData {
     how_it_works: string;
     announcement: string;
   };
+  /** Member link token for the back-field link (full member page). Never in the barcode. */
+  memberLinkToken?: string;
 }
 
 interface PassJson {
@@ -464,7 +466,7 @@ export class ApplePassService {
             key: 'referral',
             label: t.referralLabel,
             // Loyalty page URL — Apple Wallet auto-detects URLs and makes them tappable
-            value: `${appUrl}/loyalty/${data.memberId}`,
+            value: `${appUrl}/loyalty/${data.memberId}${data.memberLinkToken ? `?token=${data.memberLinkToken}` : ''}`,
           },
           {
             key: 'howItWorks',

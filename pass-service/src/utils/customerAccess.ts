@@ -64,3 +64,17 @@ export function verifyCustomerAccessToken(token: string | null | undefined): Cus
     return null
   }
 }
+
+/**
+ * Member link token, same format as createMemberLinkToken in the app
+ * (src/lib/customer-access.ts): { c, s: 'member_link', v } signed with
+ * CUSTOMER_ACCESS_SECRET, no expiry. Goes only in the pass back-field link
+ * (seen by the card holder), never in the barcode. Rotating
+ * customers.link_token_version revokes it.
+ */
+export function createMemberLinkToken(customerId: string, linkTokenVersion: unknown): string {
+  const v = Number(linkTokenVersion ?? 1);
+  const payload = { c: customerId, s: 'member_link', v: Number.isInteger(v) && v > 0 ? v : 1 };
+  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  return `${encodedPayload}.${sign(encodedPayload)}`;
+}

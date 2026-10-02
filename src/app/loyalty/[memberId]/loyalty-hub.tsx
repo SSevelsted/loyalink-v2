@@ -200,14 +200,13 @@ function detectPlatform(): 'apple' | 'google' {
   return 'apple'
 }
 
-function AddToWalletCard({ memberId, customerId, customerAccessToken, brandColor, autoAdd, tokenOverride, qrToken }: {
+function AddToWalletCard({ memberId, customerId, customerAccessToken, brandColor, autoAdd, qrToken }: {
   memberId: string
   customerId: string
   customerAccessToken: string
   brandColor: string
   autoAdd?: boolean
-  tokenOverride?: string | null
-  /** Full-access token to carry into the phone link; null in the public view. */
+  /** 24h full-access token for the phone link; null in the public view. Never the long-lived link token. */
   qrToken: string | null
 }) {
   const [loading, setLoading] = useState(false)
@@ -217,7 +216,9 @@ function AddToWalletCard({ memberId, customerId, customerAccessToken, brandColor
   const triggeredRef = useRef(false)
   const platform = detectPlatform()
   const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
-  const token = tokenOverride || customerAccessToken
+  // Always the token the server minted for this page (full or pass-only).
+  // The URL token may be a member link token, which pass generation rejects.
+  const token = customerAccessToken
 
   useEffect(() => {
     if (typeof navigator !== 'undefined') {
@@ -366,7 +367,6 @@ function AddToWalletCard({ memberId, customerId, customerAccessToken, brandColor
 export function LoyaltyHub({ access, memberId, customerAccessToken, avatarUrl, customer, studio, branding, logoUrl, rewardsConfig, referrals, transactions, currency, language }: Props) {
   const searchParams = useSearchParams()
   const autoAddPass = searchParams.get('addPass') === '1'
-  const tokenFromQR = searchParams.get('token')
   // Public view (no valid ?token=): the card and Add to Wallet only. The
   // server sends no balance, activity or friends in that case.
   const isFull = access === 'full'
@@ -570,8 +570,7 @@ export function LoyaltyHub({ access, memberId, customerAccessToken, avatarUrl, c
           customerAccessToken={customerAccessToken}
           brandColor={brandColor}
           autoAdd={autoAddPass}
-          tokenOverride={tokenFromQR}
-          qrToken={isFull ? (tokenFromQR || customerAccessToken) : null}
+          qrToken={isFull ? customerAccessToken : null}
         />
 
         {/* ===== 2. QUICK STATS ===== */}

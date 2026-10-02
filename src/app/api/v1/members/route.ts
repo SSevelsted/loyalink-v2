@@ -6,6 +6,7 @@ import { createMember, DuplicateMemberError } from '@/lib/services/member-servic
 import { escapeIlike } from '@/lib/escape-html'
 import { MARKETING_URL } from '@/lib/constants'
 import { summarizeMemberPasses } from '@/lib/pass-status'
+import { memberInviteLink } from '@/lib/member-links'
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     let query = adminSupabase
       .from('customers')
-      .select('id, member_id, name, email, phone, balance, tier_slug, loyalty_stage, referral_code, metadata, custom_fields, created_at, has_purchased, total_real_spend, passes:wallet_passes(platform, status, installed_at, created_at, updated_at)', { count: 'exact' })
+      .select('id, member_id, link_token_version, name, email, phone, balance, tier_slug, loyalty_stage, referral_code, metadata, custom_fields, created_at, has_purchased, total_real_spend, passes:wallet_passes(platform, status, installed_at, created_at, updated_at)', { count: 'exact' })
       .eq('studio_id', auth.studioId)
 
     if (search) {
@@ -56,7 +57,8 @@ export async function GET(request: NextRequest) {
         ...member,
         // Onboarding link: opens the member's loyalty hub and auto-adds their
         // pass to Apple/Google Wallet on mobile. This is the link to send leads.
-        invite_link: `${MARKETING_URL}/loyalty/${publicId}?addPass=1`,
+        // Carries the member link token: the client sees the full member page.
+        invite_link: memberInviteLink(member),
         // Referral link: the member invites others (previously exposed as invite_link).
         referral_link: `${MARKETING_URL}/refer/${publicId}`,
         // Wallet pass status per platform (apple/google), plus whether any is installed.

@@ -205,6 +205,7 @@ Auth: Studio key
     "customerId": "uuid",
     "passUrl": "https://...",
     "customerAccessToken": "...",
+    "invite_link": "https://loyalink.ai/loyalty/<member_id>?addPass=1&token=<member link token>",
     "referral_linked": true
   }
 }
@@ -234,6 +235,26 @@ Auth: Studio key
 ```
 
 **Response:** Full member object including `balance`, `loyalty_stage`, `cashback_rate`, `referral_code`, `total_real_spend`, `tags`, `metadata`.
+
+---
+
+#### Member Links (invite_link) and Rotation
+
+`invite_link` (on create, `GET /api/v1/members/:id` and `GET /api/v1/members`)
+opens the member page in **full view** (balance, activity, friends) and adds
+the wallet pass on mobile. It carries a member link token with no expiry.
+Send it to the client only; never put it in a QR code.
+
+A `/loyalty/{id}` link without a token (the card QR, links stored before
+2026-10) shows the **public view**: Add to Wallet and the studio offer, no
+personal data. Re-read `GET /api/v1/members/:id` to get the current link.
+
+```
+POST /api/v1/members/:id/link-token
+Auth: Studio key
+```
+Revokes every link sent so far (they fall back to the public view) and
+returns `{ "invite_link", "link_token_version" }`. Store the new link.
 
 ---
 

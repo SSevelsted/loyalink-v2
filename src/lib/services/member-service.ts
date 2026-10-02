@@ -7,6 +7,7 @@ import { passServiceFetch } from '@/lib/pass-service'
 import { APP_URL } from '@/lib/constants'
 import { fireWebhook } from '@/lib/services/webhook-service'
 import { sendCustomerWelcome } from '@/lib/email/send'
+import { memberInviteLink } from '@/lib/member-links'
 
 const PASS_SERVICE_URL = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
 
@@ -38,6 +39,8 @@ type CreateMemberResult = {
   customerId: string
   passUrl: string | null
   customerAccessToken: string
+  /** Onboarding link with the member link token (full member page). Same as GET /api/v1/members/:id invite_link. */
+  invite_link: string
   /** null: no referral code was given. false: a code was given and did not link (see the reason). */
   referral_linked: boolean | null
   referral_not_linked_reason?: ReferralNotLinkedReason
@@ -191,7 +194,7 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
       language: resolvedLanguage,
       landing_page_id: resolvedLandingPageId,
     })
-    .select('id')
+    .select('id, member_id')
     .single()
 
   if (custError || !customer) {
@@ -352,6 +355,7 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
     customerId: customer.id,
     passUrl,
     customerAccessToken: createCustomerAccessToken(customer.id, 30 * 60),
+    invite_link: memberInviteLink(customer),
     referral_linked: referralCode ? referralLinked : null,
     ...(referralCode && !referralLinked && referralNotLinkedReason
       ? { referral_not_linked_reason: referralNotLinkedReason }

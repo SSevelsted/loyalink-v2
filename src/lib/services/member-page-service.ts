@@ -1,5 +1,5 @@
 import { adminSupabase } from '@/lib/studio-access'
-import { createCustomerAccessToken, hasPersonalDataAccess } from '@/lib/customer-access'
+import { createCustomerAccessToken, hasPersonalDataAccess, memberLinkVersion } from '@/lib/customer-access'
 import { firstName, friendDisplayName } from '@/lib/member-privacy'
 import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig } from '@/types/database'
 import type { RewardsConfig, Referral, Transaction } from '@/types/database'
@@ -8,8 +8,10 @@ import type { RewardsConfig, Referral, Transaction } from '@/types/database'
  * Data for the member page /loyalty/[memberId].
  *
  * The page is public: the URL holds only the member id, which is also on the
- * card's QR code. So personal data needs the customer access token
- * (?token=..., as in the links Loyalink emails send):
+ * card's QR code. So personal data needs a token in ?token=: the customer
+ * access token (Loyalink emails, 24h) or the member link token (API
+ * invite_link and the pass back-field link; no expiry, revoked by rotating
+ * customers.link_token_version):
  *
  *   full    token valid for this member. Balance, activity, friends.
  *   public  no token or a bad one. The card and Add to Wallet only, the
@@ -70,7 +72,7 @@ export async function loadMemberPage(memberId: string, token: string | null | un
   const customer = await findCustomer(memberId)
   if (!customer) return null
 
-  const access: MemberPageAccess = hasPersonalDataAccess(token, customer.id) ? 'full' : 'public'
+  const access: MemberPageAccess = hasPersonalDataAccess(token, customer.id, memberLinkVersion(customer)) ? 'full' : 'public'
   const studio = customer.studios
   const studioSettings = studio?.settings ?? {}
   const rewardsConfig: RewardsConfig = studioSettings.rewards_config

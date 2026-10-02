@@ -4,6 +4,7 @@ import { validateApiKey } from '@/lib/api-keys'
 import { apiSuccess, apiError } from '@/lib/api-response'
 import { MARKETING_URL } from '@/lib/constants'
 import { summarizeMemberPasses } from '@/lib/pass-status'
+import { memberInviteLink } from '@/lib/member-links'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -32,7 +33,8 @@ export async function GET(request: NextRequest, { params }: Params) {
       ...customer,
       // Onboarding link: opens the member's loyalty hub and auto-adds their pass
       // to Apple/Google Wallet on mobile. This is the link to send leads.
-      invite_link: `${MARKETING_URL}/loyalty/${publicId}?addPass=1`,
+      // Carries the member link token: the client sees the full member page.
+      invite_link: memberInviteLink(customer),
       // Referral link: the member invites others (previously exposed as invite_link).
       referral_link: `${MARKETING_URL}/refer/${publicId}`,
       // Wallet pass status per platform (apple/google), plus whether any is installed.

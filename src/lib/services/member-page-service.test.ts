@@ -140,6 +140,32 @@ describe('loadMemberPage', () => {
     assert.equal(access.hasPersonalDataAccess(page.customerAccessToken, 'giver'), true)
   })
 
+  it('member link token (invite_link, pass back field): full view at the current version, public after rotation', async () => {
+    const fake = seed()
+    const linkToken = access.createMemberLinkToken('giver', 1)
+
+    assert.equal((await pages.loadMemberPage('MEMBER01', linkToken))!.access, 'full', 'no column yet = version 1')
+    // It opens the page only: pass generation and the pass-service reject it.
+    assert.equal(access.verifyCustomerAccessToken(linkToken), null)
+
+    fake.row('customers', 'giver').link_token_version = 2
+    assert.equal((await pages.loadMemberPage('MEMBER01', linkToken))!.access, 'public', 'rotated: old link revoked')
+    assert.equal((await pages.loadMemberPage('MEMBER01', access.createMemberLinkToken('giver', 2)))!.access, 'full')
+    assert.equal((await pages.loadMemberPage('MEMBER01', access.createMemberLinkToken('someone-else', 2)))!.access, 'public')
+    const [payload] = linkToken.split('.')
+    assert.equal((await pages.loadMemberPage('MEMBER01', `${payload}.forged`))!.access, 'public')
+  })
+
+  it('a full view never hands the long-lived link token to the browser', async () => {
+    seed()
+    const linkToken = access.createMemberLinkToken('giver', 1)
+
+    const page = await pages.loadMemberPage('MEMBER01', linkToken)
+
+    assert.notEqual(page!.customerAccessToken, linkToken)
+    assert.ok(access.verifyCustomerAccessToken(page!.customerAccessToken), 'a normal 24h token for wallet + avatar')
+  })
+
   it('resolves the member by uuid too, and returns null for an unknown id', async () => {
     seed()
 

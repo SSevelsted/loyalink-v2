@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../config.js';
 import { applePassService } from '../services/applePassService.js';
 import { requireInternalAuth } from '../middleware/internalAuth.js';
-import { verifyCustomerAccessToken } from '../utils/customerAccess.js';
+import { verifyCustomerAccessToken, createMemberLinkToken } from '../utils/customerAccess.js';
 import { firePassLifecycle } from '../utils/lifecycle.js';
 
 export const passRoutes = Router();
@@ -160,6 +160,7 @@ passRoutes.post('/generate', requireInternalAuth, async (req: Request, res: Resp
         cashbackRate: customer.cashback_rate,
         loyaltyTier: formatTierName(loyaltyTier),
         memberId: customer.member_id || customerId,
+        memberLinkToken: createMemberLinkToken(customer.id, customer.link_token_version),
         currency: customer.currency || 'DKK',
         language: customer.language || studioLanguage,
         logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
@@ -276,6 +277,7 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
       cashbackRate: customer.cashback_rate,
       loyaltyTier: formatTierName(loyaltyTier),
       memberId: customer.member_id || customer.id,
+      memberLinkToken: createMemberLinkToken(customer.id, (customer as { link_token_version?: number }).link_token_version),
       currency: customer.currency || 'DKK',
       language: customer.language || studioLanguage,
       pushMessage: walletPass.push_message || undefined,

@@ -149,5 +149,6 @@ describe('createMember: many friends per referral code', () => {
     assert.equal(result.referral_linked, null)
     assert.equal(result.referral_not_linked_reason, undefined)
     assert.equal(fake.rows('referrals').length, 0)
+    assert.match(result.invite_link, /\/loyalty\/[^?]+\?addPass=1&token=[\w-]+\.[\w-]+$/, 'invite_link carries the member link token')
   })
 })
