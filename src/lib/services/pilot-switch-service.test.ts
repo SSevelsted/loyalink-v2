@@ -132,7 +132,7 @@ describe('pilotTargetConfig', () => {
     assert.deepEqual(target.tiers.map((t) => [t.slug, t.cashback_rate, t.upgrade_trigger?.type ?? null, t.upgrade_trigger?.threshold ?? null]), [
       ['base', 5, null, null],
       ['loyalty_club', 10, 'first_full_payment', null],
-      ['inner_circle', 15, 'referral_count', 1],
+      ['inner_circle', 15, 'total_spend', 999999],
     ])
     assert.equal(target.referrals.friend_tier_slug, 'loyalty_club')
     assert.equal(target.referrals.friend_cashback_rate, 10)
@@ -281,6 +281,25 @@ describe('after the switch', () => {
     assert.equal(giver.referral_count, 1)
     assert.equal(Number(giver.balance), 0)
     assert.deepEqual(fake.rows('transactions').filter((t) => t.type === 'referral_commission'), [])
+  })
+
+  it('never auto-upgrades the giver to inner_circle, on a referral or on spend', async () => {
+    const fake = seed()
+    await switchStudio()
+    const { customerId: friendId } = await members.createMember({ studioId: STUDIO_ID, name: 'Friend', referralCode: 'GIVER002' })
+    await transactions.processTransaction({ customerId: friendId, studioId: STUDIO_ID, amount: 1000 })
+    assert.equal(fake.row('customers', 'club').referral_count, 1)
+
+    // The giver buys after the referral activated, and spends big.
+    await transactions.processTransaction({ customerId: 'club', studioId: STUDIO_ID, amount: 1000 })
+    await transactions.processTransaction({ customerId: 'club', studioId: STUDIO_ID, amount: 50000 })
+    const giver = fake.row('customers', 'club')
+    assert.equal(giver.loyalty_stage, 'loyalty_club')
+    assert.equal(Number(giver.cashback_rate), 15)
+    // The friend spends big too and stays on the 10% tier.
+    await transactions.processTransaction({ customerId: friendId, studioId: STUDIO_ID, amount: 50000 })
+    assert.equal(fake.row('customers', friendId).loyalty_stage, 'loyalty_club')
+    assert.deepEqual(fake.rows('analytics_events').filter((e) => e.event_type === 'tier_change' && (e.metadata as Row).to_tier === 'inner_circle'), [])
   })
 
   it('an existing member still earns their own rate', async () => {

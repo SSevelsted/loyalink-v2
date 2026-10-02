@@ -8,7 +8,8 @@
  *   ... --welcome-bonus=25 --currency=EUR   (defaults: EUR 25, SEK 250; other currencies need --welcome-bonus)
  *
  * Target (src/lib/services/pilot-switch-service.ts):
- *   - tiers 5% base, 10% after the tattoo (first full payment), 15% giver (1 referral);
+ *   - tiers 5% base, 10% after the tattoo (first full payment), 15% giver (manual only,
+ *     set by the platform via PATCH tier);
  *     the slugs of today's first 3 tiers are reused
  *   - friend joins on the 10% tier and gets the welcome bonus from Loyalink
  *   - giver: no Loyalink cashback bonus, no commission; referral activates on

@@ -19,7 +19,8 @@ import {
  * Switch day: move one studio to the StreamInk pilot rewards (owner decisions
  * 2026-10-01). Used by scripts/switch-day.ts.
  *
- *   tiers      base 5% -> after the tattoo 10% (first full payment) -> giver 15% (1 referral)
+ *   tiers      base 5% -> after the tattoo 10% (first full payment) -> giver 15% (manual only:
+ *              the platform sets it via PATCH tier; never an automatic upgrade)
  *   friend     joins on the 10% tier + a welcome bonus Loyalink credits itself
  *   giver      no Loyalink bonus and no commission: the platform pays the giver
  *   referral   activates on the friend's first full payment (not a deposit)
@@ -42,6 +43,9 @@ export const PILOT_RATES = { base: 5, after_tattoo: 10, giver: 15 } as const
 export const DEFAULT_WELCOME_BONUS: Record<string, number> = { EUR: 25, SEK: 250 }
 
 export const PILOT_SWITCH_VERSION = 1
+
+/** "Never automatic": the spend threshold today's promo-only inner_circle uses. */
+export const PILOT_MANUAL_ONLY_TRIGGER = { type: 'total_spend', threshold: 999999 } as const
 
 export class PilotSwitchError extends Error {
   constructor(message: string) {
@@ -94,7 +98,10 @@ export function pilotTargetConfig(
       slug: slugs.giver,
       name: named(2, 'Inner Circle'),
       cashback_rate: PILOT_RATES.giver,
-      upgrade_trigger: { type: 'referral_count', threshold: 1 },
+      // Manual only: the platform lifts the giver (PATCH tier) when the
+      // friend's first chair session completes. No Loyalink auto-upgrade, so
+      // the platform stays the single payer of the giver reward.
+      upgrade_trigger: { ...PILOT_MANUAL_ONLY_TRIGGER },
       unlocks_referrals: current.tiers[2]?.unlocks_referrals ?? false,
     },
     ...current.tiers.slice(3),
