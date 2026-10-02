@@ -226,6 +226,8 @@ describe('applyPilotSwitch', () => {
     const record = settings.pilot_switch as Row
     assert.equal(record.switched_at, config.pilot_switched_at)
     assert.equal(record.friend_welcome_bonus, 25)
+    assert.equal(record.mode, 'full')
+    assert.deepEqual(record.rates, { base: 5, after_tattoo: 10, giver: 15 })
     assert.equal(record.currency, 'EUR')
     assert.deepEqual(record.tier_slugs, { base: 'base', after_tattoo: 'loyalty_club', giver: 'inner_circle' })
     assert.deepEqual(record.previous_rewards_config, ALL_INK_CONFIG)
@@ -334,5 +336,79 @@ describe('transaction.created payload', () => {
     assert.equal(typeof data.transacted_at, 'string')
     const credit = fake.rows('transactions').find((t) => t.customer_id === 'club' && t.type === 'cashback')
     assert.equal(data.cashback_transaction_id, credit?.id)
+  })
+})
+
+// Ink Nation's config on 2026-10-02 (SEK, tiers 5 / 7.5 / 10).
+const INK_NATION_CONFIG = {
+  ...ALL_INK_CONFIG,
+  tiers: [
+    { slug: 'base', name: 'Base', cashback_rate: 5, unlocks_referrals: true },
+    { slug: 'loyalty_club', name: 'Loyalty Club', cashback_rate: 7.5, upgrade_trigger: { type: 'first_full_payment' }, unlocks_referrals: false },
+    { slug: 'inner_circle', name: 'Inner Circle', cashback_rate: 10, upgrade_trigger: { type: 'referral_count', threshold: 3 }, unlocks_referrals: false },
+  ],
+  referrals: {
+    ...ALL_INK_CONFIG.referrals,
+    friend_tier_slug: 'loyalty_club',
+    friend_cashback_rate: 7.5,
+    friend_welcome_bonus: 150,
+    referrer_cashback_cap: 15,
+    referrer_commission_rate: 0,
+    referrer_commission_duration_days: 0,
+  },
+}
+
+describe('referral-only mode (current studios)', () => {
+  const inkNation = () => seed({ studios: [pilotStudio(STUDIO_ID, 'sek', INK_NATION_CONFIG), pilotStudio(OTHER_STUDIO_ID)] })
+
+  it('changes only the gift/referral rules; tiers and the friend tier stay', async () => {
+    inkNation()
+    const p = await plan({ mode: 'referral_only' })
+    assert.deepEqual(p.blockers, [])
+    assert.equal(p.welcomeBonus, 250)
+    assert.deepEqual(p.target.tiers, p.current.tiers)
+    assert.deepEqual(p.diff.map((d) => d.path).sort(), [
+      'referrals.activation_trigger.type',
+      'referrals.friend_welcome_bonus',
+      'referrals.referrer_cashback_bonus_per_ref',
+    ])
+    assert.equal(p.target.referrals.friend_tier_slug, 'loyalty_club')
+    assert.equal(p.target.referrals.referrer_commission_rate, 0)
+    assert.equal(p.members.keep, p.members.total - p.members.pin.length)
+    assert.deepEqual(p.members.change, [])
+    assert.deepEqual(p.upgradePath, [])
+  })
+
+  it('apply leaves every member and promotion as it was and records the mode', async () => {
+    const fake = inkNation()
+    const before = structuredClone(fake.tables)
+    const p = await plan({ mode: 'referral_only' })
+    await service.applyPilotSwitch(p)
+    const strip = (rows: Row[]) => rows.filter((r) => r.id !== 'no-rate')
+    assert.deepEqual(strip(fake.rows('customers')), strip(before.customers))
+    assert.deepEqual(fake.rows('member_promotions'), before.member_promotions)
+    const settings = fake.row('studios', STUDIO_ID).settings as Row
+    const record = settings.pilot_switch as Row
+    assert.equal(record.mode, 'referral_only')
+    assert.equal(record.friend_welcome_bonus, 250)
+    assert.equal(record.currency, 'SEK')
+    assert.deepEqual(record.rates, { base: 5, after_tattoo: 7.5, giver: 10 })
+    assert.deepEqual(savedConfig(fake).tiers, migrateRewardsConfig(INK_NATION_CONFIG).tiers)
+    assert.ok(savedConfig(fake).pilot_switched_at)
+  })
+
+  it('a friend gets 250 from Loyalink on the studio friend tier; the giver gets no bonus', async () => {
+    const fake = inkNation()
+    await service.applyPilotSwitch(await plan({ mode: 'referral_only' }))
+    const { customerId: friendId } = await members.createMember({ studioId: STUDIO_ID, name: 'Friend', referralCode: 'GIVER002' })
+    const friend = fake.row('customers', friendId)
+    assert.equal(friend.loyalty_stage, 'loyalty_club')
+    assert.equal(Number(friend.cashback_rate), 7.5)
+    assert.equal(Number(friend.balance), 250)
+    await transactions.processTransaction({ customerId: friendId, studioId: STUDIO_ID, amount: 100, isDeposit: true })
+    assert.equal(fake.rows('referrals')[0].status, 'pending')
+    await transactions.processTransaction({ customerId: friendId, studioId: STUDIO_ID, amount: 1000 })
+    assert.equal(fake.rows('referrals')[0].status, 'activated')
+    assert.equal(Number(fake.row('customers', 'club').cashback_rate), 15)
   })
 })

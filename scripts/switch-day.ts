@@ -7,7 +7,11 @@
  *   node --env-file=.env.local --import tsx scripts/switch-day.ts --studio=<loyalink studio uuid>
  *   ... --welcome-bonus=25 --currency=EUR   (defaults: EUR 25, SEK 250; other currencies need --welcome-bonus)
  *
- * Target (src/lib/services/pilot-switch-service.ts):
+ * --referral-only (current studios): only the gift/referral rules below
+ * change (welcome bonus, no giver bonus, no commission, first full payment).
+ * Tiers, the friend tier and every member's deal stay as they are.
+ *
+ * Target (src/lib/services/pilot-switch-service.ts, full mode, new studios):
  *   - tiers 5% base, 10% after the tattoo (first full payment), 15% giver (manual only,
  *     set by the platform via PATCH tier);
  *     the slugs of today's first 3 tiers are reused
@@ -45,9 +49,10 @@ async function main() {
   const apply = process.argv.includes('--apply')
   const bonusRaw = flag('welcome-bonus')
   const currency = flag('currency')
+  const mode = process.argv.includes('--referral-only') ? 'referral_only' as const : 'full' as const
 
   if (!studioId) {
-    console.error('Usage: scripts/switch-day.ts --studio=<loyalink studio uuid> [--welcome-bonus=25] [--currency=EUR] [--apply]')
+    console.error('Usage: scripts/switch-day.ts --studio=<loyalink studio uuid> [--welcome-bonus=25] [--currency=EUR] [--referral-only] [--apply]')
     process.exit(2)
   }
   const welcomeBonus = bonusRaw == null ? undefined : Number(bonusRaw)
@@ -62,7 +67,7 @@ async function main() {
     process.exit(1)
   }
 
-  const plan = planPilotSwitch(input, { welcomeBonus, currency })
+  const plan = planPilotSwitch(input, { welcomeBonus, currency, mode })
   for (const line of describePilotSwitchPlan(plan)) console.log(line)
 
   if (!apply) {

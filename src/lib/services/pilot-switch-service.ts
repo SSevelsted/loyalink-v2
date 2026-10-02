@@ -44,6 +44,13 @@ export const DEFAULT_WELCOME_BONUS: Record<string, number> = { EUR: 25, SEK: 250
 
 export const PILOT_SWITCH_VERSION = 1
 
+/**
+ * full           new studios: pilot tiers + the gift/referral rules
+ * referral_only  current studios: the gift/referral rules only. Tiers, the
+ *                friend tier and every member's deal stay as they are.
+ */
+export type PilotSwitchMode = 'full' | 'referral_only'
+
 /** "Never automatic": the spend threshold today's promo-only inner_circle uses. */
 export const PILOT_MANUAL_ONLY_TRIGGER = { type: 'total_spend', threshold: 999999 } as const
 
@@ -77,10 +84,28 @@ export function pilotTierSlugs(current: RewardsConfig): PilotTierSlugs {
  */
 export function pilotTargetConfig(
   current: RewardsConfig,
-  opts: { welcomeBonus: number; switchedAt: string },
+  opts: { welcomeBonus: number; switchedAt: string; mode?: PilotSwitchMode },
 ): RewardsConfig {
   if (!Number.isFinite(opts.welcomeBonus) || opts.welcomeBonus < 0) {
     throw new PilotSwitchError('welcome bonus must be a non-negative number')
+  }
+  if (opts.mode === 'referral_only') {
+    // The friend keeps the studio's friend tier: in this config a friend's
+    // rate is always its tier's rate (syncReferralFriendRate), so "at least
+    // 10%" without a tier change is not possible. Owner decision pending.
+    return {
+      ...current,
+      referrals: {
+        ...current.referrals,
+        enabled: true,
+        friend_welcome_bonus: opts.welcomeBonus,
+        referrer_cashback_bonus_per_ref: 0,
+        referrer_commission_rate: 0,
+        referrer_commission_type: 'percentage',
+        activation_trigger: { type: 'first_full_payment' },
+      },
+      pilot_switched_at: opts.switchedAt,
+    }
   }
   const slugs = pilotTierSlugs(current)
   const named = (i: number, fallback: string) => current.tiers[i]?.name ?? fallback
@@ -211,6 +236,7 @@ export type PilotSwitchPlan = {
   current: RewardsConfig
   target: RewardsConfig
   slugs: PilotTierSlugs
+  mode: PilotSwitchMode
   welcomeBonus: number
   diff: Array<{ path: string; from: unknown; to: unknown }>
   alreadySwitchedAt: string | null
@@ -252,7 +278,7 @@ function deal(row: PilotSwitchMember, promo: DealPromotion | null, tiers: Reward
 
 export function planPilotSwitch(
   input: PilotSwitchInput,
-  opts: { welcomeBonus?: number; currency?: string; switchedAt?: string } = {},
+  opts: { welcomeBonus?: number; currency?: string; switchedAt?: string; mode?: PilotSwitchMode } = {},
 ): PilotSwitchPlan {
   const settings = input.studio.settings ?? {}
   const storedConfig = settings.rewards_config ?? null
@@ -268,7 +294,9 @@ export function planPilotSwitch(
     blockers.push(`No default welcome bonus for currency ${studioCurrency || '(none)'}: pass --welcome-bonus`)
   }
 
+  const mode: PilotSwitchMode = opts.mode ?? 'full'
   const target = pilotTargetConfig(current, {
+    mode,
     welcomeBonus: welcomeBonus ?? 0,
     switchedAt: opts.switchedAt ?? new Date().toISOString(),
   })
@@ -376,6 +404,7 @@ export function planPilotSwitch(
     current,
     target,
     slugs,
+    mode,
     welcomeBonus: welcomeBonus ?? 0,
     diff: diffConfig(current, target).filter((d) => d.path !== 'pilot_switched_at'),
     alreadySwitchedAt,
@@ -399,6 +428,7 @@ export function describePilotSwitchPlan(plan: PilotSwitchPlan): string[] {
   const out: string[] = []
   const json = (v: unknown) => JSON.stringify(v)
   out.push(`Studio: ${plan.studio.name} (${plan.studio.id}), currency ${plan.studio.currency}, agency ${plan.studio.is_agency}`)
+  out.push(`Mode: ${plan.mode}${plan.mode === 'referral_only' ? ' (tiers, friend tier and member deals untouched)' : ''}`)
   out.push(plan.alreadySwitchedAt ? `Already switched at ${plan.alreadySwitchedAt}` : 'Not switched yet')
   out.push('')
   out.push('Current rewards_config:')
@@ -448,8 +478,10 @@ export function describePilotSwitchPlan(plan: PilotSwitchPlan): string[] {
 export type PilotSwitchRecord = {
   switched_at: string
   version: number
+  mode: PilotSwitchMode
   tier_slugs: PilotTierSlugs
-  rates: typeof PILOT_RATES
+  /** Rates of tiers 0-2 in the saved config. */
+  rates: { base: number; after_tattoo: number; giver: number }
   friend_welcome_bonus: number
   currency: string
   previous_rewards_config: unknown
@@ -492,8 +524,13 @@ export async function applyPilotSwitch(plan: PilotSwitchPlan): Promise<{ pinned:
   const record: PilotSwitchRecord = {
     switched_at: switchedAt,
     version: PILOT_SWITCH_VERSION,
+    mode: plan.mode,
     tier_slugs: plan.slugs,
-    rates: PILOT_RATES,
+    rates: {
+      base: plan.target.tiers[0]?.cashback_rate ?? 0,
+      after_tattoo: plan.target.tiers[1]?.cashback_rate ?? 0,
+      giver: plan.target.tiers[2]?.cashback_rate ?? 0,
+    },
     friend_welcome_bonus: plan.welcomeBonus,
     currency: plan.studio.currency,
     previous_rewards_config: plan.storedConfig,
