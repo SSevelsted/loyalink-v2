@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { adminSupabase } from '@/lib/studio-access'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { JoinForm } from '@/components/landing/join-form'
@@ -21,7 +21,7 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = adminSupabase
 
   const { data: page } = await supabase
     .from('studio_landing_pages')
@@ -44,7 +44,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function JoinPage({ params, searchParams }: Props) {
   const { slug } = await params
   const { ref: referralCode } = await searchParams
-  const supabase = await createClient()
+  // Public page: read with the service key on the server (RLS gives anon no
+  // access). Only fields rendered below reach the browser.
+  const supabase = adminSupabase
 
   const { data: page } = await supabase
     .from('studio_landing_pages')

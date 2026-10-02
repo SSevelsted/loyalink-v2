@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { anonSupabase as supabase } from '@/lib/studio-access'
+import { adminSupabase as supabase } from '@/lib/studio-access'
 import { referralLimiter, getIP } from '@/lib/rate-limit'
 
 export async function GET(
@@ -17,6 +17,8 @@ export async function GET(
     return NextResponse.json({ error: 'Referral code is required' }, { status: 400 })
   }
 
+  // Service key: RLS gives anon no access to customers. Return only the
+  // referrer's name and studio, never the rest of the row.
   const { data: customer, error } = await supabase
     .from('customers')
     .select('name, studio_id, studios:studio_id(name)')

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { anonSupabase as supabase } from '@/lib/studio-access'
+import { adminSupabase as supabase } from '@/lib/studio-access'
 import { sendResendPassLink } from '@/lib/email/send'
 import { resendPassLimiter, getIP } from '@/lib/rate-limit'
 
@@ -12,13 +12,15 @@ export async function POST(request: NextRequest) {
   try {
     const { studioId, email } = await request.json()
 
-    if (!studioId || !email) {
+    if (typeof studioId !== 'string' || typeof email !== 'string' || !studioId || !email) {
       return NextResponse.json({ error: 'studioId and email are required' }, { status: 400 })
     }
 
     // Always return success to avoid leaking whether the email exists
     const ok = NextResponse.json({ success: true })
 
+    // Service key: RLS gives anon no access to customers. Only the id leaves
+    // this function, and the answer is the same whether or not it matched.
     const { data: customer } = await supabase
       .from('customers')
       .select('id')

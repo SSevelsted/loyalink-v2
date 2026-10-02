@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase/server'
 import { adminSupabase } from '@/lib/studio-access'
 import { customAlphabet } from 'nanoid'
 import { notFound } from 'next/navigation'
@@ -18,7 +17,9 @@ type Props = {
 
 export default async function ReferralLandingPage({ params }: Props) {
   const { memberId } = await params
-  const supabase = await createClient()
+  // Public page: read with the service key on the server (RLS gives anon no
+  // access). Only fields rendered below reach the browser.
+  const supabase = adminSupabase
 
   // Look up the referrer customer
   let customer
