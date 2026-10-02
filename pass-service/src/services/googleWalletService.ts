@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { GoogleAuth } from 'google-auth-library';
 import { googleConfig, appUrl, publicUrl } from '../config.js';
+import { giftPassField } from '../utils/giftCounter.js';
 
 // Save/delete callback URL registered on every loyalty class. Google POSTs here
 // when a user adds or removes the pass; the optional token authenticates it.
@@ -64,6 +65,14 @@ interface LoyaltyObjectData {
   logoUrl?: string;
   heroImageUrl?: string;
   hexBackgroundColor?: string;
+  /** "5 gifts to give" (1..5). Omitted or null: no module (studio switch off). */
+  giftsReady?: number | null;
+}
+
+function giftModules(data: LoyaltyObjectData): { header: string; body: string }[] {
+  if (typeof data.giftsReady !== 'number') return [];
+  const field = giftPassField(data.giftsReady, data.language);
+  return [{ header: field.label, body: field.value }];
 }
 
 // Google requires #RRGGBB. Templates may store #RGB or omit the leading hash;
@@ -226,6 +235,7 @@ export class GoogleWalletService {
           header: labels.cashbackRate,
           body: `${data.cashbackRate}%`,
         },
+        ...giftModules(data),
       ],
       // Multi-purpose QR: encodes the referral URL (phone camera → referral page);
       // the in-app studio scanner extracts the member id from the trailing segment.
@@ -371,6 +381,7 @@ export class GoogleWalletService {
               textModulesData: [
                 { header: getGoogleWalletLabels(objectData.language).tier, body: objectData.loyaltyTier },
                 { header: getGoogleWalletLabels(objectData.language).cashbackRate, body: `${objectData.cashbackRate}%` },
+                ...giftModules(objectData),
               ],
               barcode: {
                 type: 'QR_CODE',

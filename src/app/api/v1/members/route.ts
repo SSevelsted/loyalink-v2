@@ -7,6 +7,7 @@ import { escapeIlike } from '@/lib/escape-html'
 import { MARKETING_URL } from '@/lib/constants'
 import { summarizeMemberPasses } from '@/lib/pass-status'
 import { memberInviteLink } from '@/lib/member-links'
+import { giftFields, loadGiftCounters } from '@/lib/services/gift-counter-service'
 
 export async function GET(request: NextRequest) {
   try {
@@ -46,6 +47,8 @@ export async function GET(request: NextRequest) {
 
     if (error) return apiError(error.message, 500)
 
+    // "5 gifts to give" per member (null when the studio has gift_counter_enabled off).
+    const gifts = await loadGiftCounters(auth.studioId, (data ?? []).map((m) => m.id))
     const members = (data ?? []).map((member) => {
       // Prefer the short nanoid member_id for shareable links; fall back to the
       // UUID when a legacy row has no member_id. Both are resolved by the
@@ -64,6 +67,7 @@ export async function GET(request: NextRequest) {
         // Wallet pass status per platform (apple/google), plus whether any is installed.
         passes,
         pass_installed,
+        ...giftFields(gifts.get(member.id)),
       }
     })
 

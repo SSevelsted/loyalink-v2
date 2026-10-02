@@ -5,6 +5,7 @@ import { apiSuccess, apiError } from '@/lib/api-response'
 import { MARKETING_URL } from '@/lib/constants'
 import { summarizeMemberPasses } from '@/lib/pass-status'
 import { memberInviteLink } from '@/lib/member-links'
+import { giftFields, loadGiftCounters } from '@/lib/services/gift-counter-service'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -28,6 +29,8 @@ export async function GET(request: NextRequest, { params }: Params) {
     const publicId = customer.member_id ?? customer.id
     // Collapse wallet_passes to the current status per platform (+ a boolean).
     const { passes, pass_installed } = summarizeMemberPasses(customer.passes)
+    // "5 gifts to give" (null when the studio has gift_counter_enabled off).
+    const gifts = (await loadGiftCounters(auth.studioId, [customer.id])).get(customer.id)
 
     return apiSuccess({
       ...customer,
@@ -40,6 +43,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       // Wallet pass status per platform (apple/google), plus whether any is installed.
       passes,
       pass_installed,
+      ...giftFields(gifts),
     })
   } catch {
     return apiError('Internal server error', 500)

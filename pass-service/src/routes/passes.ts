@@ -5,6 +5,7 @@ import { applePassService } from '../services/applePassService.js';
 import { requireInternalAuth } from '../middleware/internalAuth.js';
 import { verifyCustomerAccessToken, createMemberLinkToken } from '../utils/customerAccess.js';
 import { firePassLifecycle } from '../utils/lifecycle.js';
+import { loadGiftsReady } from '../utils/giftCounter.js';
 
 export const passRoutes = Router();
 
@@ -163,6 +164,7 @@ passRoutes.post('/generate', requireInternalAuth, async (req: Request, res: Resp
         memberLinkToken: createMemberLinkToken(customer.id, customer.link_token_version),
         currency: customer.currency || 'DKK',
         language: customer.language || studioLanguage,
+        giftsReady: await loadGiftsReady(customer.studio_id, customerId),
         logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
         iconUrl: template?.icon_url || undefined,
         heroImageUrl: tierTheme.stripImage || undefined,
@@ -280,6 +282,7 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
       memberLinkToken: createMemberLinkToken(customer.id, (customer as { link_token_version?: number }).link_token_version),
       currency: customer.currency || 'DKK',
       language: customer.language || studioLanguage,
+      giftsReady: await loadGiftsReady(walletPass.studio_id, customer.id),
       pushMessage: walletPass.push_message || undefined,
       logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
       iconUrl: template?.icon_url || undefined,

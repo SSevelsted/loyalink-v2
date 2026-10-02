@@ -1,6 +1,8 @@
 import { adminSupabase } from '@/lib/studio-access'
 import { createCustomerAccessToken, hasPersonalDataAccess, memberLinkVersion } from '@/lib/customer-access'
 import { firstName, friendDisplayName } from '@/lib/member-privacy'
+import { loadGiftCounters } from '@/lib/services/gift-counter-service'
+import type { GiftCounter } from '@/lib/gift-counter'
 import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig } from '@/types/database'
 import type { RewardsConfig, Referral, Transaction } from '@/types/database'
 
@@ -48,6 +50,8 @@ export type MemberPageData = {
   transactions: Transaction[]
   currency: string
   language: string
+  /** "5 gifts to give". null when the studio has gift_counter_enabled off. Shown in both views: a count, no names. */
+  gifts: GiftCounter | null
 }
 
 const TOKEN_TTL_SECONDS = 24 * 60 * 60
@@ -126,6 +130,7 @@ export async function loadMemberPage(memberId: string, token: string | null | un
   const logoUrl = (branding.logoUrl as string) ?? (landingPage?.hero_image_url as string | null) ?? null
   const avatarUrl = ((customer.metadata as Record<string, unknown> | null)?.avatar_url as string) ?? null
 
+  const gifts = (await loadGiftCounters(customer.studio_id, [customer.id], rewardsConfig)).get(customer.id) ?? null
   const full = access === 'full'
   return {
     access,
@@ -148,5 +153,6 @@ export async function loadMemberPage(memberId: string, token: string | null | un
     transactions,
     currency,
     language,
+    gifts,
   }
 }

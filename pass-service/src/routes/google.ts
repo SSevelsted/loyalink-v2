@@ -3,6 +3,7 @@ import { supabase, googleConfig } from '../config.js';
 import { googleWalletService } from '../services/googleWalletService.js';
 import { requireInternalAuth } from '../middleware/internalAuth.js';
 import { firePassLifecycle } from '../utils/lifecycle.js';
+import { loadGiftsReady } from '../utils/giftCounter.js';
 
 export const googleRoutes = Router();
 
@@ -163,6 +164,7 @@ googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) 
       loyaltyTier: customer.loyalty_stage || 'base',
       currency: customer.currency || 'DKK',
       language: customer.language || studioLanguage,
+      giftsReady: await loadGiftsReady(walletPass.studio_id, customer.id),
       studioName,
       logoUrl,
       heroImageUrl,
@@ -249,6 +251,7 @@ googleRoutes.post('/update/:serialNumber', requireInternalAuth, async (req: Requ
       loyaltyTier: customer.loyalty_stage || 'base',
       currency: customer.currency || 'DKK',
       language: customer.language || studioLanguage,
+      giftsReady: await loadGiftsReady(walletPass.studio_id, customer.id),
     });
 
     if (success) {

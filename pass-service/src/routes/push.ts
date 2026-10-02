@@ -4,6 +4,7 @@ import { apnsConfig, appleConfig } from '../config.js';
 import { apnsService } from '../services/apnsService.js';
 import { googleWalletService } from '../services/googleWalletService.js';
 import { requireInternalAuth } from '../middleware/internalAuth.js';
+import { loadGiftsReady } from '../utils/giftCounter.js';
 
 export const pushRoutes = Router();
 
@@ -122,6 +123,7 @@ async function updateGoogleObjectsForCustomers(customerIds: string[]): Promise<n
       loyaltyTier: customer.loyalty_stage || 'base',
       currency: customer.currency || 'DKK',
       language: customer.language || studioCtx.language,
+      giftsReady: await loadGiftsReady(pass.studio_id, customer.id),
     });
     if (ok) updated++;
   }
