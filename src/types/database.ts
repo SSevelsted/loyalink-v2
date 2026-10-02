@@ -470,6 +470,8 @@ export type RewardsConfig = {
     friend_cashback_rate: number
     friend_welcome_bonus: number
     activation_trigger: UpgradeTriggerConfig
+    /** "5 gifts to give" counter on the API, the member page and the pass. Off unless set. */
+    gift_counter_enabled?: boolean
   }
   cashback_on_cashback_balance: boolean
 }
@@ -495,6 +497,7 @@ export const DEFAULT_REWARDS_CONFIG: RewardsConfig = {
     friend_cashback_rate: 15,
     friend_welcome_bonus: 100,
     activation_trigger: { type: 'first_purchase' },
+    gift_counter_enabled: false,
   },
   cashback_on_cashback_balance: false,
 }
@@ -612,6 +615,7 @@ export function migrateRewardsConfig(raw: unknown): RewardsConfig {
       friend_cashback_rate: parseRewardsNumber(referrals.friend_cashback_rate, DEFAULT_REWARDS_CONFIG.referrals.friend_cashback_rate),
       friend_welcome_bonus: parseRewardsNumber(referrals.friend_welcome_bonus, DEFAULT_REWARDS_CONFIG.referrals.friend_welcome_bonus),
       activation_trigger: normalizeUpgradeTriggerConfig(referrals.activation_trigger) ?? DEFAULT_REWARDS_CONFIG.referrals.activation_trigger,
+      gift_counter_enabled: referrals.gift_counter_enabled === true,
     }
 
     return syncReferralFriendRate(config)

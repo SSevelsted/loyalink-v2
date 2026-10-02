@@ -90,6 +90,11 @@ export type LoyaltyTranslations = {
   /** Public view (no access token): where the member finds the balance instead. */
   balanceOnWalletCard: string
 
+  // Gift counter ("5 gifts to give"): gifts the member gives to friends
+  giftsTitle: string
+  giftsReady: (n: number) => string
+  giftsGivenSoFar: (n: number) => string
+
   // Time
   justNow: string
   minutesAgo: (m: number) => string
@@ -185,6 +190,10 @@ const en: LoyaltyTranslations = {
   changePhoto: 'Change photo',
   balanceOnWalletCard: 'Your balance is on your wallet card.',
 
+  giftsTitle: 'Gifts to give',
+  giftsReady: (n) => `You have ${n} gift${n === 1 ? '' : 's'} to give`,
+  giftsGivenSoFar: (n) => `${n} gift${n === 1 ? '' : 's'} given so far`,
+
   justNow: 'just now',
   minutesAgo: (m) => `${m}m ago`,
   hoursAgo: (h) => `${h}h ago`,
@@ -278,6 +287,10 @@ const da: LoyaltyTranslations = {
 
   changePhoto: 'Skift foto',
   balanceOnWalletCard: 'Din saldo står på dit wallet-kort.',
+
+  giftsTitle: 'Gaver at give',
+  giftsReady: (n) => `Du har ${n} ${n === 1 ? 'gave' : 'gaver'} at give`,
+  giftsGivenSoFar: (n) => `${n} ${n === 1 ? 'gave' : 'gaver'} givet indtil nu`,
 
   justNow: 'lige nu',
   minutesAgo: (m) => `${m} min. siden`,
@@ -373,6 +386,10 @@ const sv: LoyaltyTranslations = {
   changePhoto: 'Byt foto',
   balanceOnWalletCard: 'Ditt saldo står på ditt wallet-kort.',
 
+  giftsTitle: 'Gåvor att ge',
+  giftsReady: (n) => `Du har ${n} ${n === 1 ? 'gåva' : 'gåvor'} att ge`,
+  giftsGivenSoFar: (n) => `${n} ${n === 1 ? 'gåva given' : 'gåvor givna'} hittills`,
+
   justNow: 'just nu',
   minutesAgo: (m) => `${m} min sedan`,
   hoursAgo: (h) => `${h}t sedan`,
@@ -467,6 +484,10 @@ const nb: LoyaltyTranslations = {
   changePhoto: 'Bytt foto',
   balanceOnWalletCard: 'Saldoen din står på wallet-kortet ditt.',
 
+  giftsTitle: 'Gaver å gi',
+  giftsReady: (n) => `Du har ${n} ${n === 1 ? 'gave' : 'gaver'} å gi`,
+  giftsGivenSoFar: (n) => `${n} ${n === 1 ? 'gave' : 'gaver'} gitt så langt`,
+
   justNow: 'akkurat nå',
   minutesAgo: (m) => `${m} min siden`,
   hoursAgo: (h) => `${h}t siden`,
@@ -560,6 +581,10 @@ const de: LoyaltyTranslations = {
 
   changePhoto: 'Foto ändern',
   balanceOnWalletCard: 'Dein Guthaben steht auf deiner Wallet-Karte.',
+
+  giftsTitle: 'Geschenke zum Verschenken',
+  giftsReady: (n) => `Du hast ${n} ${n === 1 ? 'Geschenk' : 'Geschenke'} zum Verschenken`,
+  giftsGivenSoFar: (n) => `${n} ${n === 1 ? 'Geschenk' : 'Geschenke'} bisher verschenkt`,
 
   justNow: 'gerade eben',
   minutesAgo: (m) => `vor ${m} Min.`,
@@ -656,6 +681,10 @@ const fr: LoyaltyTranslations = {
   changePhoto: 'Changer la photo',
   balanceOnWalletCard: 'Votre solde figure sur votre carte Wallet.',
 
+  giftsTitle: 'Cadeaux à offrir',
+  giftsReady: (n) => `Vous avez ${n} ${n === 1 ? 'cadeau' : 'cadeaux'} à offrir`,
+  giftsGivenSoFar: (n) => `${n} ${n === 1 ? 'cadeau offert' : 'cadeaux offerts'} jusqu’ici`,
+
   justNow: 'à l\'instant',
   minutesAgo: (m) => `il y a ${m} min`,
   hoursAgo: (h) => `il y a ${h}h`,
@@ -750,6 +779,10 @@ const es: LoyaltyTranslations = {
 
   changePhoto: 'Cambiar foto',
   balanceOnWalletCard: 'Tu saldo aparece en tu tarjeta del Wallet.',
+
+  giftsTitle: 'Regalos para dar',
+  giftsReady: (n) => `Tienes ${n} ${n === 1 ? 'regalo' : 'regalos'} para dar`,
+  giftsGivenSoFar: (n) => `${n} ${n === 1 ? 'regalo dado' : 'regalos dados'} hasta ahora`,
 
   justNow: 'ahora mismo',
   minutesAgo: (m) => `hace ${m} min`,
@@ -846,6 +879,10 @@ const nl: LoyaltyTranslations = {
   changePhoto: 'Foto wijzigen',
   balanceOnWalletCard: 'Je saldo staat op je Wallet-kaart.',
 
+  giftsTitle: 'Cadeaus om te geven',
+  giftsReady: (n) => `Je hebt ${n} ${n === 1 ? 'cadeau' : 'cadeaus'} om te geven`,
+  giftsGivenSoFar: (n) => `${n} ${n === 1 ? 'cadeau' : 'cadeaus'} gegeven tot nu toe`,
+
   justNow: 'zojuist',
   minutesAgo: (m) => `${m} min geleden`,
   hoursAgo: (h) => `${h}u geleden`,
@@ -854,6 +891,9 @@ const nl: LoyaltyTranslations = {
 }
 
 // Polish — informal "ty" / 2nd person verb forms.
+// Polish plural of "prezent": 1 prezent, 2-4 prezenty (not 12-14), else prezentów.
+const plGifts = (n: number) => (n === 1 ? 'prezent' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'prezenty' : 'prezentów')
+
 const pl: LoyaltyTranslations = {
   cashback: 'Cashback',
   balance: 'Saldo',
@@ -943,6 +983,10 @@ const pl: LoyaltyTranslations = {
 
   changePhoto: 'Zmień zdjęcie',
   balanceOnWalletCard: 'Twoje saldo widać na karcie w Wallet.',
+
+  giftsTitle: 'Prezenty do podarowania',
+  giftsReady: (n) => `Masz ${n} ${plGifts(n)} do podarowania`,
+  giftsGivenSoFar: (n) => `Podarowane dotąd: ${n} ${plGifts(n)}`,
 
   justNow: 'przed chwilą',
   minutesAgo: (m) => `${m} min temu`,

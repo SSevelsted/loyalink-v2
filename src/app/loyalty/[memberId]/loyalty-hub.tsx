@@ -22,6 +22,7 @@ import type { RewardsConfig, Transaction } from '@/types/database'
 import { getReferralUnlockTier, computeReferralMilestones } from '@/types/database'
 import type { MemberPageData, MemberPageReferral } from '@/lib/services/member-page-service'
 import { amountSign, memberTransactionLabel, signedTransactionAmount } from '@/lib/transaction-display'
+import { GIFTS_PER_ROUND } from '@/lib/gift-counter'
 
 type Props = MemberPageData & { memberId: string }
 
@@ -364,7 +365,7 @@ function AddToWalletCard({ memberId, customerId, customerAccessToken, brandColor
   )
 }
 
-export function LoyaltyHub({ access, memberId, customerAccessToken, avatarUrl, customer, studio, branding, logoUrl, rewardsConfig, referrals, transactions, currency, language }: Props) {
+export function LoyaltyHub({ access, gifts, memberId, customerAccessToken, avatarUrl, customer, studio, branding, logoUrl, rewardsConfig, referrals, transactions, currency, language }: Props) {
   const searchParams = useSearchParams()
   const autoAddPass = searchParams.get('addPass') === '1'
   // Public view (no valid ?token=): the card and Add to Wallet only. The
@@ -572,6 +573,34 @@ export function LoyaltyHub({ access, memberId, customerAccessToken, avatarUrl, c
           autoAdd={autoAddPass}
           qrToken={isFull ? customerAccessToken : null}
         />
+
+        {/* ===== GIFTS TO GIVE (studio switch gift_counter_enabled) ===== */}
+        {gifts && (
+          <Card className="rounded-xl">
+            <CardContent className="p-4 space-y-3 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <Gift className="h-5 w-5" style={{ color: brandColor }} />
+                <p className="text-sm font-semibold">{t.giftsTitle}</p>
+              </div>
+              <div className="flex justify-center gap-2" aria-hidden="true">
+                {Array.from({ length: GIFTS_PER_ROUND }, (_, i) => (
+                  <div
+                    key={i}
+                    className="h-3 w-3 rounded-full border-2"
+                    style={{
+                      borderColor: brandColor,
+                      backgroundColor: i < gifts.gifts_ready ? brandColor : 'transparent',
+                    }}
+                  />
+                ))}
+              </div>
+              <p className="text-sm">{t.giftsReady(gifts.gifts_ready)}</p>
+              {gifts.gifts_given_total > 0 && (
+                <p className="text-xs text-muted-foreground">{t.giftsGivenSoFar(gifts.gifts_given_total)}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* ===== 2. QUICK STATS ===== */}
         {!isFull && (

@@ -3,6 +3,7 @@ import { adminSupabase } from '@/lib/studio-access'
 import { validateApiKey } from '@/lib/api-keys'
 import { apiSuccess, apiError } from '@/lib/api-response'
 import { escapeIlike } from '@/lib/escape-html'
+import { giftFields, loadGiftCounters } from '@/lib/services/gift-counter-service'
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,7 +24,9 @@ export async function GET(request: NextRequest) {
 
     if (error) return apiError(error.message, 500)
 
-    return apiSuccess(data ?? [])
+    // "5 gifts to give" per member (null when the studio has gift_counter_enabled off).
+    const gifts = await loadGiftCounters(auth.studioId, (data ?? []).map((m) => m.id))
+    return apiSuccess((data ?? []).map((m) => ({ ...m, ...giftFields(gifts.get(m.id)) })))
   } catch {
     return apiError('Internal server error', 500)
   }

@@ -68,3 +68,19 @@ describe('memberTransactionLabel', () => {
     }
   })
 })
+
+describe('gift counter copy', () => {
+  it('every language has it, never says earn, has no em dash', () => {
+    for (const lang of ['en', 'da', 'sv', 'no', 'nb', 'de', 'fr', 'es', 'nl', 'pl']) {
+      const t = getLoyaltyTranslations(lang)
+      const copy = [t.giftsTitle, t.giftsReady(1), t.giftsReady(5), t.giftsGivenSoFar(1), t.giftsGivenSoFar(12)]
+      for (const text of copy) {
+        assert.ok(text && !text.includes('\u2014'), `${lang}: ${text}`)
+        assert.ok(!/earn/i.test(text), `${lang}: ${text}`)
+      }
+    }
+    assert.equal(getLoyaltyTranslations('en').giftsReady(1), 'You have 1 gift to give')
+    assert.equal(getLoyaltyTranslations('pl').giftsReady(3), 'Masz 3 prezenty do podarowania')
+    assert.equal(getLoyaltyTranslations('pl').giftsReady(5), 'Masz 5 prezentów do podarowania')
+  })
+})

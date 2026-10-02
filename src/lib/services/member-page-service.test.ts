@@ -20,7 +20,7 @@ let access: Access
 let adminSupabase: AdminClient
 let originalFrom: AdminClient['from']
 
-const studio = { id: STUDIO_ID, name: 'Ink Studio', slug: 'ink', settings: { rewards_config: REWARDS_CONFIG, currency: 'EUR', language: 'en' } }
+const studio: { id: string; name: string; slug: string; settings: { rewards_config: unknown; currency: string; language: string } } = { id: STUDIO_ID, name: 'Ink Studio', slug: 'ink', settings: { rewards_config: REWARDS_CONFIG, currency: 'EUR', language: 'en' } }
 
 function seed(): FakeSupabase {
   const fake = createFakeSupabase({
@@ -164,6 +164,21 @@ describe('loadMemberPage', () => {
 
     assert.notEqual(page!.customerAccessToken, linkToken)
     assert.ok(access.verifyCustomerAccessToken(page!.customerAccessToken), 'a normal 24h token for wallet + avatar')
+  })
+
+  it('gift counter: null when the studio switch is off, a count in both views when on', async () => {
+    seed()
+    assert.equal((await pages.loadMemberPage('MEMBER01', null))!.gifts, null)
+
+    studio.settings.rewards_config = { ...REWARDS_CONFIG, referrals: { ...REWARDS_CONFIG.referrals, gift_counter_enabled: true } }
+    try {
+      seed()
+      assert.deepEqual((await pages.loadMemberPage('MEMBER01', null))!.gifts, { gifts_given_total: 1, gifts_ready: 4 })
+      const token = access.createCustomerAccessToken('giver', 3600)
+      assert.deepEqual((await pages.loadMemberPage('MEMBER01', token))!.gifts, { gifts_given_total: 1, gifts_ready: 4 })
+    } finally {
+      studio.settings.rewards_config = REWARDS_CONFIG
+    }
   })
 
   it('resolves the member by uuid too, and returns null for an unknown id', async () => {

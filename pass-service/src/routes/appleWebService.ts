@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { supabase, appUrl } from '../config.js';
 import { firePassLifecycle } from '../utils/lifecycle.js';
 import { createMemberLinkToken } from '../utils/customerAccess.js';
+import { loadGiftsReady } from '../utils/giftCounter.js';
 
 export const appleWebServiceRoutes = Router();
 
@@ -317,6 +318,7 @@ appleWebServiceRoutes.get(
         memberLinkToken: createMemberLinkToken(customer.id, (customer as { link_token_version?: number }).link_token_version),
         currency: customer.currency || 'DKK',
         language: customer.language || studioLanguage,
+        giftsReady: await loadGiftsReady(walletPass.studio_id, customer.id),
         pushMessage: walletPass.push_message || undefined,
         logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
         iconUrl: template?.icon_url || undefined,

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { randomBytes } from 'crypto';
 import { appleConfig, publicUrl, appUrl } from '../config.js';
+import { giftPassField } from '../utils/giftCounter.js';
 
 // Convert hex color (#fff or #ffffff) to Apple-required rgb() format
 function toRgb(color: string): string {
@@ -237,6 +238,8 @@ interface PassData {
   };
   /** Member link token for the back-field link (full member page). Never in the barcode. */
   memberLinkToken?: string;
+  /** "5 gifts to give" (1..5). Omitted or null: no field (studio switch off). */
+  giftsReady?: number | null;
 }
 
 interface PassJson {
@@ -462,6 +465,9 @@ export class ApplePassService {
           },
         ],
         backFields: [
+          ...(typeof data.giftsReady === 'number'
+            ? [{ key: 'gifts', ...giftPassField(data.giftsReady, data.language) }]
+            : []),
           {
             key: 'referral',
             label: t.referralLabel,

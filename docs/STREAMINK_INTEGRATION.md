@@ -258,6 +258,42 @@ returns `{ "invite_link", "link_token_version" }`. Store the new link.
 
 ---
 
+#### Attach a Referrer to an Existing Member
+```
+POST /api/v1/members/:id/referral
+Auth: Studio key
+Body: { "referral_code": "ABC12345" }
+```
+
+For a member whose card exists before the giver's code is known. Writes one
+pending referral row (the same row `POST /api/v1/members` writes with a code).
+`201` created, `200` when the same referrer is already attached (idempotent).
+Response: `{ "data": { "created": true, "referral": { "id", "referrer_customer_id", "referred_customer_id", "referral_code", "status", "created_at" } } }`.
+
+Errors (`{ "error", "code" }`): `400 referral_code_required`, `400 referrals_disabled`,
+`404 member_not_found`, `400 code_not_found` (unknown or other studio),
+`400 self_referral` (same member, email or phone), `400 pre_existing_client`,
+`409 already_referred` (a different referrer is attached).
+
+It does NOT credit a welcome bonus and does NOT change tier or cashback rate.
+No webhook fires (there is no `referral.created` event); `referral.activated`
+fires later as for any referral.
+
+#### Gift Counter ("5 gifts to give")
+
+Per-studio switch `rewards_config.referrals.gift_counter_enabled` (default
+`false`; set it with `PATCH /api/v1/studios/:id/rewards-config`). When on,
+`GET /api/v1/members/:id`, `GET /api/v1/members` and
+`GET /api/v1/members/search` add:
+
+- `gifts_given_total`: the member's referral rows as referrer (any status).
+- `gifts_ready`: `5 - (gifts_given_total mod 5)`, so 5 at 0 and 5 again after the 5th.
+
+Both are `null` when the switch is off. The member page and the wallet pass
+(back field on Apple, text module on Google) show the count only when on.
+
+---
+
 #### Update Member
 ```
 PATCH /api/v1/members/:id

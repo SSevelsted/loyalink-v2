@@ -8,6 +8,7 @@ import { APP_URL } from '@/lib/constants'
 import { fireWebhook } from '@/lib/services/webhook-service'
 import { sendCustomerWelcome } from '@/lib/email/send'
 import { memberInviteLink } from '@/lib/member-links'
+import { pushGiverPass } from '@/lib/services/referral-attach-service'
 
 const PASS_SERVICE_URL = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
 
@@ -228,6 +229,8 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
       referrerCustomerId = null
     } else {
       referralLinked = true
+      // A new gift: refresh the giver's pass when the gift counter is on.
+      pushGiverPass(referrerCustomerId!, config)
     }
 
     if (referralLinked && config.referrals.friend_welcome_bonus > 0) {
