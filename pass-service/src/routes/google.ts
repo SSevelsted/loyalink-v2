@@ -4,6 +4,7 @@ import { googleWalletService } from '../services/googleWalletService.js';
 import { requireInternalAuth } from '../middleware/internalAuth.js';
 import { firePassLifecycle } from '../utils/lifecycle.js';
 import { loadGiftsReady } from '../utils/giftCounter.js';
+import { createMemberLinkToken } from '../utils/customerAccess.js';
 
 export const googleRoutes = Router();
 
@@ -207,7 +208,7 @@ googleRoutes.post('/update/:serialNumber', requireInternalAuth, async (req: Requ
       return res.status(404).json({ error: 'Google pass not found' });
     }
 
-    const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string; language?: string };
+    const customer = walletPass.customers as { id: string; name: string; member_id?: string; balance: number; cashback_rate: number; loyalty_stage?: string; currency?: string; language?: string; link_token_version?: number };
     const classId = `loyalty_${walletPass.studio_id}`.replace(/-/g, '_');
     const objectId = serialNumber.replace(/-/g, '_');
 
@@ -252,6 +253,7 @@ googleRoutes.post('/update/:serialNumber', requireInternalAuth, async (req: Requ
       currency: customer.currency || 'DKK',
       language: customer.language || studioLanguage,
       giftsReady: await loadGiftsReady(walletPass.studio_id, customer.id),
+      memberLinkToken: createMemberLinkToken(customer.id, customer.link_token_version),
     });
 
     if (success) {
