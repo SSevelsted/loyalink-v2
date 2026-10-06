@@ -9,12 +9,14 @@
  *
  * --referral-only (current studios): only the gift/referral rules below
  * change (welcome bonus, no giver bonus, no commission, first full payment),
- * and the giver tier (tiers[2]) becomes manual only (total_spend 999999).
- * Tier rates, the friend tier and every member's deal stay as they are.
+ * and the giver tier (tiers[2]) becomes Inner Circle: 15% at 3 activated
+ * referrals. The other tier rates, the friend tier and every member's deal
+ * stay as they are.
  *
  * Target (src/lib/services/pilot-switch-service.ts, full mode, new studios):
- *   - tiers 5% base, 10% after the tattoo (first full payment), 15% giver (manual only,
- *     set by the platform via PATCH tier);
+ *   - tiers 5% base, 10% after the tattoo (first full payment), 15% Inner
+ *     Circle at 3 activated referrals (3 friends who paid at the counter;
+ *     Loyalink upgrades the giver at the 3rd friend's payment);
  *     the slugs of today's first 3 tiers are reused
  *   - friend joins on the 10% tier and gets the welcome bonus from Loyalink
  *   - giver: no Loyalink cashback bonus, no commission; referral activates on
@@ -31,11 +33,24 @@
  * No webhook, email, message or wallet-pass push is sent.
  *
  *   node --env-file=.env.local --import tsx scripts/switch-day.ts --studio=<uuid> --apply
+ *
+ * --update-inner-circle (studios ALREADY switched, either mode): rewrites only
+ * tiers[2] to 15% at 3 activated referrals (giver bonus and commission stay
+ * 0), and raises members already on that tier to 15% (promotion-aware: an
+ * active promotion stays the main deal, its fallback takes the 15%). Members
+ * below it whose referral_count already reaches 3 are listed, not moved.
+ * Dry run by default; re-runnable. No webhook, email, message or pass push.
+ *
+ *   node --env-file=.env.local --import tsx scripts/switch-day.ts --studio=<uuid> --update-inner-circle
+ *   node --env-file=.env.local --import tsx scripts/switch-day.ts --studio=<uuid> --update-inner-circle --apply
  */
 import {
+  applyInnerCircleUpdate,
   applyPilotSwitch,
+  describeInnerCircleUpdatePlan,
   describePilotSwitchPlan,
   loadPilotSwitchInput,
+  planInnerCircleUpdate,
   planPilotSwitch,
 } from '../src/lib/services/pilot-switch-service'
 
@@ -53,9 +68,15 @@ async function main() {
   const bonusRaw = flag('welcome-bonus')
   const currency = flag('currency')
   const mode = process.argv.includes('--referral-only') ? 'referral_only' as const : 'full' as const
+  const updateInnerCircle = process.argv.includes('--update-inner-circle')
 
   if (!studioId) {
     console.error('Usage: scripts/switch-day.ts --studio=<loyalink studio uuid> [--welcome-bonus=25] [--currency=EUR] [--referral-only] [--apply]')
+    console.error('       scripts/switch-day.ts --studio=<loyalink studio uuid> --update-inner-circle [--apply]')
+    process.exit(2)
+  }
+  if (updateInnerCircle && (bonusRaw != null || currency != null || process.argv.includes('--referral-only'))) {
+    console.error('--update-inner-circle takes only --studio and --apply')
     process.exit(2)
   }
   const welcomeBonus = bonusRaw == null ? undefined : Number(bonusRaw)
@@ -68,6 +89,24 @@ async function main() {
   if (!input) {
     console.log(`Studio ${studioId} not found in Loyalink. Nothing to switch.`)
     process.exit(1)
+  }
+
+  if (updateInnerCircle) {
+    const update = planInnerCircleUpdate(input)
+    for (const line of describeInnerCircleUpdatePlan(update)) console.log(line)
+    if (!apply) {
+      console.log('')
+      console.log('Dry run. Nothing written. Pass --apply to update.')
+      return
+    }
+    if (update.blockers.length > 0) {
+      console.error('Not applied: resolve the blockers first.')
+      process.exit(1)
+    }
+    const result = await applyInnerCircleUpdate(update)
+    console.log('')
+    console.log(`Config ${result.configSaved ? 'saved' : 'already up to date'}. Raised ${result.membersRaised} members (${result.promotionsUpdated} promotion fallbacks).`)
+    return
   }
 
   const plan = planPilotSwitch(input, { welcomeBonus, currency, mode })

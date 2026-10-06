@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch'
 import { ArrowLeft, CheckCircle2, ArrowUp, TrendingUp, Trophy, Mail, Loader2, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatAmount, type CurrencyConfig } from '@/lib/currency'
-import { TIER_COLOR_PALETTE } from '@/types/database'
+import { TIER_COLOR_PALETTE, isManualOnlyTrigger } from '@/types/database'
 import { hapticTap, hapticSuccess } from '@/lib/platform'
 
 // ── Shared types ─────────────────────────────────────────────────────────────
@@ -256,9 +256,10 @@ export function RecordTransactionView({
                   <TrendingUp className="h-3 w-3 text-muted-foreground" />
                   <span className="text-[11px] text-muted-foreground">
                     Next: {s.nextTier.name} &middot;{' '}
+                    {isManualOnlyTrigger(s.nextTier.trigger) && 'By invitation only'}
                     {s.nextTier.trigger.type === 'first_purchase' && 'After first purchase'}
                     {s.nextTier.trigger.type === 'first_full_payment' && 'After first full payment'}
-                    {s.nextTier.trigger.type === 'referral_count' && `Refer ${s.nextTier.trigger.threshold ?? 1} friend${(s.nextTier.trigger.threshold ?? 1) > 1 ? 's' : ''}`}
+                    {s.nextTier.trigger.type === 'referral_count' && `${s.nextTier.trigger.threshold ?? 1} referred friend${(s.nextTier.trigger.threshold ?? 1) > 1 ? 's' : ''} paid`}
                     {s.nextTier.trigger.type === 'days_member' && `After ${s.nextTier.trigger.threshold ?? 30} days as a member`}
                   </span>
                 </div>

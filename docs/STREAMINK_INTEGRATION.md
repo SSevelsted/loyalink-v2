@@ -799,6 +799,20 @@ Each webhook gets:
 | `referral.activated` | A referral converts (referred friend meets activation trigger) |
 | `promotion.expired` | A promotion expires (time or usage limit) |
 
+`referral.activated` data: `referrer_customer_id`, `referrer_new_cashback_rate`
+(the rate the referrer earns now), `referrer_referral_count`,
+`referrer_loyalty_stage` (the referrer's own tier after this activation; during
+a tier_override the override tier stays on the member) and
+`referrer_tier_upgraded_to` (tier slug when this activation moved the referrer
+up, else `null`).
+
+A tier with a `referral_count` trigger is reached at the referral activation
+that brings the count to its threshold (the friend's qualifying payment), not
+at the referrer's own next purchase. That activation also fires `tier.upgraded`
+(`from_tier`, `to_tier`, `to_tier_name`, `cashback_rate`). At switched studios
+Inner Circle (tiers[2]) is 15% at 3 activated referrals, and Loyalink owns that
+upgrade: do not PATCH the tier for it.
+
 ### Payload Format
 
 ```json

@@ -19,7 +19,7 @@ import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { getLoyaltyTranslations } from '@/lib/loyalty-translations'
 import type { LoyaltyTranslations } from '@/lib/loyalty-translations'
 import type { RewardsConfig, Transaction } from '@/types/database'
-import { getReferralUnlockTier, computeReferralMilestones } from '@/types/database'
+import { getReferralUnlockTier, computeReferralMilestones, isManualOnlyTrigger } from '@/types/database'
 import type { MemberPageData, MemberPageReferral } from '@/lib/services/member-page-service'
 import { amountSign, memberTransactionLabel, signedTransactionAmount } from '@/lib/transaction-display'
 import { GIFTS_PER_ROUND } from '@/lib/gift-counter'
@@ -85,6 +85,7 @@ function getTierUpgradeActionText(
   t: LoyaltyTranslations,
   formattedThreshold?: string,
 ): string {
+  if (isManualOnlyTrigger(trigger)) return t.doByInvitation
   switch (trigger.type) {
     case 'first_purchase': return t.doFirstPurchase
     case 'first_full_payment': return t.doFirstFullPayment

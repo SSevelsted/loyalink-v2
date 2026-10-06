@@ -45,6 +45,8 @@ export type SignupTranslations = {
   triggerTotalSpend: (amount: string) => string
   triggerReferralCount: (n: number) => string
   triggerDaysMember: (n: number) => string
+  /** A manual-only tier (isManualOnlyTrigger): the studio places the member there. */
+  triggerByInvitation: string
   tierCashbackSuffix: (rate: number) => string // "— X% cashback"
 
   // JoinForm
@@ -135,8 +137,9 @@ const en: SignupTranslations = {
   triggerFirstPurchase: 'After your first purchase',
   triggerFirstFullPayment: 'After your first full payment',
   triggerTotalSpend: (a) => `Spend ${a} total`,
-  triggerReferralCount: (n) => (n === 1 ? 'Refer 1 friend' : `Refer ${n} friends`),
+  triggerReferralCount: (n) => (n === 1 ? '1 friend gets tattooed with us' : `${n} friends get tattooed with us`),
   triggerDaysMember: (n) => `After ${n} days as a member`,
+  triggerByInvitation: 'By invitation',
   tierCashbackSuffix: (r) => `— ${r}% cashback`,
 
   fullNameLabel: 'Full name',
@@ -224,8 +227,9 @@ const da: SignupTranslations = {
   triggerFirstPurchase: 'Efter dit første køb',
   triggerFirstFullPayment: 'Efter din første fulde betaling',
   triggerTotalSpend: (a) => `Brug ${a} i alt`,
-  triggerReferralCount: (n) => (n === 1 ? 'Inviter 1 ven' : `Inviter ${n} venner`),
+  triggerReferralCount: (n) => (n === 1 ? '1 ven bliver tatoveret hos os' : `${n} venner bliver tatoveret hos os`),
   triggerDaysMember: (n) => `Efter ${n} dage som medlem`,
+  triggerByInvitation: 'Kun på invitation',
   tierCashbackSuffix: (r) => `— ${r}% cashback`,
 
   fullNameLabel: 'Fulde navn',
@@ -313,8 +317,9 @@ const sv: SignupTranslations = {
   triggerFirstPurchase: 'Efter ditt första köp',
   triggerFirstFullPayment: 'Efter din första fullständiga betalning',
   triggerTotalSpend: (a) => `Spendera totalt ${a}`,
-  triggerReferralCount: (n) => (n === 1 ? 'Bjud in 1 vän' : `Bjud in ${n} vänner`),
+  triggerReferralCount: (n) => (n === 1 ? '1 vän tatuerar sig hos oss' : `${n} vänner tatuerar sig hos oss`),
   triggerDaysMember: (n) => `Efter ${n} dagar som medlem`,
+  triggerByInvitation: 'Endast på inbjudan',
   tierCashbackSuffix: (r) => `— ${r}% cashback`,
 
   fullNameLabel: 'Fullständigt namn',
@@ -402,8 +407,9 @@ const nb: SignupTranslations = {
   triggerFirstPurchase: 'Etter ditt første kjøp',
   triggerFirstFullPayment: 'Etter din første fulle betaling',
   triggerTotalSpend: (a) => `Bruk ${a} totalt`,
-  triggerReferralCount: (n) => (n === 1 ? 'Inviter 1 venn' : `Inviter ${n} venner`),
+  triggerReferralCount: (n) => (n === 1 ? '1 venn tatoverer seg hos oss' : `${n} venner tatoverer seg hos oss`),
   triggerDaysMember: (n) => `Etter ${n} dager som medlem`,
+  triggerByInvitation: 'Kun på invitasjon',
   tierCashbackSuffix: (r) => `— ${r}% cashback`,
 
   fullNameLabel: 'Fullt navn',
@@ -492,8 +498,9 @@ const de: SignupTranslations = {
   triggerFirstPurchase: 'Nach deinem ersten Einkauf',
   triggerFirstFullPayment: 'Nach deiner ersten vollen Zahlung',
   triggerTotalSpend: (a) => `${a} an Gesamtausgaben erreichen`,
-  triggerReferralCount: (n) => (n === 1 ? '1 Freund empfehlen' : `${n} Freunde empfehlen`),
+  triggerReferralCount: (n) => (n === 1 ? '1 Freund lässt sich bei uns tätowieren' : `${n} Freunde lassen sich bei uns tätowieren`),
   triggerDaysMember: (n) => `Nach ${n} Tagen als Mitglied`,
+  triggerByInvitation: 'Nur auf Einladung',
   tierCashbackSuffix: (r) => `— ${r}% Cashback`,
 
   fullNameLabel: 'Vollständiger Name',
@@ -582,8 +589,9 @@ const fr: SignupTranslations = {
   triggerFirstPurchase: 'Après votre premier achat',
   triggerFirstFullPayment: 'Après votre premier paiement complet',
   triggerTotalSpend: (a) => `Atteignez ${a} de dépenses totales`,
-  triggerReferralCount: (n) => (n === 1 ? 'Parrainez 1 ami' : `Parrainez ${n} amis`),
+  triggerReferralCount: (n) => (n === 1 ? '1 ami se fait tatouer chez nous' : `${n} amis se font tatouer chez nous`),
   triggerDaysMember: (n) => `Après ${n} jours en tant que membre`,
+  triggerByInvitation: 'Sur invitation',
   tierCashbackSuffix: (r) => `— ${r}% de cashback`,
 
   fullNameLabel: 'Nom complet',
@@ -672,8 +680,9 @@ const es: SignupTranslations = {
   triggerFirstPurchase: 'Después de tu primera compra',
   triggerFirstFullPayment: 'Después de tu primer pago completo',
   triggerTotalSpend: (a) => `Gasta ${a} en total`,
-  triggerReferralCount: (n) => (n === 1 ? 'Invita a 1 amigo' : `Invita a ${n} amigos`),
+  triggerReferralCount: (n) => (n === 1 ? '1 amigo se tatúa con nosotros' : `${n} amigos se tatúan con nosotros`),
   triggerDaysMember: (n) => `Después de ${n} días como miembro`,
+  triggerByInvitation: 'Solo por invitación',
   tierCashbackSuffix: (r) => `— ${r}% de cashback`,
 
   fullNameLabel: 'Nombre completo',
@@ -762,8 +771,9 @@ const nl: SignupTranslations = {
   triggerFirstPurchase: 'Na je eerste aankoop',
   triggerFirstFullPayment: 'Na je eerste volledige betaling',
   triggerTotalSpend: (a) => `Geef in totaal ${a} uit`,
-  triggerReferralCount: (n) => (n === 1 ? 'Nodig 1 vriend uit' : `Nodig ${n} vrienden uit`),
+  triggerReferralCount: (n) => (n === 1 ? '1 vriend laat zich bij ons tatoeëren' : `${n} vrienden laten zich bij ons tatoeëren`),
   triggerDaysMember: (n) => `Na ${n} dagen lidmaatschap`,
+  triggerByInvitation: 'Alleen op uitnodiging',
   tierCashbackSuffix: (r) => `— ${r}% cashback`,
 
   fullNameLabel: 'Volledige naam',
@@ -853,11 +863,12 @@ const pl: SignupTranslations = {
   triggerFirstFullPayment: 'Po pierwszej pełnej płatności',
   triggerTotalSpend: (a) => `Wydaj łącznie ${a}`,
   triggerReferralCount: (n) => {
-    if (n === 1) return 'Poleć 1 znajomego'
-    // Polish plural: 2-4 → znajomych, 5+ → znajomych (genitive plural)
-    return `Poleć ${n} znajomych`
+    if (n === 1) return '1 znajomy robi u nas tatuaż'
+    // Polish: a numeral of 2+ takes the genitive plural and a singular verb.
+    return `${n} znajomych robi u nas tatuaż`
   },
   triggerDaysMember: (n) => `Po ${n} dniach członkostwa`,
+  triggerByInvitation: 'Tylko na zaproszenie',
   tierCashbackSuffix: (r) => `— ${r}% cashbacku`,
 
   fullNameLabel: 'Imię i nazwisko',

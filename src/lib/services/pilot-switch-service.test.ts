@@ -8,6 +8,9 @@
 //     gets the welcome bonus from Loyalink.
 //   - The giver gets no Loyalink bonus and no commission.
 //   - The referral activates on the friend's first full payment, not a deposit.
+// Owner decision 2026-10-06: Inner Circle (tiers[2]) is 15% at 3 activated
+// referrals (3 friends who paid), in both modes; Loyalink upgrades the giver
+// at the 3rd friend's payment.
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { createFakeSupabase, setTestEnv, stubFetch, wireFake, type FakeSupabase, type Row } from '@/test/fake-supabase'
@@ -132,8 +135,9 @@ describe('pilotTargetConfig', () => {
     assert.deepEqual(target.tiers.map((t) => [t.slug, t.cashback_rate, t.upgrade_trigger?.type ?? null, t.upgrade_trigger?.threshold ?? null]), [
       ['base', 5, null, null],
       ['loyalty_club', 10, 'first_full_payment', null],
-      ['inner_circle', 15, 'total_spend', 999999],
+      ['inner_circle', 15, 'referral_count', 3],
     ])
+    assert.equal(service.INNER_CIRCLE_FRIENDS, 3)
     assert.equal(target.referrals.friend_tier_slug, 'loyalty_club')
     assert.equal(target.referrals.friend_cashback_rate, 10)
     assert.equal(target.referrals.friend_welcome_bonus, 25)
@@ -287,23 +291,39 @@ describe('after the switch', () => {
     assert.deepEqual(fake.rows('transactions').filter((t) => t.type === 'referral_commission'), [])
   })
 
-  it('never auto-upgrades the giver to inner_circle, on a referral or on spend', async () => {
+  it('upgrades the giver to inner_circle at the 3rd friend\'s payment, not on spend', async () => {
     const fake = seed()
     await switchStudio()
-    const { customerId: friendId } = await members.createMember({ studioId: STUDIO_ID, name: 'Friend', referralCode: 'GIVER002' })
-    await transactions.processTransaction({ customerId: friendId, studioId: STUDIO_ID, amount: 1000 })
-    assert.equal(fake.row('customers', 'club').referral_count, 1)
+    const friends: string[] = []
+    for (const name of ['Friend 1', 'Friend 2', 'Friend 3']) {
+      const { customerId } = await members.createMember({ studioId: STUDIO_ID, name, referralCode: 'GIVER002' })
+      friends.push(customerId)
+    }
 
-    // The giver buys after the referral activated, and spends big.
-    await transactions.processTransaction({ customerId: 'club', studioId: STUDIO_ID, amount: 1000 })
+    // The giver spends big: spend never reaches Inner Circle.
     await transactions.processTransaction({ customerId: 'club', studioId: STUDIO_ID, amount: 50000 })
+    assert.equal(fake.row('customers', 'club').loyalty_stage, 'loyalty_club')
+
+    // 2 friends pay: no upgrade. A deposit from the 3rd does not count.
+    await transactions.processTransaction({ customerId: friends[0], studioId: STUDIO_ID, amount: 1000 })
+    await transactions.processTransaction({ customerId: friends[1], studioId: STUDIO_ID, amount: 1000 })
+    await transactions.processTransaction({ customerId: friends[2], studioId: STUDIO_ID, amount: 100, isDeposit: true })
+    assert.equal(fake.row('customers', 'club').loyalty_stage, 'loyalty_club')
+    assert.equal(fake.row('customers', 'club').referral_count, 2)
+
+    // The 3rd friend pays in full: the giver is Inner Circle at 15%, no Loyalink money.
+    await transactions.processTransaction({ customerId: friends[2], studioId: STUDIO_ID, amount: 1000 })
     const giver = fake.row('customers', 'club')
-    assert.equal(giver.loyalty_stage, 'loyalty_club')
+    assert.equal(giver.loyalty_stage, 'inner_circle')
     assert.equal(Number(giver.cashback_rate), 15)
-    // The friend spends big too and stays on the 10% tier.
-    await transactions.processTransaction({ customerId: friendId, studioId: STUDIO_ID, amount: 50000 })
-    assert.equal(fake.row('customers', friendId).loyalty_stage, 'loyalty_club')
-    assert.deepEqual(fake.rows('analytics_events').filter((e) => e.event_type === 'tier_change' && (e.metadata as Row).to_tier === 'inner_circle'), [])
+    assert.equal(giver.referral_count, 3)
+    assert.equal(Number(giver.balance), 50000 * 0.15, 'only the giver\'s own cashback')
+    assert.deepEqual(fake.rows('transactions').filter((t) => t.type === 'referral_commission'), [])
+    const events = fake.rows('analytics_events').filter((e) => e.event_type === 'tier_change')
+    assert.deepEqual(events.map((e) => [e.customer_id, (e.metadata as Row).to_tier, (e.metadata as Row).source]), [['club', 'inner_circle', 'referral']])
+    // A friend who spends big stays on the 10% tier.
+    await transactions.processTransaction({ customerId: friends[0], studioId: STUDIO_ID, amount: 50000 })
+    assert.equal(fake.row('customers', friends[0]).loyalty_stage, 'loyalty_club')
   })
 
   it('an existing member still earns their own rate', async () => {
@@ -373,21 +393,20 @@ describe('referral-only mode (current studios)', () => {
     assert.equal('pilot_switch_mode' in migrateRewardsConfig(INK_NATION_CONFIG), false)
   })
 
-  it('changes only the gift/referral rules and makes the giver tier manual; rates and the friend tier stay', async () => {
+  it('changes the gift/referral rules and makes the giver tier 15% at 3 referrals; other rates and the friend tier stay', async () => {
     inkNation()
     const p = await plan({ mode: 'referral_only' })
     assert.deepEqual(p.blockers, [])
     assert.equal(p.welcomeBonus, 250)
-    assert.deepEqual(p.target.tiers.map((t) => [t.slug, t.cashback_rate]), p.current.tiers.map((t) => [t.slug, t.cashback_rate]))
-    assert.deepEqual(p.target.tiers[2].upgrade_trigger, { type: 'total_spend', threshold: 999999 })
+    assert.deepEqual(p.target.tiers.map((t) => [t.slug, t.cashback_rate]), [['base', 5], ['loyalty_club', 7.5], ['inner_circle', 15]])
+    assert.deepEqual(p.target.tiers[2].upgrade_trigger, { type: 'referral_count', threshold: 3 })
     assert.deepEqual(p.target.tiers.slice(0, 2), p.current.tiers.slice(0, 2))
     assert.equal(p.target.pilot_switch_mode, 'referral_only')
     assert.deepEqual(p.diff.map((d) => d.path).sort(), [
       'referrals.activation_trigger.type',
       'referrals.friend_welcome_bonus',
       'referrals.referrer_cashback_bonus_per_ref',
-      'tiers.2.upgrade_trigger.threshold',
-      'tiers.2.upgrade_trigger.type',
+      'tiers.2.cashback_rate',
     ])
     assert.equal(p.target.referrals.friend_tier_slug, 'loyalty_club')
     assert.equal(p.target.referrals.referrer_commission_rate, 0)
@@ -408,8 +427,9 @@ describe('referral-only mode (current studios)', () => {
     assert.equal(record.mode, 'referral_only')
     assert.equal(record.friend_welcome_bonus, 250)
     assert.equal(record.currency, 'SEK')
-    assert.deepEqual(record.rates, { base: 5, after_tattoo: 7.5, giver: 10 })
-    assert.deepEqual(savedConfig(fake).tiers.map((t) => t.cashback_rate), [5, 7.5, 10])
+    assert.deepEqual(record.rates, { base: 5, after_tattoo: 7.5, giver: 15 })
+    assert.equal(record.version, 2)
+    assert.deepEqual(savedConfig(fake).tiers.map((t) => t.cashback_rate), [5, 7.5, 15])
     assert.ok(savedConfig(fake).pilot_switched_at)
     assert.equal(savedConfig(fake).pilot_switch_mode, 'referral_only')
   })
@@ -429,11 +449,128 @@ describe('referral-only mode (current studios)', () => {
     assert.equal(Number(fake.row('customers', 'club').cashback_rate), 15)
   })
 
-  it('a giver with 3 referrals is not auto-upgraded to inner_circle', async () => {
+  it('a giver whose 3rd friend pays moves to inner_circle at 15%', async () => {
     const fake = inkNation()
     await service.applyPilotSwitch(await plan({ mode: 'referral_only' }))
-    fake.row('customers', 'club').referral_count = 3
-    await transactions.processTransaction({ customerId: 'club', studioId: STUDIO_ID, amount: 1000 })
-    assert.equal(fake.row('customers', 'club').loyalty_stage, 'loyalty_club')
+    fake.row('customers', 'club').referral_count = 2
+    const { customerId: friendId } = await members.createMember({ studioId: STUDIO_ID, name: 'Friend', referralCode: 'GIVER002' })
+    await transactions.processTransaction({ customerId: friendId, studioId: STUDIO_ID, amount: 1000 })
+    const giver = fake.row('customers', 'club')
+    assert.equal(giver.loyalty_stage, 'inner_circle')
+    assert.equal(Number(giver.cashback_rate), 15)
+    assert.equal(giver.referral_count, 3)
+  })
+})
+
+// Ink Nation as switched on 2026-10-02: referral_only, Inner Circle manual only at 10%.
+const INK_NATION_SWITCHED = {
+  ...INK_NATION_CONFIG,
+  tiers: [
+    INK_NATION_CONFIG.tiers[0],
+    INK_NATION_CONFIG.tiers[1],
+    { ...INK_NATION_CONFIG.tiers[2], upgrade_trigger: { type: 'total_spend', threshold: 999999 } },
+  ],
+  referrals: {
+    ...INK_NATION_CONFIG.referrals,
+    friend_welcome_bonus: 250,
+    referrer_cashback_bonus_per_ref: 0,
+    referrer_commission_rate: 0,
+    activation_trigger: { type: 'first_full_payment' },
+  },
+  pilot_switched_at: '2026-10-02T12:22:52.000Z',
+  pilot_switch_mode: 'referral_only',
+}
+
+describe('--update-inner-circle (studios already switched)', () => {
+  // Members on inner_circle: plain at 10%, no rate, boosted (fallback 10%),
+  // and one below it with 3 referrals already.
+  const seedSwitched = (config: unknown = INK_NATION_SWITCHED) => seed({
+    studios: [pilotStudio(STUDIO_ID, 'sek', config), pilotStudio(OTHER_STUDIO_ID)],
+    customers: [
+      customerRow('ic-plain', { loyalty_stage: 'inner_circle', cashback_rate: 10, currency: 'SEK' }),
+      customerRow('ic-null', { loyalty_stage: 'inner_circle', cashback_rate: null, currency: 'SEK' }),
+      customerRow('ic-boosted', { loyalty_stage: 'inner_circle', cashback_rate: 20, currency: 'SEK' }),
+      customerRow('club-3', { loyalty_stage: 'loyalty_club', cashback_rate: 7.5, referral_count: 3, currency: 'SEK' }),
+    ],
+    member_promotions: [
+      ...existingPromotions(),
+      promotionRow('promo-ic', 'ic-boosted', { type: 'cashback_boost', cashback_rate: 20, original_tier_slug: 'inner_circle', original_cashback_rate: 10 }),
+    ],
+  })
+
+  async function updatePlan(studioId = STUDIO_ID) {
+    const input = await service.loadPilotSwitchInput(studioId)
+    assert.ok(input)
+    return service.planInnerCircleUpdate(input)
+  }
+
+  it('the dry run rewrites only tiers[2] and lists the members it raises; it writes nothing', async () => {
+    const fake = seedSwitched()
+    const before = structuredClone(fake.tables)
+    const p = await updatePlan()
+    assert.deepEqual(p.blockers, [])
+    assert.deepEqual(p.diff.map((d) => d.path).sort(), [
+      'tiers.2.cashback_rate',
+      'tiers.2.upgrade_trigger.threshold',
+      'tiers.2.upgrade_trigger.type',
+    ])
+    assert.deepEqual(p.target.tiers[2], { ...p.current.tiers[2], cashback_rate: 15, upgrade_trigger: { type: 'referral_count', threshold: 3 } })
+    assert.equal(p.members.onTier, 3)
+    assert.equal(p.members.readTierRate, 1)
+    assert.deepEqual(p.members.raise.map((r) => [r.customer_id, r.before, r.after, r.pays_before, r.pays_after, r.promotion]).sort(), [
+      ['ic-boosted', 10, 15, 20, 20, 'cashback_boost'],
+      ['ic-plain', 10, 15, 10, 15, null],
+    ])
+    assert.deepEqual(p.alreadyQualify, [{ customer_id: 'club-3', tier: 'loyalty_club', referral_count: 3 }])
+    assert.ok(service.describeInnerCircleUpdatePlan(p).length > 0)
+    assert.deepEqual(fake.tables, before)
+  })
+
+  it('apply saves tiers[2], raises the members on it (promotion stays the main deal), and is re-runnable', async () => {
+    const fake = seedSwitched()
+    const result = await service.applyInnerCircleUpdate(await updatePlan())
+    assert.deepEqual(result, { configSaved: true, membersRaised: 2, promotionsUpdated: 1 })
+
+    const config = savedConfig(fake)
+    assert.equal(config.tiers[2].cashback_rate, 15)
+    assert.deepEqual(config.tiers[2].upgrade_trigger, { type: 'referral_count', threshold: 3 })
+    assert.equal(config.referrals.referrer_cashback_bonus_per_ref, 0)
+    assert.equal(config.referrals.referrer_commission_rate, 0)
+    assert.equal(config.pilot_switched_at, INK_NATION_SWITCHED.pilot_switched_at)
+    assert.equal(config.pilot_switch_mode, 'referral_only')
+    const record = (fake.row('studios', STUDIO_ID).settings as Row).pilot_inner_circle_update as Row
+    assert.equal(record.rate, 15)
+    assert.deepEqual(record.previous_rewards_config, INK_NATION_SWITCHED)
+
+    assert.equal(Number(fake.row('customers', 'ic-plain').cashback_rate), 15)
+    assert.equal(fake.row('customers', 'ic-null').cashback_rate, null)
+    assert.equal(Number(fake.row('customers', 'ic-boosted').cashback_rate), 20)
+    assert.equal(Number(fake.row('member_promotions', 'promo-ic').original_cashback_rate), 15)
+    assert.equal(fake.row('customers', 'club-3').loyalty_stage, 'loyalty_club', 'not moved by the update')
+    assert.deepEqual(fetchStub.urls, [], 'no pass push, webhook or email')
+
+    // Re-run: config already matches, nothing left to raise.
+    const again = await updatePlan()
+    assert.deepEqual(again.diff, [])
+    assert.deepEqual(await service.applyInnerCircleUpdate(again), { configSaved: false, membersRaised: 0, promotionsUpdated: 0 })
+  })
+
+  it('refuses a studio that is not switched, and a member above 15% on the tier', async () => {
+    seedSwitched(ALL_INK_CONFIG)
+    assert.match((await updatePlan()).blockers.join(), /Not switched yet/)
+
+    const fake = seedSwitched()
+    fake.row('customers', 'ic-plain').cashback_rate = 20
+    const p = await updatePlan()
+    assert.match(p.blockers.join(), /ic-plain on inner_circle has 20%, above 15%/)
+    await assert.rejects(service.applyInnerCircleUpdate(p), /Refusing to update/)
+  })
+
+  it('refuses when the config changed after the dry run', async () => {
+    const fake = seedSwitched()
+    const p = await updatePlan()
+    const settings = fake.row('studios', STUDIO_ID).settings as Row
+    settings.rewards_config = { ...INK_NATION_SWITCHED, enabled: false }
+    await assert.rejects(service.applyInnerCircleUpdate(p), /changed since the dry run/)
   })
 })

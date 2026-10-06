@@ -1,5 +1,5 @@
 import { adminSupabase } from '@/lib/studio-access'
-import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig } from '@/types/database'
+import { DEFAULT_REWARDS_CONFIG, isManualOnlyTrigger, migrateRewardsConfig } from '@/types/database'
 import type { RewardsConfig, TierConfig, UpgradeTriggerConfig } from '@/types/database'
 import { passServiceFetch } from '@/lib/pass-service'
 import { expirePromotion } from '@/lib/services/promotion-service'
@@ -496,7 +496,8 @@ export async function processTransaction(input: ProcessTransactionInput): Promis
     : null
 
   let nextTierProgress: { current: number; threshold: number; remaining: number } | null = null
-  if (nextTier?.upgrade_trigger?.type === 'total_spend' && nextTier.upgrade_trigger.threshold) {
+  // A manual-only tier (total_spend 999999) has no spend progress to show.
+  if (nextTier?.upgrade_trigger?.type === 'total_spend' && nextTier.upgrade_trigger.threshold && !isManualOnlyTrigger(nextTier.upgrade_trigger)) {
     const threshold = nextTier.upgrade_trigger.threshold
     nextTierProgress = {
       current: newSpendTotal,

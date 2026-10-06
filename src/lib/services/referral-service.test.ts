@@ -243,6 +243,189 @@ describe('processTransaction: referral activation', () => {
   })
 })
 
+// Owner decision 2026-10-06: at switched studios Inner Circle is reached at 3
+// activated referrals (friends who paid), and Loyalink upgrades the giver at
+// the friend's payment, not at the giver's own next purchase.
+describe('activateReferral: referral_count tier upgrade at the friend\'s payment', () => {
+  function innerCircleConfig(threshold = 3) {
+    return {
+      ...referralConfig({ type: 'first_full_payment' }, {
+        referrer_cashback_bonus_per_ref: 0,
+        referrer_commission_rate: 0,
+      }),
+      tiers: [
+        REWARDS_CONFIG.tiers[0],
+        REWARDS_CONFIG.tiers[1],
+        { ...REWARDS_CONFIG.tiers[2], upgrade_trigger: { type: 'referral_count', threshold } },
+      ],
+    }
+  }
+
+  type Hook = { event: string; customerId: string; data: Row }
+
+  async function activate(fake: FakeSupabase) {
+    const hooks: Hook[] = []
+    const results: string[] = []
+    const settings = fake.row('studios', STUDIO_ID).settings as Row
+    const { migrateRewardsConfig } = await import('@/types/database')
+    const activated = await referrals.activateReferral({
+      referral: { id: 'ref-1', referrer_customer_id: 'referrer', referred_customer_id: 'friend' },
+      studioId: STUDIO_ID,
+      config: migrateRewardsConfig(settings.rewards_config),
+      results,
+      queueWebhook: (_studio, event, customerId, data) => { hooks.push({ event, customerId, data: data as Row }) },
+    })
+    assert.equal(activated, true)
+    return { hooks, results }
+  }
+
+  const activatedHook = (hooks: Hook[]) => hooks.find((h) => h.event === 'referral.activated')!.data
+  const tierEvents = (fake: FakeSupabase) =>
+    fake.rows('analytics_events').filter((e) => e.event_type === 'tier_change').map((e) => (e.metadata as Row).to_tier)
+
+  it('2nd activation: no upgrade', async () => {
+    const fake = seed({
+      config: innerCircleConfig(),
+      customers: [customerRow('referrer', { loyalty_stage: 'loyalty_club', cashback_rate: 15, referral_count: 1 }), customerRow('friend')],
+    })
+    const { hooks } = await activate(fake)
+    const referrer = fake.row('customers', 'referrer')
+    assert.equal(referrer.loyalty_stage, 'loyalty_club')
+    assert.equal(referrer.cashback_rate, 15)
+    assert.equal(referrer.referral_count, 2)
+    const data = activatedHook(hooks)
+    assert.equal(data.referrer_referral_count, 2)
+    assert.equal(data.referrer_loyalty_stage, 'loyalty_club')
+    assert.equal(data.referrer_tier_upgraded_to, null)
+    assert.equal(hooks.some((h) => h.event === 'tier.upgraded'), false)
+    assert.deepEqual(tierEvents(fake), [])
+  })
+
+  it('3rd activation: upgrades to inner_circle, fires tier.upgraded and a tier_change event', async () => {
+    const fake = seed({
+      config: innerCircleConfig(),
+      customers: [customerRow('referrer', { loyalty_stage: 'loyalty_club', cashback_rate: 15, referral_count: 2 }), customerRow('friend')],
+    })
+    const { hooks, results } = await activate(fake)
+    const referrer = fake.row('customers', 'referrer')
+    assert.equal(referrer.loyalty_stage, 'inner_circle')
+    assert.equal(referrer.cashback_rate, 20)
+    assert.equal(referrer.referral_count, 3)
+    assert.ok(results.includes('Referrer upgraded to inner_circle at 20%'))
+
+    const data = activatedHook(hooks)
+    assert.deepEqual(data, {
+      referrer_customer_id: 'referrer',
+      referrer_new_cashback_rate: 20,
+      referrer_referral_count: 3,
+      referrer_loyalty_stage: 'inner_circle',
+      referrer_tier_upgraded_to: 'inner_circle',
+    })
+    const upgraded = hooks.find((h) => h.event === 'tier.upgraded')
+    assert.ok(upgraded)
+    assert.equal(upgraded.customerId, 'referrer')
+    assert.deepEqual(upgraded.data, { from_tier: 'loyalty_club', to_tier: 'inner_circle', to_tier_name: 'Inner Circle', cashback_rate: 20 })
+    assert.deepEqual(tierEvents(fake), ['inner_circle'])
+    assert.equal((fake.rows('analytics_events')[0].metadata as Row).source, 'referral')
+  })
+
+  it('3rd activation from the base tier jumps straight to inner_circle', async () => {
+    const fake = seed({
+      config: innerCircleConfig(),
+      customers: [customerRow('referrer', { has_purchased: false, referral_count: 2 }), customerRow('friend')],
+    })
+    await activate(fake)
+    assert.equal(fake.row('customers', 'referrer').loyalty_stage, 'inner_circle')
+    assert.equal(fake.row('customers', 'referrer').cashback_rate, 20)
+  })
+
+  it('a member already on inner_circle stays, with their rate', async () => {
+    const fake = seed({
+      config: innerCircleConfig(),
+      customers: [customerRow('referrer', { loyalty_stage: 'inner_circle', cashback_rate: 22, referral_count: 5 }), customerRow('friend')],
+    })
+    const { hooks } = await activate(fake)
+    const referrer = fake.row('customers', 'referrer')
+    assert.equal(referrer.loyalty_stage, 'inner_circle')
+    assert.equal(referrer.cashback_rate, 22)
+    assert.equal(referrer.referral_count, 6)
+    assert.equal(activatedHook(hooks).referrer_loyalty_stage, 'inner_circle')
+    assert.equal(activatedHook(hooks).referrer_tier_upgraded_to, null)
+    assert.equal(hooks.some((h) => h.event === 'tier.upgraded'), false)
+  })
+
+  it('active boost: the promotion keeps paying its rate, the fallback becomes inner_circle', async () => {
+    const fake = seed({
+      config: innerCircleConfig(),
+      customers: [customerRow('referrer', { loyalty_stage: 'loyalty_club', cashback_rate: 25, referral_count: 2 }), customerRow('friend')],
+      promotions: [promotionRow('promo', 'referrer', {
+        type: 'cashback_boost', cashback_rate: 25, original_tier_slug: 'loyalty_club', original_cashback_rate: 15,
+      })],
+    })
+    const { hooks } = await activate(fake)
+    const promo = fake.row('member_promotions', 'promo')
+    assert.equal(promo.status, 'active')
+    assert.equal(promo.original_tier_slug, 'inner_circle')
+    assert.equal(promo.original_cashback_rate, 20)
+    const referrer = fake.row('customers', 'referrer')
+    assert.equal(referrer.cashback_rate, 25, 'the promotion pays more: the member earns the max')
+    assert.equal(referrer.loyalty_stage, 'inner_circle')
+    const data = activatedHook(hooks)
+    assert.equal(data.referrer_new_cashback_rate, 25)
+    assert.equal(data.referrer_loyalty_stage, 'inner_circle')
+    assert.equal(data.referrer_tier_upgraded_to, 'inner_circle')
+    const metadata = fake.rows('analytics_events')[0].metadata as Row
+    assert.equal(metadata.deferred_by_promotion, 'promo')
+  })
+
+  it('active tier_override: the override tier stays on the row, the fallback becomes inner_circle', async () => {
+    const fake = seed({
+      config: innerCircleConfig(),
+      customers: [customerRow('referrer', { loyalty_stage: 'loyalty_club', cashback_rate: 15, referral_count: 2 }), customerRow('friend')],
+      promotions: [promotionRow('promo', 'referrer', {
+        type: 'tier_override', tier_slug: 'loyalty_club', original_tier_slug: 'base', original_cashback_rate: 7.5,
+      })],
+    })
+    await activate(fake)
+    const promo = fake.row('member_promotions', 'promo')
+    assert.equal(promo.original_tier_slug, 'inner_circle')
+    assert.equal(promo.original_cashback_rate, 20)
+    const referrer = fake.row('customers', 'referrer')
+    assert.equal(referrer.loyalty_stage, 'loyalty_club')
+    assert.equal(referrer.cashback_rate, 20, 'the fallback pays more: the member earns the max')
+  })
+
+  it('the threshold comes from the config', async () => {
+    const fake = seed({
+      config: innerCircleConfig(5),
+      customers: [customerRow('referrer', { loyalty_stage: 'loyalty_club', cashback_rate: 15, referral_count: 2 }), customerRow('friend')],
+    })
+    await activate(fake)
+    assert.equal(fake.row('customers', 'referrer').loyalty_stage, 'loyalty_club')
+
+    const tiers = innerCircleConfig(5).tiers as never
+    assert.equal(referrals.referralUpgradeTier({ tiers }, 'loyalty_club', 4), null)
+    assert.equal(referrals.referralUpgradeTier({ tiers }, 'loyalty_club', 5)?.slug, 'inner_circle')
+    assert.equal(referrals.referralUpgradeTier({ tiers }, 'inner_circle', 9), null)
+    assert.equal(referrals.referralUpgradeTier({ tiers: REWARDS_CONFIG.tiers as never }, 'base', 99), null, 'no referral_count tier')
+  })
+
+  it('end to end: the 3rd friend\'s full payment upgrades the giver; a deposit does not', async () => {
+    const fake = seed({
+      config: innerCircleConfig(),
+      customers: [
+        customerRow('referrer', { loyalty_stage: 'loyalty_club', cashback_rate: 15, referral_count: 2 }),
+        customerRow('friend', { has_purchased: false, total_real_spend: 0 }),
+      ],
+    })
+    await purchase(500, true)
+    assert.equal(fake.row('customers', 'referrer').loyalty_stage, 'loyalty_club')
+    await purchase(2000, false)
+    assert.equal(fake.row('customers', 'referrer').loyalty_stage, 'inner_circle')
+    assert.equal(fake.row('customers', 'referrer').referral_count, 3)
+  })
+})
+
 describe('referralTriggerMet', () => {
   const friend = { referral_count: 0, created_at: '2026-09-01T00:00:00.000Z' }
   const now = new Date('2026-09-11T00:00:00.000Z')

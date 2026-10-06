@@ -1,4 +1,5 @@
 import type { RewardsConfig, UpgradeTriggerConfig, Transaction } from '@/types/database'
+import { isManualOnlyTrigger } from '@/types/database'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { getSignupTranslations } from '@/lib/i18n/signup'
 import { CreditCard, Sparkles, Wallet, Gift, SlidersHorizontal } from 'lucide-react'
@@ -213,6 +214,7 @@ export function getTriggerDisplayText(
 ): string {
   const cfg = getCurrencyConfig(currency)
   const t = getSignupTranslations(language)
+  if (isManualOnlyTrigger(trigger)) return t.triggerByInvitation
   switch (trigger.type) {
     case 'first_purchase':
       return t.triggerFirstPurchase

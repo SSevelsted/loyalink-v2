@@ -1,6 +1,7 @@
 import { adminSupabase } from '@/lib/studio-access'
 import {
   DEFAULT_REWARDS_CONFIG,
+  MANUAL_ONLY_SPEND_THRESHOLD,
   migrateRewardsConfig,
   syncReferralFriendRate,
   type PilotSwitchMode,
@@ -13,6 +14,7 @@ import {
   dealRow,
   effectiveCashbackRate,
   permanentDeal,
+  rewriteTierMembers,
   type DealPromotion,
 } from '@/lib/services/member-deal-service'
 
@@ -20,10 +22,13 @@ import {
  * Switch day: move one studio to the StreamInk pilot rewards (owner decisions
  * 2026-10-01). Used by scripts/switch-day.ts.
  *
- *   tiers      base 5% -> after the tattoo 10% (first full payment) -> giver 15% (manual only:
- *              the platform sets it via PATCH tier; never an automatic upgrade)
+ *   tiers      base 5% -> after the tattoo 10% (first full payment) -> Inner Circle 15%
+ *              at 3 activated referrals, i.e. 3 friends who paid at the counter
+ *              (owner decision 2026-10-06; Loyalink upgrades the giver at the
+ *              3rd friend's payment, see referral-service referralUpgradeTier)
  *   friend     joins on the 10% tier + a welcome bonus Loyalink credits itself
  *   giver      no Loyalink bonus and no commission: the platform pays the giver
+ *              (EUR 25 / 250 kr per tattooed friend)
  *   referral   activates on the friend's first full payment (not a deposit)
  *
  * Existing members keep exactly what they have. The switch only replaces the
@@ -43,18 +48,31 @@ export const PILOT_RATES = { base: 5, after_tattoo: 10, giver: 15 } as const
 /** Default friend welcome bonus per studio currency (Loyalink credits it on a referral sign-up). */
 export const DEFAULT_WELCOME_BONUS: Record<string, number> = { EUR: 25, SEK: 250 }
 
-export const PILOT_SWITCH_VERSION = 1
+/** 2: Inner Circle at 3 activated referrals and 15% in both modes (was manual only). */
+export const PILOT_SWITCH_VERSION = 2
 
 /**
  * full           new studios: pilot tiers + the gift/referral rules
  * referral_only  current studios: the gift/referral rules, and the giver tier
- *                (tiers[2]) becomes manual only. Tier rates, the friend tier
- *                and every member's deal stay as they are.
+ *                (tiers[2]) becomes Inner Circle: 15% at 3 activated
+ *                referrals. The other tier rates, the friend tier and every
+ *                member's deal stay as they are.
  */
 export type { PilotSwitchMode }
 
-/** "Never automatic": the spend threshold today's promo-only inner_circle uses. */
-export const PILOT_MANUAL_ONLY_TRIGGER = { type: 'total_spend', threshold: 999999 } as const
+/** Friends who must have paid at the counter (activated referrals) to reach Inner Circle. */
+export const INNER_CIRCLE_FRIENDS = 3
+
+/** tiers[2] trigger at switched studios: Loyalink upgrades at the 3rd activated referral. */
+export const INNER_CIRCLE_TRIGGER = { type: 'referral_count', threshold: INNER_CIRCLE_FRIENDS } as const
+
+/** "Never automatic": the spend threshold non-switched studios' Inner Circle still uses. */
+export const PILOT_MANUAL_ONLY_TRIGGER = { type: 'total_spend', threshold: MANUAL_ONLY_SPEND_THRESHOLD } as const
+
+/** tiers[2] (the giver tier) as a switched studio runs it: 15% at 3 activated referrals. */
+function innerCircleTier(tier: TierConfig): TierConfig {
+  return { ...tier, cashback_rate: PILOT_RATES.giver, upgrade_trigger: { ...INNER_CIRCLE_TRIGGER } }
+}
 
 export class PilotSwitchError extends Error {
   constructor(message: string) {
@@ -95,11 +113,11 @@ export function pilotTargetConfig(
     // The friend keeps the studio's friend tier: in this config a friend's
     // rate is always its tier's rate (syncReferralFriendRate), so "at least
     // 10%" without a tier change is not possible (the platform adds a boost).
-    // Rates stay; only the giver tier (tiers[2]) becomes manual only, as in
-    // the full setup: the platform lifts givers by PATCH tier.
+    // Rates stay, except the giver tier (tiers[2]): Inner Circle, 15% at 3
+    // activated referrals, as in the full setup.
     return {
       ...current,
-      tiers: current.tiers.map((t, i) => (i === 2 ? { ...t, upgrade_trigger: { ...PILOT_MANUAL_ONLY_TRIGGER } } : t)),
+      tiers: current.tiers.map((t, i) => (i === 2 ? innerCircleTier(t) : t)),
       referrals: {
         ...current.referrals,
         enabled: true,
@@ -125,16 +143,14 @@ export function pilotTargetConfig(
       upgrade_trigger: { type: 'first_full_payment' },
       unlocks_referrals: current.tiers[1]?.unlocks_referrals ?? false,
     },
-    {
+    innerCircleTier({
       slug: slugs.giver,
       name: named(2, 'Inner Circle'),
       cashback_rate: PILOT_RATES.giver,
-      // Manual only: the platform lifts the giver (PATCH tier) when the
-      // friend's first chair session completes. No Loyalink auto-upgrade, so
-      // the platform stays the single payer of the giver reward.
-      upgrade_trigger: { ...PILOT_MANUAL_ONLY_TRIGGER },
+      // Loyalink upgrades the giver at the 3rd activated referral (the
+      // friend's payment). The giver's money stays with the platform.
       unlocks_referrals: current.tiers[2]?.unlocks_referrals ?? false,
-    },
+    }),
     ...current.tiers.slice(3),
   ]
 
@@ -309,7 +325,7 @@ export function planPilotSwitch(
   })
   const slugs = pilotTierSlugs(current)
   const alreadySwitchedAt = current.pilot_switched_at ?? null
-  if (alreadySwitchedAt) blockers.push(`Already switched at ${alreadySwitchedAt}`)
+  if (alreadySwitchedAt) blockers.push(`Already switched at ${alreadySwitchedAt} (to move a switched studio to the new Inner Circle rule, use --update-inner-circle)`)
 
   const promoBy = new Map(input.promotions.map((p) => [p.customer_id, p]))
   const configSlugs = new Set(current.tiers.map((t) => t.slug))
@@ -435,7 +451,7 @@ export function describePilotSwitchPlan(plan: PilotSwitchPlan): string[] {
   const out: string[] = []
   const json = (v: unknown) => JSON.stringify(v)
   out.push(`Studio: ${plan.studio.name} (${plan.studio.id}), currency ${plan.studio.currency}, agency ${plan.studio.is_agency}`)
-  out.push(`Mode: ${plan.mode}${plan.mode === 'referral_only' ? ' (tier rates, friend tier and member deals untouched; giver tier manual only)' : ''}`)
+  out.push(`Mode: ${plan.mode}${plan.mode === 'referral_only' ? ` (friend tier and member deals untouched; giver tier ${PILOT_RATES.giver}% at ${INNER_CIRCLE_FRIENDS} activated referrals)` : ''}`)
   out.push(plan.alreadySwitchedAt ? `Already switched at ${plan.alreadySwitchedAt}` : 'Not switched yet')
   out.push('')
   out.push('Current rewards_config:')
@@ -550,4 +566,214 @@ export async function applyPilotSwitch(plan: PilotSwitchPlan): Promise<{ pinned:
   if (saveError) throw new PilotSwitchError(`Failed to save rewards config: ${saveError.message}`)
 
   return { pinned: plan.members.pin.length, record }
+}
+
+// ─── Update Inner Circle on a switched studio ────────────────────────────────
+
+/**
+ * Studios switched before 2026-10-06 run Inner Circle (tiers[2]) as manual
+ * only (total_spend 999999), and Ink Nation at 10%. This rewrites ONLY
+ * tiers[2] to 15% at 3 activated referrals, keeps the giver bonus and the
+ * commission at 0, and raises the permanent rate of members already on that
+ * tier to 15% (promotion-aware: rewriteTierMembers). Re-runnable: when the
+ * config already matches, only the member rewrite runs.
+ */
+export type InnerCircleUpdatePlan = {
+  studio: { id: string; name: string }
+  storedConfig: unknown
+  current: RewardsConfig
+  target: RewardsConfig
+  giverSlug: string
+  diff: Array<{ path: string; from: unknown; to: unknown }>
+  switchedAt: string | null
+  mode: PilotSwitchMode | null
+  members: {
+    /** Members whose permanent tier is the giver tier. */
+    onTier: number
+    /** Permanent rate moves to 15% (row, or the promotion's fallback). */
+    raise: Array<{ customer_id: string; before: number; after: number; pays_before: number; pays_after: number; promotion: string | null }>
+    /** Rows with no rate: they read the tier's rate, 15% once the config is saved. */
+    readTierRate: number
+    /** tier_override onto the giver tier from a lower tier: pays the better of 15% and the fallback. */
+    overrides: Array<{ customer_id: string; pays_before: number; pays_after: number }>
+  }
+  /**
+   * Members below the giver tier whose referral_count already meets the
+   * threshold. The update does NOT move them: they move at their next
+   * activated referral or their own next purchase (processTransaction).
+   * referral_count includes referrals activated under earlier triggers.
+   */
+  alreadyQualify: Array<{ customer_id: string; tier: string; referral_count: number }>
+  blockers: string[]
+}
+
+export function planInnerCircleUpdate(input: PilotSwitchInput): InnerCircleUpdatePlan {
+  const settings = input.studio.settings ?? {}
+  const storedConfig = settings.rewards_config ?? null
+  const current = storedConfig ? migrateRewardsConfig(storedConfig) : DEFAULT_REWARDS_CONFIG
+  const blockers: string[] = []
+
+  const switchedAt = current.pilot_switched_at ?? null
+  if (!switchedAt) blockers.push('Not switched yet: run the switch (without --update-inner-circle) first')
+  if (current.tiers.length < 3) blockers.push(`The config has ${current.tiers.length} tiers; Inner Circle is tiers[2]`)
+
+  const giverSlug = current.tiers[2]?.slug ?? 'inner_circle'
+  const target: RewardsConfig = {
+    ...current,
+    tiers: current.tiers.map((t, i) => (i === 2 ? innerCircleTier(t) : t)),
+    referrals: {
+      ...current.referrals,
+      referrer_cashback_bonus_per_ref: 0,
+      referrer_commission_rate: 0,
+    },
+  }
+  const rate = PILOT_RATES.giver
+  const giverIdx = 2
+
+  const promoBy = new Map(input.promotions.map((p) => [p.customer_id, p]))
+  let onTier = 0
+  let readTierRate = 0
+  const raise: InnerCircleUpdatePlan['members']['raise'] = []
+  const overrides: InnerCircleUpdatePlan['members']['overrides'] = []
+  const alreadyQualify: InnerCircleUpdatePlan['alreadyQualify'] = []
+
+  for (const m of input.members) {
+    const promo = promoBy.get(m.id) ?? null
+    const permanent = permanentDeal({ loyalty_stage: m.loyalty_stage, cashback_rate: m.cashback_rate }, promo, current.tiers)
+    const paysBefore = dealRow(promo, permanent.tier, permanent.rate, current.tiers, m.loyalty_stage).cashback_rate
+
+    if (permanent.tier === giverSlug) {
+      onTier += 1
+      if (!promo && m.cashback_rate == null) {
+        readTierRate += 1
+      } else if (permanent.rate > rate) {
+        blockers.push(`Member ${m.id} on ${giverSlug} has ${permanent.rate}%, above ${rate}%: the rewrite would lower it`)
+      } else if (permanent.rate !== rate) {
+        raise.push({
+          customer_id: m.id,
+          before: permanent.rate,
+          after: rate,
+          pays_before: paysBefore,
+          pays_after: dealRow(promo, giverSlug, rate, target.tiers, m.loyalty_stage).cashback_rate,
+          promotion: promo ? promo.type : null,
+        })
+      }
+      continue
+    }
+
+    if (promo?.type === 'tier_override' && promo.tier_slug === giverSlug) {
+      overrides.push({
+        customer_id: m.id,
+        pays_before: paysBefore,
+        pays_after: dealRow(promo, permanent.tier, permanent.rate, target.tiers, m.loyalty_stage).cashback_rate,
+      })
+    }
+
+    const idx = Math.max(current.tiers.findIndex((t) => t.slug === permanent.tier), 0)
+    if (idx < giverIdx && (m.referral_count ?? 0) >= INNER_CIRCLE_FRIENDS) {
+      alreadyQualify.push({ customer_id: m.id, tier: permanent.tier, referral_count: m.referral_count ?? 0 })
+    }
+  }
+
+  return {
+    studio: { id: input.studio.id, name: input.studio.name },
+    storedConfig,
+    current,
+    target,
+    giverSlug,
+    diff: diffConfig(current, target),
+    switchedAt,
+    mode: current.pilot_switch_mode ?? null,
+    members: { onTier, raise, readTierRate, overrides },
+    alreadyQualify,
+    blockers,
+  }
+}
+
+export function describeInnerCircleUpdatePlan(plan: InnerCircleUpdatePlan): string[] {
+  const out: string[] = []
+  const json = (v: unknown) => JSON.stringify(v)
+  out.push(`Studio: ${plan.studio.name} (${plan.studio.id})`)
+  out.push(plan.switchedAt ? `Switched at ${plan.switchedAt}, mode ${plan.mode ?? '(none)'}` : 'Not switched yet')
+  out.push(`Inner Circle (tiers[2] = ${plan.giverSlug}) -> ${PILOT_RATES.giver}% at ${INNER_CIRCLE_FRIENDS} activated referrals`)
+  out.push('')
+  out.push('tiers[2] now:    ' + json(plan.current.tiers[2] ?? null))
+  out.push('tiers[2] target: ' + json(plan.target.tiers[2] ?? null))
+  out.push('')
+  out.push(`Config diff (${plan.diff.length} fields${plan.diff.length === 0 ? ': config already updated' : ''}):`)
+  for (const d of plan.diff) out.push(`  ${d.path}: ${json(d.from)} -> ${json(d.to)}`)
+  out.push('')
+  out.push(`Members on ${plan.giverSlug}: ${plan.members.onTier}`)
+  out.push(`  permanent rate raised to ${PILOT_RATES.giver}%: ${plan.members.raise.length}`)
+  for (const r of plan.members.raise) {
+    out.push(`    ${r.customer_id}: ${r.before}% -> ${r.after}% (pays ${r.pays_before}% -> ${r.pays_after}%${r.promotion ? `, ${r.promotion} stays the main deal` : ''})`)
+  }
+  out.push(`  no rate on the row (reads the tier rate, ${PILOT_RATES.giver}% after the save): ${plan.members.readTierRate}`)
+  out.push(`tier_override onto ${plan.giverSlug}: ${plan.members.overrides.length}`)
+  for (const o of plan.members.overrides) out.push(`    ${o.customer_id}: pays ${o.pays_before}% -> ${o.pays_after}%`)
+  out.push('')
+  out.push(`Below ${plan.giverSlug} with referral_count >= ${INNER_CIRCLE_FRIENDS} (NOT moved now; they move at their next activated referral or own purchase): ${plan.alreadyQualify.length}`)
+  for (const q of plan.alreadyQualify) out.push(`    ${q.customer_id}: ${q.tier}, referral_count ${q.referral_count}`)
+  out.push('')
+  out.push('No webhook, email, message or wallet-pass push is sent.')
+  out.push(plan.blockers.length ? `BLOCKED (${plan.blockers.length}):` : 'No blockers.')
+  for (const b of plan.blockers) out.push(`  ${b}`)
+  return out
+}
+
+export type InnerCircleUpdateRecord = {
+  updated_at: string
+  giver_slug: string
+  rate: number
+  trigger: { type: string; threshold: number }
+  previous_rewards_config: unknown
+}
+
+/**
+ * Write the Inner Circle update. Refuses on any blocker, and when the stored
+ * config moved since the plan was read. Saves the config (when it differs),
+ * then raises the members already on the tier. No event, webhook or push.
+ */
+export async function applyInnerCircleUpdate(
+  plan: InnerCircleUpdatePlan,
+): Promise<{ configSaved: boolean; membersRaised: number; promotionsUpdated: number }> {
+  if (plan.blockers.length > 0) {
+    throw new PilotSwitchError(`Refusing to update: ${plan.blockers.join('; ')}`)
+  }
+  const studioId = plan.studio.id
+
+  const { data: studio, error } = await adminSupabase
+    .from('studios')
+    .select('settings')
+    .eq('id', studioId)
+    .single()
+  if (error || !studio) throw new PilotSwitchError(`Failed to reload studio settings: ${error?.message ?? 'not found'}`)
+  const settings = (studio.settings as Record<string, unknown> | null) ?? {}
+  if (JSON.stringify(settings.rewards_config ?? null) !== JSON.stringify(plan.storedConfig)) {
+    throw new PilotSwitchError('The rewards config changed since the dry run. Run it again.')
+  }
+
+  const configSaved = plan.diff.length > 0
+  if (configSaved) {
+    const record: InnerCircleUpdateRecord = {
+      updated_at: new Date().toISOString(),
+      giver_slug: plan.giverSlug,
+      rate: PILOT_RATES.giver,
+      trigger: { ...INNER_CIRCLE_TRIGGER },
+      previous_rewards_config: plan.storedConfig,
+    }
+    const { error: saveError } = await adminSupabase
+      .from('studios')
+      .update({ settings: { ...settings, rewards_config: plan.target, pilot_inner_circle_update: record } })
+      .eq('id', studioId)
+    if (saveError) throw new PilotSwitchError(`Failed to save rewards config: ${saveError.message}`)
+  }
+
+  const result = await rewriteTierMembers({
+    studioId,
+    tiers: plan.target.tiers,
+    fromSlug: plan.giverSlug,
+    rate: PILOT_RATES.giver,
+  })
+  return { configSaved, membersRaised: result.members.length, promotionsUpdated: result.promotionsUpdated }
 }
