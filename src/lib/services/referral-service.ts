@@ -1,12 +1,13 @@
 import { adminSupabase } from '@/lib/studio-access'
 import { passServiceFetch } from '@/lib/pass-service'
 import { fireWebhook } from '@/lib/services/webhook-service'
-import { sendReferralReward } from '@/lib/email/send'
+import { sendReferralReward, sendTierUpgrade } from '@/lib/email/send'
 import {
   DEFAULT_REWARDS_CONFIG,
   getReferralUnlockTier,
   migrateRewardsConfig,
   type RewardsConfig,
+  type TierConfig,
   type UpgradeTriggerConfig,
 } from '@/types/database'
 import {
@@ -83,6 +84,32 @@ export function referrerBonusRate(referrer: MemberDeal, config: RewardsConfig): 
   )
 }
 
+/**
+ * The tier a referrer moves up to when their referral count reaches
+ * `referralCount`: the highest tier (config order) whose trigger is
+ * referral_count with threshold <= referralCount, when it sits above the
+ * member's own permanent tier. NULL otherwise: never a downgrade, and a
+ * member already on (or above) that tier stays where they are.
+ *
+ * At switched studios this is Inner Circle at 3 activated referrals (the
+ * friends paid at the counter: activation_trigger first_full_payment).
+ */
+export function referralUpgradeTier(
+  config: Pick<RewardsConfig, 'tiers'>,
+  permanentTier: string,
+  referralCount: number,
+): TierConfig | null {
+  let targetIdx = -1
+  config.tiers.forEach((tier, i) => {
+    const trigger = tier.upgrade_trigger
+    if (trigger?.type === 'referral_count' && (trigger.threshold ?? 1) <= referralCount) targetIdx = i
+  })
+  if (targetIdx < 0) return null
+  // A slug that is not in the config reads as the base tier (getEffectiveTierSlug).
+  const currentIdx = Math.max(config.tiers.findIndex((t) => t.slug === permanentTier), 0)
+  return targetIdx > currentIdx ? config.tiers[targetIdx] : null
+}
+
 type ActivateReferralInput = {
   referral: { id: string; referrer_customer_id: string; referred_customer_id: string }
   studioId: string
@@ -126,10 +153,14 @@ export async function activateReferral(input: ActivateReferralInput): Promise<bo
 }
 
 /**
- * Referral bonus: raise the referrer's permanent rate (referrerBonusRate).
- * During a promotion the bonus lands in its fallback, and the row shows the
- * best deal. A failure is reported in `results`, not thrown: the friend's
- * purchase has already been recorded.
+ * Referral bonus: raise the referrer's permanent rate (referrerBonusRate),
+ * and move the referrer up to a tier whose referral_count trigger the new
+ * count meets (referralUpgradeTier), at the friend's payment rather than at
+ * the referrer's own next purchase. The permanent rate after an upgrade is
+ * the higher of the tier's rate and the bonus rate, so it never drops.
+ * During a promotion both land in its fallback (the promotion stays the main
+ * deal), and the row shows the best deal. A failure is reported in
+ * `results`, not thrown: the friend's purchase has already been recorded.
  */
 async function creditReferrer(
   referrerId: string,
@@ -144,24 +175,45 @@ async function creditReferrer(
     if (!referrer) return
 
     const newCount = (referrer.customer.referral_count || 0) + 1
+    const bonusRate = referrerBonusRate(referrer, config)
+    const upgradeTo = referralUpgradeTier(config, referrer.permanentTier, newCount)
     const after = await applyPermanentDeal({
       studioId,
       customerId: referrerId,
-      cashbackRate: referrerBonusRate(referrer, config),
+      tierSlug: upgradeTo?.slug,
+      cashbackRate: upgradeTo ? Math.max(upgradeTo.cashback_rate, bonusRate) : bonusRate,
       source: 'referral',
       config,
       current: referrer,
       customerFields: { referral_count: newCount },
-      tierChangeEvent: 'never',
+      // Only an upgrade writes a tier_change event; a rate bonus alone never did.
+      tierChangeEvent: 'on_tier_change',
+      onEventError: 'log',
     })
 
     results.push(`Referral activated. Referrer now at ${after.effective_cashback_rate}% cashback`)
+    if (upgradeTo) results.push(`Referrer upgraded to ${upgradeTo.slug} at ${after.cashback_rate}%`)
 
     queueWebhook(studioId, 'referral.activated', referredId, {
       referrer_customer_id: referrerId,
       referrer_new_cashback_rate: after.effective_cashback_rate,
       referrer_referral_count: newCount,
+      // The referrer's own (permanent) tier after this activation. During a
+      // tier_override the override tier stays on the customers row.
+      referrer_loyalty_stage: after.tier_slug,
+      referrer_tier_upgraded_to: upgradeTo?.slug ?? null,
     })
+
+    if (upgradeTo) {
+      // Same payload as the purchase-time upgrade in processTransaction.
+      queueWebhook(studioId, 'tier.upgraded', referrerId, {
+        from_tier: referrer.permanentTier,
+        to_tier: upgradeTo.slug,
+        to_tier_name: upgradeTo.name,
+        cashback_rate: upgradeTo.cashback_rate,
+      })
+      sendTierUpgrade(referrerId, studioId, referrer.permanentTier, upgradeTo.slug)
+    }
 
     // Send referral reward email to the referrer (fire-and-forget)
     const { data: referredCustomer } = await adminSupabase

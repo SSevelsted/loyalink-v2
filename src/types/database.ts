@@ -448,6 +448,18 @@ export type UpgradeTriggerConfig = {
   threshold?: number
 }
 
+/**
+ * Spend threshold that means "never automatic": a tier with a total_spend
+ * trigger at or above it is reached only when the studio (or StreamInk)
+ * places the member there. Shown to members as "By invitation".
+ */
+export const MANUAL_ONLY_SPEND_THRESHOLD = 999999
+
+/** True for the manual-only sentinel trigger (total_spend >= MANUAL_ONLY_SPEND_THRESHOLD). */
+export function isManualOnlyTrigger(trigger: { type: string; threshold?: number | null } | null | undefined): boolean {
+  return trigger?.type === 'total_spend' && Number(trigger.threshold ?? 0) >= MANUAL_ONLY_SPEND_THRESHOLD
+}
+
 export type TierConfig = {
   slug: string
   name: string

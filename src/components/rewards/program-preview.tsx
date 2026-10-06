@@ -2,7 +2,7 @@
 
 import { ArrowRight, Gift, Sparkles, TrendingUp, Users, Wallet } from 'lucide-react'
 import type { RewardsConfig, UpgradeTriggerConfig } from '@/types/database'
-import { DEFAULT_TIER_THEMES } from '@/types/database'
+import { DEFAULT_TIER_THEMES, isManualOnlyTrigger } from '@/types/database'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 
 type RewardsProgramPreviewProps = {
@@ -17,6 +17,7 @@ type RewardsProgramPreviewProps = {
  */
 function upgradeAction(trigger: UpgradeTriggerConfig | undefined, currency: string): string {
   if (!trigger) return 'Upgrade required'
+  if (isManualOnlyTrigger(trigger)) return 'By invitation only'
   const cfg = getCurrencyConfig(currency)
   const n = trigger.threshold ?? 0
   switch (trigger.type) {
@@ -27,7 +28,7 @@ function upgradeAction(trigger: UpgradeTriggerConfig | undefined, currency: stri
     case 'total_spend':
       return `Spend ${formatAmount(n, cfg)} in total`
     case 'referral_count':
-      return `Refer ${n || 1} ${(n || 1) === 1 ? 'friend' : 'friends'}`
+      return `Refer ${n || 1} ${(n || 1) === 1 ? 'friend who pays' : 'friends who pay'}`
     case 'days_member':
       return `Stay a member for ${n || 30} days`
     default:
