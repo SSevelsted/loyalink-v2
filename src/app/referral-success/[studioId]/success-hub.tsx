@@ -7,16 +7,7 @@ import { TrustBar } from '@/components/landing/trust-bar'
 import { Gift, Sparkles, CreditCard, Wallet } from 'lucide-react'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { getSignupTranslations } from '@/lib/i18n/signup'
-
-function detectPlatform(): 'apple' | 'google' {
-  if (typeof navigator === 'undefined') return 'apple'
-  const ua = navigator.userAgent || ''
-  if (/android/i.test(ua)) return 'google'
-  if (/iphone|ipad|ipod/i.test(ua)) return 'apple'
-  if (/CrOS/i.test(ua)) return 'google'
-  if (/macintosh|mac os/i.test(ua)) return 'apple'
-  return 'apple'
-}
+import { detectWalletPlatform, openWalletPass } from '@/lib/wallet-pass-client'
 
 type Props = {
   customerId: string
@@ -62,7 +53,7 @@ export function SuccessHub({
   const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
-    const detected = detectPlatform()
+    const detected = detectWalletPlatform()
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setClientPlatform(detected)
     if (typeof navigator !== 'undefined') {
@@ -81,103 +72,7 @@ export function SuccessHub({
     if (!passUrl || downloading) return
     setDownloading(true)
 
-    // Track the download
-    try {
-      await fetch(`/api/loyalty/${customerId}/track`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${customerAccessToken}`,
-        },
-        body: JSON.stringify({ event: 'pass_downloaded' }),
-      })
-    } catch {
-      // Non-critical
-    }
-
-    // For Google, the stored pass_url may be an intermediate endpoint that
-    // returns JSON with the real saveUrl — resolve it before navigating
-    if (targetPlatform === 'google') {
-      let googleSaveUrl = targetPlatform === passPlatform ? passUrl : null
-
-      // If the URL isn't already a pay.google.com URL, fetch the real one
-      if (googleSaveUrl && !googleSaveUrl.includes('pay.google.com')) {
-        try {
-          const res = await fetch(googleSaveUrl)
-          if (res.ok) {
-            const data = await res.json()
-            if (data.saveUrl) googleSaveUrl = data.saveUrl
-          }
-        } catch {
-          // Fall through to generate below
-          googleSaveUrl = null
-        }
-      }
-
-      // If we don't have a valid URL yet, generate a fresh one
-      if (!googleSaveUrl) {
-        try {
-          const res = await fetch('/api/pass/generate', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${customerAccessToken}`,
-            },
-            body: JSON.stringify({ customerId, platform: 'google' }),
-          })
-          if (res.ok) {
-            const data = await res.json()
-            if (data.saveUrl) {
-              const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
-              const url = data.saveUrl.startsWith('http') ? data.saveUrl : `${PASS_SERVICE}${data.saveUrl}`
-              // Resolve intermediate endpoint
-              if (!url.includes('pay.google.com')) {
-                const saveRes = await fetch(url)
-                if (saveRes.ok) {
-                  const saveData = await saveRes.json()
-                  if (saveData.saveUrl) googleSaveUrl = saveData.saveUrl
-                }
-              } else {
-                googleSaveUrl = url
-              }
-            }
-          }
-        } catch {
-          // Non-critical
-        }
-      }
-
-      if (googleSaveUrl) window.open(googleSaveUrl, '_blank')
-    } else {
-      // Apple — use stored URL directly or generate a new one
-      if (passPlatform === 'apple' && passUrl) {
-        const sep = passUrl.includes('?') ? '&' : '?'
-        window.location.href = `${passUrl}${sep}token=${encodeURIComponent(customerAccessToken)}`
-      } else {
-        try {
-          const res = await fetch('/api/pass/generate', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${customerAccessToken}`,
-            },
-            body: JSON.stringify({ customerId, platform: 'apple' }),
-          })
-          if (res.ok) {
-            const data = await res.json()
-            const dl = data.downloadUrl ?? data.passUrl
-            if (dl) {
-              const PASS_SERVICE = process.env.NEXT_PUBLIC_PASS_SERVICE_URL || 'https://pass.loyalink.ai'
-              const url = dl.startsWith('http') ? dl : `${PASS_SERVICE}${dl}`
-              const sep = url.includes('?') ? '&' : '?'
-              window.location.href = `${url}${sep}token=${encodeURIComponent(customerAccessToken)}`
-            }
-          }
-        } catch {
-          // Non-critical
-        }
-      }
-    }
+    await openWalletPass({ customerId, customerAccessToken, passUrl, passPlatform, targetPlatform })
 
     setDownloading(false)
   }

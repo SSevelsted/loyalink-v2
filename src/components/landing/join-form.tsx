@@ -16,6 +16,7 @@ import { AlertCircle, Loader2 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { formatPhone } from '@/lib/format'
 import { getSignupTranslations } from '@/lib/i18n/signup'
+import { getGiftTranslations } from '@/lib/i18n/gift'
 
 const COUNTRY_CODES = [
   { code: '+45', flag: '\u{1F1E9}\u{1F1F0}', country: 'DK' },
@@ -50,6 +51,15 @@ function detectPlatform(): 'apple' | 'google' {
   return 'apple'
 }
 
+export type JoinSuccess = {
+  customerId: string
+  customerAccessToken: string
+  passUrl: string | null
+  platform: 'apple' | 'google'
+  /** null: no referral code was sent. false: the code did not link, so no welcome bonus. */
+  referralLinked: boolean | null
+}
+
 export function JoinForm({
   studioId,
   landingPageId,
@@ -66,6 +76,7 @@ export function JoinForm({
   termsUrl,
   language,
   defaultCountry,
+  onSuccess,
 }: {
   studioId: string
   landingPageId: string
@@ -82,8 +93,11 @@ export function JoinForm({
   termsUrl?: string
   language?: string
   defaultCountry?: string
+  /** When set, the caller shows its own success step: no redirect, no built-in success card. */
+  onSuccess?: (result: JoinSuccess) => void
 }) {
   const t = getSignupTranslations(language)
+  const g = getGiftTranslations(language)
   const [form, setForm] = useState({ name: '', email: '', phone: '' })
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
   const initialCountryCode =
@@ -161,8 +175,9 @@ export function JoinForm({
         body: JSON.stringify({
           studioId,
           landingPageId,
-          name: form.name,
-          email: form.email,
+          name: form.name.trim(),
+          // Email is optional end to end; a hidden field never sends one.
+          email: showEmail ? form.email.trim() || null : null,
           phone: fullPhone,
           platform,
           referralCode: referralCode || undefined,
@@ -173,11 +188,25 @@ export function JoinForm({
       const data = await res.json()
 
       if (!res.ok) {
+        // The server answers in English: show the visitor's language instead.
         if (res.status === 409 && data.error?.includes('email')) {
           setDuplicateEmail(form.email)
           setResendStatus('idle')
+          throw new Error(g.emailTaken)
         }
-        throw new Error(data.error || t.somethingWentWrong)
+        if (res.status === 409 && data.error?.includes('phone')) throw new Error(g.phoneTaken)
+        throw new Error(t.somethingWentWrong)
+      }
+
+      if (onSuccess && data.customerId) {
+        onSuccess({
+          customerId: data.customerId,
+          customerAccessToken: data.customerAccessToken,
+          passUrl: data.passUrl ?? null,
+          platform,
+          referralLinked: data.referral_linked ?? null,
+        })
+        return
       }
 
       // Referral signups → redirect to dedicated success page

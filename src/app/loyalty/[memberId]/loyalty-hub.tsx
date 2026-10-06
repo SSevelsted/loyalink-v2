@@ -22,7 +22,8 @@ import type { RewardsConfig, Transaction } from '@/types/database'
 import { getReferralUnlockTier, computeReferralMilestones, isManualOnlyTrigger } from '@/types/database'
 import type { MemberPageData, MemberPageReferral } from '@/lib/services/member-page-service'
 import { amountSign, memberTransactionLabel, signedTransactionAmount } from '@/lib/transaction-display'
-import { GIFTS_PER_ROUND } from '@/lib/gift-counter'
+import { getGiftTranslations, type GiftTranslations } from '@/lib/i18n/gift'
+import { friendGift, giftOfferLine, giverThankYou, referralGoalProgress, type ReferralGoalProgress } from '@/lib/referral-gift'
 
 type Props = MemberPageData & { memberId: string }
 
@@ -410,17 +411,24 @@ export function LoyaltyHub({ access, gifts, memberId, customerAccessToken, avata
 
   const bonusPerRef = rewardsConfig.referrals.referrer_cashback_bonus_per_ref
   const showReferralSection = isEligibleForReferrals && rewardsConfig.referrals.enabled
-  const friendRate = rewardsConfig.referrals.friend_cashback_rate
-  const welcomeBonus = rewardsConfig.referrals.friend_welcome_bonus
-  const commissionRate = rewardsConfig.referrals.referrer_commission_rate
-  const commissionDays = rewardsConfig.referrals.referrer_commission_duration_days
 
   // Scarcity: rolling end-of-month countdown
   const now = new Date()
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
   const daysLeft = Math.ceil((endOfMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 
-  const shareMessage = t.shareMessage(studio.name, friendRate, welcomeBonus, referralLink ?? '')
+  // The gift block: what the friend gets and the giver's thank-you.
+  const g = getGiftTranslations(language)
+  const gift = friendGift(rewardsConfig)
+  const formatMoney = (amount: number) => formatAmount(amount, currencyConfig)
+  const offerLine = giftOfferLine(g, gift, giverThankYou(rewardsConfig, currency), formatMoney)
+  const goalProgress = referralGoalProgress(rewardsConfig, customer.loyalty_stage, activatedCount)
+  const shareMessage = g.shareGift(
+    studio.name,
+    gift.bonus > 0 ? formatMoney(gift.bonus) : null,
+    gift.rate,
+    referralLink ?? '',
+  )
 
   const handleCopy = async () => {
     if (!referralLink) return
@@ -575,35 +583,21 @@ export function LoyaltyHub({ access, gifts, memberId, customerAccessToken, avata
           qrToken={isFull ? customerAccessToken : null}
         />
 
-        {/* ===== GIFTS TO GIVE (studio switch gift_counter_enabled) ===== */}
-        {gifts && (
-          <Card className="rounded-xl">
-            <CardContent className="p-4 space-y-3 text-center">
-              <div className="flex items-center justify-center gap-2">
-                <Gift className="h-5 w-5" style={{ color: brandColor }} />
-                <p className="text-sm font-semibold">{t.giftsTitle}</p>
-              </div>
-              <div className="flex justify-center gap-2" aria-hidden="true">
-                {Array.from({ length: GIFTS_PER_ROUND }, (_, i) => (
-                  <div
-                    key={i}
-                    className="h-3 w-3 rounded-full border-2"
-                    style={{
-                      borderColor: brandColor,
-                      backgroundColor: i < gifts.gifts_ready ? brandColor : 'transparent',
-                    }}
-                  />
-                ))}
-              </div>
-              <p className="text-sm">{t.giftsReady(gifts.gifts_ready)}</p>
-              {gifts.gifts_given_total > 0 && (
-                <p className="text-xs text-muted-foreground">{t.giftsGivenSoFar(gifts.gifts_given_total)}</p>
-              )}
-            </CardContent>
-          </Card>
+        {/* ===== 2. GIFT BLOCK: the client gives a friend a gift ===== */}
+        {showReferralSection && (
+          <GiftBlock
+            title={gifts ? t.giftsReady(gifts.gifts_ready) : g.giveAGift}
+            offerLine={offerLine}
+            sendLabel={g.sendAGift}
+            orShowCard={g.orShowCard}
+            onSend={referralLink ? handleShare : null}
+            brandColor={brandColor}
+            progress={isFull ? goalProgress : null}
+            g={g}
+          />
         )}
 
-        {/* ===== 2. QUICK STATS ===== */}
+        {/* ===== 3. QUICK STATS ===== */}
         {!isFull && (
           <p className="text-center text-xs text-muted-foreground">{t.balanceOnWalletCard}</p>
         )}
@@ -624,168 +618,11 @@ export function LoyaltyHub({ access, gifts, memberId, customerAccessToken, avata
         </div>
         )}
 
-        {/* ===== 3. REWARDS HERO (redesigned) ===== */}
-        {showReferralSection && (
-          <div
-            className="rounded-xl overflow-hidden p-6 text-center space-y-4"
-            style={{ background: `linear-gradient(135deg, ${brandColor}22, ${brandColor}08)` }}
-          >
-
-            {isMaxed ? (
-              <div className="space-y-2">
-                <div className="flex items-center justify-center gap-2">
-                  <Trophy className="h-7 w-7 text-amber-400" />
-                  <h2 className="text-2xl font-bold">{t.maximumCashback}</h2>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {t.keepSharing(cashbackRate)}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <h2 className="text-2xl font-bold tracking-tight">
-                  {t.inviteFriendsTitle}
-                </h2>
-
-                {/* Value props inside hero */}
-                {bonusPerRef === 0 && commissionRate === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t.earnRewardsGeneric}
-                  </p>
-                ) : (
-                  <div className="space-y-2 text-left max-w-[280px] mx-auto">
-                    {bonusPerRef > 0 && (
-                      <div className="flex items-start gap-2.5">
-                        <Sparkles className="h-4 w-4 mt-0.5 shrink-0" style={{ color: brandColor }} />
-                        <p className="text-sm">
-                          <span className="font-bold" style={{ color: brandColor }}>{t.permanentCashback(bonusPerRef)}</span>
-                          <br />
-                          <span className="text-muted-foreground">{t.forEachFriend}</span>
-                        </p>
-                      </div>
-                    )}
-                    {commissionRate > 0 && (
-                      <div className="flex items-start gap-2.5">
-                        <TrendingUp className="h-4 w-4 mt-0.5 shrink-0" style={{ color: brandColor }} />
-                        <p className="text-sm">
-                          <span className="font-bold" style={{ color: brandColor }}>{t.friendSpend(commissionRate)}</span>
-                          <br />
-                          <span className="text-muted-foreground">
-                            {commissionDays === 0 ? t.forUnlimitedTime : t.forDays(commissionDays)}
-                          </span>
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Primary CTA */}
-            {referralLink && (
-              <Button
-                className="w-full h-12 text-base font-semibold gap-2"
-                style={{ backgroundColor: brandColor }}
-                onClick={handleShare}
-              >
-                <Share2 className="h-5 w-5" />
-                {t.inviteFriendsButton}
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* ===== 4. WHAT YOUR FRIEND GETS ===== */}
-        {showReferralSection && (
-          <Card className="rounded-xl">
-            <CardContent className="p-4 space-y-3">
-              <p className="text-sm font-semibold">{t.whatYourFriendGets}</p>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <div
-                    className="h-8 w-8 rounded-full flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: `${brandColor}15` }}
-                  >
-                    <TrendingUp className="h-4 w-4" style={{ color: brandColor }} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{t.cashbackFromDayOne(friendRate)}</p>
-                    <p className="text-xs text-muted-foreground">{t.earnBackOnEveryPurchase}</p>
-                  </div>
-                </div>
-                {welcomeBonus > 0 && (
-                  <div className="flex items-start gap-3">
-                    <div
-                      className="h-8 w-8 rounded-full flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: `${brandColor}15` }}
-                    >
-                      <Gift className="h-4 w-4" style={{ color: brandColor }} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{t.welcomeBonus(welcomeBonus, currencyConfig.symbol)}</p>
-                      <p className="text-xs text-muted-foreground">{t.addedToBalance}</p>
-                    </div>
-                  </div>
-                )}
-                <div className="flex items-start gap-3">
-                  <div
-                    className="h-8 w-8 rounded-full flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: `${brandColor}15` }}
-                  >
-                    <Wallet className="h-4 w-4" style={{ color: brandColor }} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{t.digitalLoyaltyCard}</p>
-                    <p className="text-xs text-muted-foreground">{t.savedToWallet}</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ===== 5. HOW REFERRALS WORK (stepper) ===== */}
-        {showReferralSection && (
-          <Card className="rounded-xl">
-            <CardContent className="p-4 space-y-3">
-              <p className="text-sm font-semibold">{t.howReferralsWork}</p>
-              <div className="space-y-0">
-                {/* Step 1 */}
-                <div className="flex items-start gap-3">
-                  <div className="flex flex-col items-center">
-                    <CircleCheck className="h-5 w-5 text-emerald-500" />
-                    <div className="w-px h-4 bg-border" />
-                  </div>
-                  <p className="text-sm pt-0.5">{t.shareYourLinkStep}</p>
-                </div>
-                {/* Step 2 */}
-                <div className="flex items-start gap-3">
-                  <div className="flex flex-col items-center">
-                    <CircleCheck className="h-5 w-5 text-emerald-500" />
-                    <div className="w-px h-4 bg-border" />
-                  </div>
-                  <p className="text-sm pt-0.5">{t.friendSignsUp}</p>
-                </div>
-                {/* Step 3 */}
-                <div className="flex items-start gap-3">
-                  <div className="flex flex-col items-center">
-                    <Circle className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <p className="text-sm pt-0.5 text-muted-foreground">{triggerText}</p>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {t.onceComplete}
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ===== 6. SHARE YOUR LINK ===== */}
+        {/* ===== 4. MORE WAYS TO SEND (quiet) ===== */}
         {showReferralSection && referralLink && (
-          <Card className="rounded-xl">
+          <Card className="rounded-xl border-border/50 bg-transparent shadow-none">
             <CardContent className="p-4 space-y-3">
-              <p className="text-sm font-semibold">{t.shareYourLink}</p>
+              <p className="text-xs font-medium text-muted-foreground">{t.shareYourLink}</p>
               <div className="flex gap-2">
                 <Input
                   readOnly
@@ -827,6 +664,116 @@ export function LoyaltyHub({ access, gifts, memberId, customerAccessToken, avata
                   Share
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ===== 5. FRIENDS (clickable) ===== */}
+        {sortedReferrals.length > 0 && (
+          <Card className="rounded-xl">
+            <CardContent className="p-4 space-y-4">
+              {/* Earnings summary */}
+              <div className="rounded-lg bg-secondary/50 p-4 text-center space-y-1">
+                <p className="text-xs text-muted-foreground">{t.youveEarned}</p>
+                <p className="text-3xl font-bold">{formatAmount(Math.round(totalEarned), currencyConfig)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t.fromReferrals(activatedCount, pendingCount)}
+                </p>
+              </div>
+
+              {/* Individual referrals */}
+              <div className="space-y-2">
+                {sortedReferrals.map((ref) => (
+                  <button
+                    key={ref.id}
+                    className="flex items-center gap-3 rounded-lg bg-secondary/30 px-3 py-2.5 w-full text-left cursor-pointer hover:bg-secondary/50 transition-colors"
+                    onClick={() => setSelectedReferral(ref)}
+                  >
+                    {/* Avatar with initials */}
+                    <div className="relative shrink-0">
+                      <div
+                        className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold"
+                        style={{ backgroundColor: `${brandColor}20`, color: brandColor }}
+                      >
+                        {ref.referred_customer?.name ? getInitials(ref.referred_customer.name) : '?'}
+                      </div>
+                      {ref.status === 'activated' && (
+                        <div className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-emerald-500 flex items-center justify-center">
+                          <Check className="h-2.5 w-2.5 text-white" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Name + status */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{ref.referred_customer?.name || 'Unknown'}</p>
+                      <p
+                        className="text-[11px]"
+                        style={{
+                          color:
+                            ref.status === 'activated' ? '#22c55e' :
+                            ref.status === 'pending' ? '#f59e0b' :
+                            '#9ca3af',
+                        }}
+                      >
+                        {ref.status === 'activated'
+                          ? `${t.completedStatus} · ${timeAgo(ref.activated_at || ref.created_at, t)}`
+                          : ref.status === 'pending'
+                          ? t.waitingForFirstVisit
+                          : t.expiredStatus
+                        }
+                      </p>
+                    </div>
+
+                    {/* Earned amount + chevron */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {ref.status === 'activated' && Number(ref.total_commission_earned) > 0 && (
+                        <span className="text-sm font-semibold text-emerald-500">
+                          +{formatAmount(Number(ref.total_commission_earned), currencyConfig)}
+                        </span>
+                      )}
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ===== 6. HOW IT WORKS (quiet) ===== */}
+        {showReferralSection && (
+          <Card className="rounded-xl border-border/50 bg-transparent shadow-none">
+            <CardContent className="p-4 space-y-3">
+              <p className="text-xs font-medium text-muted-foreground">{t.howReferralsWork}</p>
+              <div className="space-y-0">
+                {/* Step 1 */}
+                <div className="flex items-start gap-3">
+                  <div className="flex flex-col items-center">
+                    <CircleCheck className="h-5 w-5 text-emerald-500" />
+                    <div className="w-px h-4 bg-border" />
+                  </div>
+                  <p className="text-sm pt-0.5">{t.shareYourLinkStep}</p>
+                </div>
+                {/* Step 2 */}
+                <div className="flex items-start gap-3">
+                  <div className="flex flex-col items-center">
+                    <CircleCheck className="h-5 w-5 text-emerald-500" />
+                    <div className="w-px h-4 bg-border" />
+                  </div>
+                  <p className="text-sm pt-0.5">{t.friendSignsUp}</p>
+                </div>
+                {/* Step 3 */}
+                <div className="flex items-start gap-3">
+                  <div className="flex flex-col items-center">
+                    <Circle className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm pt-0.5 text-muted-foreground">{triggerText}</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t.onceComplete}
+              </p>
             </CardContent>
           </Card>
         )}
@@ -968,80 +915,7 @@ export function LoyaltyHub({ access, gifts, memberId, customerAccessToken, avata
         </Card>
         )}
 
-        {/* ===== 9. REFERRAL HISTORY (clickable) ===== */}
-        {sortedReferrals.length > 0 && (
-          <Card className="rounded-xl">
-            <CardContent className="p-4 space-y-4">
-              {/* Earnings summary */}
-              <div className="rounded-lg bg-secondary/50 p-4 text-center space-y-1">
-                <p className="text-xs text-muted-foreground">{t.youveEarned}</p>
-                <p className="text-3xl font-bold">{formatAmount(Math.round(totalEarned), currencyConfig)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {t.fromReferrals(activatedCount, pendingCount)}
-                </p>
-              </div>
-
-              {/* Individual referrals */}
-              <div className="space-y-2">
-                {sortedReferrals.map((ref) => (
-                  <button
-                    key={ref.id}
-                    className="flex items-center gap-3 rounded-lg bg-secondary/30 px-3 py-2.5 w-full text-left cursor-pointer hover:bg-secondary/50 transition-colors"
-                    onClick={() => setSelectedReferral(ref)}
-                  >
-                    {/* Avatar with initials */}
-                    <div className="relative shrink-0">
-                      <div
-                        className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold"
-                        style={{ backgroundColor: `${brandColor}20`, color: brandColor }}
-                      >
-                        {ref.referred_customer?.name ? getInitials(ref.referred_customer.name) : '?'}
-                      </div>
-                      {ref.status === 'activated' && (
-                        <div className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-emerald-500 flex items-center justify-center">
-                          <Check className="h-2.5 w-2.5 text-white" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Name + status */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{ref.referred_customer?.name || 'Unknown'}</p>
-                      <p
-                        className="text-[11px]"
-                        style={{
-                          color:
-                            ref.status === 'activated' ? '#22c55e' :
-                            ref.status === 'pending' ? '#f59e0b' :
-                            '#9ca3af',
-                        }}
-                      >
-                        {ref.status === 'activated'
-                          ? `${t.completedStatus} · ${timeAgo(ref.activated_at || ref.created_at, t)}`
-                          : ref.status === 'pending'
-                          ? t.waitingForFirstVisit
-                          : t.expiredStatus
-                        }
-                      </p>
-                    </div>
-
-                    {/* Earned amount + chevron */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {ref.status === 'activated' && Number(ref.total_commission_earned) > 0 && (
-                        <span className="text-sm font-semibold text-emerald-500">
-                          +{formatAmount(Number(ref.total_commission_earned), currencyConfig)}
-                        </span>
-                      )}
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ===== 10. REFERRAL DETAIL SHEET ===== */}
+        {/* ===== 9. REFERRAL DETAIL SHEET ===== */}
         <Sheet open={!!selectedReferral} onOpenChange={(open) => !open && setSelectedReferral(null)}>
           <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto" showCloseButton={false}>
             {selectedReferral && (() => {
@@ -1131,6 +1005,88 @@ export function LoyaltyHub({ access, gifts, memberId, customerAccessToken, avata
           </SheetContent>
         </Sheet>
       </div>
+    </div>
+  )
+}
+
+/**
+ * The client gives a friend a gift: one headline, one line, one button. In
+ * the private view, the road to the referral tier (Inner Circle) sits under it.
+ */
+function GiftBlock({
+  title,
+  offerLine,
+  sendLabel,
+  orShowCard,
+  onSend,
+  brandColor,
+  progress,
+  g,
+}: {
+  title: string
+  offerLine: string
+  sendLabel: string
+  orShowCard: string
+  /** null when the member has no referral link yet: the card's QR still works. */
+  onSend: (() => void) | null
+  brandColor: string
+  /** null in the public view (no referral data loaded). */
+  progress: ReferralGoalProgress | null
+  g: GiftTranslations
+}) {
+  return (
+    <div
+      className="rounded-2xl px-6 py-8 text-center"
+      style={{ background: `linear-gradient(160deg, ${brandColor}26, ${brandColor}0a)` }}
+    >
+      <div
+        className="mx-auto flex h-14 w-14 items-center justify-center rounded-full"
+        style={{ backgroundColor: `${brandColor}24` }}
+      >
+        <Gift className="h-7 w-7" style={{ color: brandColor }} />
+      </div>
+      <h2 className="mt-4 text-2xl font-bold tracking-tight text-balance">{title}</h2>
+      <p className="mx-auto mt-2 max-w-[300px] text-sm text-muted-foreground text-balance">{offerLine}</p>
+
+      {onSend && (
+        <Button
+          className="mt-6 h-12 w-full gap-2 rounded-xl text-base font-semibold text-white"
+          style={{ backgroundColor: brandColor }}
+          onClick={onSend}
+        >
+          <Gift className="h-5 w-5" />
+          {sendLabel}
+        </Button>
+      )}
+      <p className="mt-3 text-xs text-muted-foreground">{orShowCard}</p>
+
+      {progress?.kind === 'progress' && (
+        <div className="mt-6 space-y-2 border-t border-border/50 pt-5 text-left">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-sm font-medium">{g.roadTo(progress.rate)}</p>
+            <p className="text-xs text-muted-foreground shrink-0">{g.progressOf(progress.activated, progress.threshold)}</p>
+          </div>
+          <div className="flex gap-1.5" aria-hidden="true">
+            {Array.from({ length: progress.threshold }, (_, i) => (
+              <div
+                key={i}
+                className="h-2 flex-1 rounded-full"
+                style={{ backgroundColor: i < progress.activated ? brandColor : `${brandColor}26` }}
+              />
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">{g.moreFriends(progress.remaining, progress.rate)}</p>
+        </div>
+      )}
+      {progress?.kind === 'reached' && (
+        <div className="mt-6 flex items-center justify-center gap-2 border-t border-border/50 pt-5">
+          <Trophy className="h-4 w-4 text-amber-400" />
+          <p className="text-sm">
+            <span className="font-medium">{g.youreIn(progress.tierName)}</span>
+            <span className="text-muted-foreground"> {g.youEarnOnEverything(progress.rate)}</span>
+          </p>
+        </div>
+      )}
     </div>
   )
 }
