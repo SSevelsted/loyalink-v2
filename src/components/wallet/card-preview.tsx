@@ -13,6 +13,8 @@ type CardPreviewProps = {
   onClickLogo?: () => void
   onClickStrip?: () => void
   onClickIcon?: () => void
+  /** Line under the QR code, e.g. "Friends scan this to get their gift". Null: none. */
+  qrHint?: string | null
 }
 
 export function CardPreview({
@@ -25,6 +27,7 @@ export function CardPreview({
   onClickLogo,
   onClickStrip,
   onClickIcon,
+  qrHint,
 }: CardPreviewProps) {
   const { backgroundColor, foregroundColor, labelColor, logoOverride } = tierTheme
   const activeLogo = logoOverride || logoUrl
@@ -194,6 +197,11 @@ export function CardPreview({
               <path d="M23,19h1v1H23zM23,21h1v1H23zM23,23h1v1H23z" fill="black" />
             </svg>
           </div>
+          {qrHint ? (
+            <p className="mt-2 text-[11px] text-center" style={{ color: labelColor }}>
+              {qrHint}
+            </p>
+          ) : null}
           <span
             className="text-[10px] mt-1.5 font-mono"
             style={{ color: labelColor }}

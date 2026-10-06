@@ -11,6 +11,8 @@ import { TierEditor } from '@/components/wallet/tier-editor'
 import { ImageUpload } from '@/components/wallet/image-upload'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
+import { QR_HINT_EN, qrHintOnFromStaticTexts, friendGiftAmountOn } from '@/lib/qr-hint'
 import { ArrowLeft, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -49,6 +51,8 @@ export default function DesignerPage() {
   const [cardFields, setCardFields] = useState<CardField[]>(DEFAULT_CARD_FIELDS)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [stripUrl, setStripUrl] = useState<string | null>(null)
+  // "Friends scan this to get their gift" under the QR. On unless turned off.
+  const [qrHint, setQrHint] = useState(true)
   const [dirty, setDirty] = useState(false)
 
   const template = templates?.[0]
@@ -80,6 +84,7 @@ export default function DesignerPage() {
       const loadedThemes = template.tier_themes as Record<string, TierTheme> | undefined
       const firstTheme = loadedThemes ? loadedThemes[Object.keys(loadedThemes)[0]] : undefined
       setStripUrl(firstTheme?.stripImage ?? null)
+      setQrHint(qrHintOnFromStaticTexts(template.static_texts))
     }
   }, [template?.id])
 
@@ -169,6 +174,7 @@ export default function DesignerPage() {
         tier_themes: themesWithStrip as unknown as Record<string, unknown>,
         card_fields: cardFields as unknown[],
         logo_url: logoUrl,
+        static_texts: { ...((template.static_texts as Record<string, unknown> | null) ?? {}), qrHint },
       })
       setDirty(false)
       toast.success('Card design saved')
@@ -189,6 +195,8 @@ export default function DesignerPage() {
   const currentTier = tierThemes[selectedTier]
     ?? Object.values(tierThemes)[0]
     ?? DEFAULT_TIER_THEMES[DEFAULT_REWARDS_CONFIG.tiers[0].slug]
+
+  const giftAmountOn = friendGiftAmountOn(rewardsConfig?.referrals)
 
   const defaultSlugs = [...DEFAULT_REWARDS_CONFIG.tiers.map(t => t.slug), 'base', 'loyalty_club', 'referral_1', 'referral_2', 'referral_3', 'inner_circle']
 
@@ -265,6 +273,31 @@ export default function DesignerPage() {
         </CardContent>
       </Card>
 
+      {/* Friends scan the QR */}
+      <Card variant="glass" className="rounded-2xl">
+        <CardContent className="pt-0 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-foreground">Tell friends to scan the QR code</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Shows &ldquo;{QR_HINT_EN}&rdquo; under the QR code, in the member&apos;s language. The QR opens the friend&apos;s gift page.
+            </p>
+            {!giftAmountOn && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Not shown yet: friends get no welcome gift amount. Set one under Rewards, Referrals.
+              </p>
+            )}
+          </div>
+          <Switch
+            checked={qrHint}
+            onCheckedChange={(v) => {
+              setQrHint(v)
+              setDirty(true)
+            }}
+            aria-label="Tell friends to scan the QR code"
+          />
+        </CardContent>
+      </Card>
+
       {/* Main editor layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_340px] gap-6">
         {/* Tier list */}
@@ -312,6 +345,7 @@ export default function DesignerPage() {
             stripUrl={stripUrl}
             studioName={currentStudio?.name ?? 'Studio'}
             cardFields={cardFields}
+            qrHint={qrHint && giftAmountOn ? QR_HINT_EN : null}
           />
         </div>
       </div>

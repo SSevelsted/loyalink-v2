@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { friendGiftOnFromSettings, qrHintText } from './qrHint.js';
+import { friendGiftOnFromSettings, qrHintText, qrHintToggleOn } from './qrHint.js';
 
 test('QR line per language, English fallback, no em dash', () => {
   assert.equal(qrHintText('da'), 'Venner scanner her og får deres gave');
@@ -18,4 +18,10 @@ test('QR line only where friends get a gift with an amount', () => {
   assert.equal(friendGiftOnFromSettings({ rewards_config: { referrals: { enabled: false, friend_welcome_bonus: 25 } } }), false);
   assert.equal(friendGiftOnFromSettings({ rewards_config: { referrals: { friend_welcome_bonus: '250' } } }), true);
   assert.equal(friendGiftOnFromSettings(null), false);
+});
+
+test('card designer toggle: on unless turned off', () => {
+  assert.equal(qrHintToggleOn(null), true);
+  assert.equal(qrHintToggleOn({ qrHint: true }), true);
+  assert.equal(qrHintToggleOn({ qrHint: false }), false);
 });
