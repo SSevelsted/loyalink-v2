@@ -6,6 +6,7 @@ import { requireInternalAuth } from '../middleware/internalAuth.js';
 import { verifyCustomerAccessToken, createMemberLinkToken } from '../utils/customerAccess.js';
 import { firePassLifecycle } from '../utils/lifecycle.js';
 import { loadGiftsReady } from '../utils/giftCounter.js';
+import { loadFriendGiftOn } from '../utils/qrHint.js';
 
 export const passRoutes = Router();
 
@@ -165,6 +166,7 @@ passRoutes.post('/generate', requireInternalAuth, async (req: Request, res: Resp
         currency: customer.currency || 'DKK',
         language: customer.language || studioLanguage,
         giftsReady: await loadGiftsReady(customer.studio_id, customerId),
+        qrHintOn: await loadFriendGiftOn(customer.studio_id),
         logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
         iconUrl: template?.icon_url || undefined,
         heroImageUrl: tierTheme.stripImage || undefined,
@@ -283,6 +285,7 @@ passRoutes.get('/:serialNumber/download', async (req: Request, res: Response) =>
       currency: customer.currency || 'DKK',
       language: customer.language || studioLanguage,
       giftsReady: await loadGiftsReady(walletPass.studio_id, customer.id),
+      qrHintOn: await loadFriendGiftOn(walletPass.studio_id),
       pushMessage: walletPass.push_message || undefined,
       logoUrl: tierTheme.logoOverride || template?.logo_url || undefined,
       iconUrl: template?.icon_url || undefined,

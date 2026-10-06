@@ -88,7 +88,10 @@ export function useSendCampaign() {
   return useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/notifications/campaigns/${id}/send`, { method: 'POST' })
-      if (!res.ok) throw new Error('Failed to send campaign')
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(typeof body?.error === 'string' ? body.error : 'Failed to send campaign')
+      }
       return res.json()
     },
     onSuccess: () => {

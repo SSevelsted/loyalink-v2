@@ -2,6 +2,14 @@ import crypto from 'crypto';
 import { GoogleAuth } from 'google-auth-library';
 import { googleConfig, appUrl, publicUrl } from '../config.js';
 import { giftPassField } from '../utils/giftCounter.js';
+import { qrHintText } from '../utils/qrHint.js';
+import {
+  buildAddMessagePayload,
+  giftLinkLabel,
+  isGoogleQuotaError,
+  memberGiftUrl,
+  type GoogleMessage,
+} from '../utils/walletMessages.js';
 
 // Save/delete callback URL registered on every loyalty class. Google POSTs here
 // when a user adds or removes the pass; the optional token authenticates it.
@@ -67,7 +75,13 @@ interface LoyaltyObjectData {
   hexBackgroundColor?: string;
   /** "5 gifts to give" (1..5). Omitted or null: no module (studio switch off). */
   giftsReady?: number | null;
+  /** Show "Friends scan this to get their gift" under the QR (studio gives friends a gift). */
+  qrHintOn?: boolean;
+  /** Member link token for the gift link (same link as the Apple back field). Never in the barcode. */
+  memberLinkToken?: string;
 }
+
+export type AddMessageResult = { ok: boolean; status: number; error?: string };
 
 function giftModules(data: LoyaltyObjectData): { header: string; body: string }[] {
   if (typeof data.giftsReady !== 'number') return [];
@@ -237,20 +251,36 @@ export class GoogleWalletService {
         },
         ...giftModules(data),
       ],
+      // The member's own gift link, same URL as the Apple back field 'referral'.
+      // Holds the member link token, so it only goes on the object itself
+      // (seen by the holder), never in the barcode.
+      linksModuleData: {
+        uris: [
+          {
+            id: 'gift_link',
+            uri: memberGiftUrl(appUrl, data.memberId, data.memberLinkToken),
+            description: giftLinkLabel(data.language),
+          },
+        ],
+      },
       // Multi-purpose QR: encodes the referral URL (phone camera → referral page);
       // the in-app studio scanner extracts the member id from the trailing segment.
       barcode: {
         type: 'QR_CODE',
         value: `${appUrl}/refer/${data.memberId}`,
+        ...(data.qrHintOn ? { alternateText: qrHintText(data.language) } : {}),
       },
     };
 
     try {
-      // Try to update first
+      // PATCH, not PUT: PUT is a full replace and wiped the object's messages
+      // (Google notifications) on every balance update. With PATCH, fields we
+      // send replace the stored ones (repeated fields such as textModulesData
+      // are replaced as a whole array) and fields we omit, like messages, stay.
       const updateResponse = await fetch(
         `${this.baseUrl}/loyaltyObject/${googleConfig.issuerId}.${data.objectId}`,
         {
-          method: 'PUT',
+          method: 'PATCH',
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -282,8 +312,48 @@ export class GoogleWalletService {
     }
   }
 
+  /**
+   * Add a message to a saved loyalty object. TEXT_AND_NOTIFY makes the phone
+   * show a notification. Google allows max 3 notifying messages per pass per
+   * 24 h: a 429 or quota error is logged and not retried. A 404 means the
+   * object was never saved to Google.
+   */
+  async addMessage(objectId: string, message: GoogleMessage): Promise<AddMessageResult> {
+    const token = await this.getAccessToken();
+    if (!token) return { ok: false, status: 0, error: 'No access token (service account not configured)' };
+
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/loyaltyObject/${googleConfig.issuerId}.${objectId}/addMessage`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(buildAddMessagePayload(message)),
+        }
+      );
+
+      if (response.ok) return { ok: true, status: response.status };
+
+      const body = (await response.text()).slice(0, 500);
+      if (isGoogleQuotaError(response.status, body)) {
+        console.warn(`[google] addMessage QUOTA/RATE LIMIT for ${objectId} (status ${response.status}), not retried: ${body}`);
+      } else if (response.status === 404) {
+        console.warn(`[google] addMessage 404 for ${objectId}: object was never saved to Google`);
+      } else {
+        console.error(`[google] addMessage failed for ${objectId} (status ${response.status}): ${body}`);
+      }
+      return { ok: false, status: response.status, error: body };
+    } catch (error) {
+      console.error(`[google] addMessage error for ${objectId}:`, error);
+      return { ok: false, status: 0, error: String(error) };
+    }
+  }
+
   // Read the loyalty object Google currently stores. Used for debugging update
-  // issues: it answers "did our PUT actually land?" by returning Google's own
+  // issues: it answers "did our PATCH actually land?" by returning Google's own
   // copy, independent of what we think we wrote. Returns the raw object, or
   // { status } when Google responds non-2xx (e.g. 404 = object never created).
   async getObject(objectId: string): Promise<{ ok: boolean; status: number; object?: unknown; error?: string }> {
@@ -386,6 +456,7 @@ export class GoogleWalletService {
               barcode: {
                 type: 'QR_CODE',
                 value: `${appUrl}/refer/${objectData.memberId}`,
+                ...(objectData.qrHintOn ? { alternateText: qrHintText(objectData.language) } : {}),
               },
             },
           ],

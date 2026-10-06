@@ -292,6 +292,34 @@ Per-studio switch `rewards_config.referrals.gift_counter_enabled` (default
 Both are `null` when the switch is off. The member page and the wallet pass
 (back field on Apple, text module on Google) show the count only when on.
 
+#### Send a Wallet Message to One Member
+```
+POST /api/v1/members/:id/wallet-message
+Auth: Studio key
+Body: { "body": "Hi {first_name}, ...", "header": "Optional title", "message_id": "optional-id" }
+```
+
+Shows a notification on the member's wallet pass, on Apple and Google.
+
+- `body`: 1 to 180 characters. `{first_name}` becomes the first word of the
+  member's name. `{friend_gift}` becomes the friend welcome bonus
+  ("100 kr + 15% cashback"); without a bonus set, the call is refused (`400`).
+- `header`: up to 40 characters. Google shows it as the title (default: the
+  studio name). Apple ignores it.
+- `message_id`: letters, digits, `.`, `_`, `-`. Joined with the member id to
+  make the Google message id, so reuse one id per message.
+
+Response: `{ "data": { "apple": { "sent", "failed" }, "google": { "notified", "failed" }, "has_pass" } }`.
+`has_pass: false` (with zero counts, status `200`) when the member has no pass.
+
+Limits: one message per member per 20 hours through this endpoint (`429`
+with `Retry-After`). Google allows max 3 notifying messages per pass per
+24 hours across all senders. Apple shows a notification only when the text
+differs from the previous message on that pass.
+
+Errors: `400` invalid body or `{friend_gift}` without an amount, `404 Member not found`
+(unknown id or another studio), `429`, `502` wallet service unavailable.
+
 ---
 
 #### Update Member

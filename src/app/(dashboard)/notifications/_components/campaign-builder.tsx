@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Users, Filter, UserCheck, Send, Clock, Smartphone, Mail, MessageSquare } from 'lucide-react'
+import { Users, Filter, UserCheck, Send, Clock, Smartphone, Mail, MessageSquare, Gift } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCreateCampaign, useSendCampaign, useAudienceCount } from '@/hooks/use-notifications'
 import { useCustomers } from '@/hooks/use-customers'
@@ -19,6 +19,7 @@ import { AudienceFilterForm } from './audience-filter-form'
 import { ContentActionForm, type ContentAction } from './content-action-form'
 import type { AudienceFilter } from '@/types/database'
 import { cn } from '@/lib/utils'
+import { GIFT_REMINDER_TEMPLATE } from '@/lib/wallet-messages'
 
 interface CampaignBuilderProps {
   open: boolean
@@ -111,12 +112,19 @@ export function CampaignBuilder({ open, onOpenChange }: CampaignBuilderProps) {
       await sendCampaign.mutateAsync(campaign.id)
       toast.success('Campaign sent')
       onOpenChange(false)
-    } catch {
-      toast.error('Failed to send campaign')
+    } catch (err) {
+      toast.error(err instanceof Error && err.message ? err.message : 'Failed to send campaign')
     }
   }
 
   const isPending = createCampaign.isPending || sendCampaign.isPending
+
+  // Preset: reminds members they can give a friend a gift. {first_name} and
+  // {friend_gift} fill in at send time (the send is refused without a bonus).
+  const applyGiftReminder = () => {
+    setContent({ action: 'none', announcement: GIFT_REMINDER_TEMPLATE })
+    if (!name.trim()) setName('Gift reminder')
+  }
 
   const toggleCustomer = (id: string) => {
     setSelectedCustomerIds(prev =>
@@ -241,7 +249,23 @@ export function CampaignBuilder({ open, onOpenChange }: CampaignBuilderProps) {
           {/* Content & Action */}
           <div className="space-y-3">
             <Label className="text-xs text-muted-foreground">Content & Action</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground">Templates:</span>
+              <button
+                type="button"
+                onClick={applyGiftReminder}
+                className="flex items-center gap-1.5 rounded-md border border-border/30 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
+              >
+                <Gift className="h-3.5 w-3.5" />
+                Gift reminder
+              </button>
+            </div>
             <ContentActionForm value={content} onChange={setContent} />
+            {(content.announcement?.includes('{first_name}') || content.announcement?.includes('{friend_gift}')) && (
+              <p className="text-xs text-muted-foreground">
+                {'{first_name}'} becomes each member&apos;s first name. {'{friend_gift}'} becomes your friend welcome bonus.
+              </p>
+            )}
           </div>
 
           {/* Schedule */}
