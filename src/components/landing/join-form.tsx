@@ -77,6 +77,7 @@ export function JoinForm({
   language,
   defaultCountry,
   onSuccess,
+  bare = false,
 }: {
   studioId: string
   landingPageId: string
@@ -95,6 +96,8 @@ export function JoinForm({
   defaultCountry?: string
   /** When set, the caller shows its own success step: no redirect, no built-in success card. */
   onSuccess?: (result: JoinSuccess) => void
+  /** No card chrome: the form sits straight on the page. */
+  bare?: boolean
 }) {
   const t = getSignupTranslations(language)
   const g = getGiftTranslations(language)
@@ -470,10 +473,10 @@ export function JoinForm({
 
   return (
     <Card
-      className="animate-in fade-in slide-in-from-bottom-4 duration-500"
-      style={backgroundColor ? { backgroundColor, borderColor: `${textColor}20` } : undefined}
+      className={bare ? 'border-0 bg-transparent py-0 shadow-none' : 'animate-in fade-in slide-in-from-bottom-4 duration-500'}
+      style={!bare && backgroundColor ? { backgroundColor, borderColor: `${textColor}20` } : undefined}
     >
-      <CardContent className="py-8">
+      <CardContent className={bare ? 'px-0 py-0' : 'py-8'}>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
             <Label htmlFor="name" style={textColor ? { color: textColor } : undefined}>{t.fullNameLabel}</Label>

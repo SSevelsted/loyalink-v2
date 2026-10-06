@@ -144,6 +144,7 @@ export function GiftFlow({
                 buttonText={g.getMyCard}
                 showEmail={false}
                 showPhone
+                bare
                 referralCode={referralCode}
                 language={language}
                 defaultCountry={defaultCountry}
