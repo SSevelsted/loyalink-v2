@@ -47,6 +47,15 @@ export default function SettingsPage() {
     membership?.role === 'super_admin'
   const [activeSection, setActiveSection] = useState<SectionId>('account')
 
+  // `?section=landing-page` (etc.) opens that section directly.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('section')
+    if (SECTIONS.some((section) => section.id === requested)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of the URL after hydration
+      setActiveSection(requested as SectionId)
+    }
+  }, [])
+
   // Rewards config (shared between Rewards + Referrals)
   const { data: rewardsConfig } = useRewardsConfig()
   const updateRewardsConfig = useUpdateRewardsConfig()
