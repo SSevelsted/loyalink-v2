@@ -29,7 +29,7 @@ type Step = 'gift' | 'claim' | 'ready'
 
 /**
  * The friend's landing page: a gift from the client, in 3 steps on one URL.
- *   gift   what the friend gets, one button
+ *   gift   what the friend gets, one button; how it works starts with the consultation
  *   claim  name + phone (no email)
  *   ready  the card: Add to Apple / Google Wallet
  */
@@ -101,8 +101,9 @@ export function GiftFlow({
               <ol className="space-y-3">
                 {[
                   g.howClaim,
-                  g.howBook(studioName),
-                  hasBonus ? g.howOnCardBonus(bonusLabel!, rate) : g.howOnCardRate(rate),
+                  g.howConsult(studioName),
+                  g.howTalk,
+                  hasBonus ? g.howBookBonus(bonusLabel!, rate) : g.howBookRate(rate),
                 ].map((line, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm" style={muted}>
                     <span

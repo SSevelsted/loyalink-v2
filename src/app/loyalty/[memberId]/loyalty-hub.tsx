@@ -23,6 +23,7 @@ import { getReferralUnlockTier, computeReferralMilestones, isManualOnlyTrigger }
 import type { MemberPageData, MemberPageReferral } from '@/lib/services/member-page-service'
 import { amountSign, memberTransactionLabel, signedTransactionAmount } from '@/lib/transaction-display'
 import { getGiftTranslations, type GiftTranslations } from '@/lib/i18n/gift'
+import { SendGiftSheet } from './send-gift-sheet'
 import { friendGift, giftOfferLine, giverThankYou, referralGoalProgress, type ReferralGoalProgress } from '@/lib/referral-gift'
 
 type Props = MemberPageData & { memberId: string }
@@ -367,7 +368,7 @@ function AddToWalletCard({ memberId, customerId, customerAccessToken, brandColor
   )
 }
 
-export function LoyaltyHub({ access, gifts, memberId, customerAccessToken, avatarUrl, customer, studio, branding, logoUrl, rewardsConfig, referrals, transactions, currency, language }: Props) {
+export function LoyaltyHub({ access, gifts, canSendFriend, defaultCountry, memberId, customerAccessToken, avatarUrl, customer, studio, branding, logoUrl, rewardsConfig, referrals, transactions, currency, language }: Props) {
   const searchParams = useSearchParams()
   const autoAddPass = searchParams.get('addPass') === '1'
   // Public view (no valid ?token=): the card and Add to Wallet only. The
@@ -375,6 +376,7 @@ export function LoyaltyHub({ access, gifts, memberId, customerAccessToken, avata
   const isFull = access === 'full'
   const [copied, setCopied] = useState(false)
   const [selectedReferral, setSelectedReferral] = useState<MemberPageReferral | null>(null)
+  const [sendSheetOpen, setSendSheetOpen] = useState(false)
   const [avatarSrc, setAvatarSrc] = useState<string | null>(avatarUrl)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -590,7 +592,9 @@ export function LoyaltyHub({ access, gifts, memberId, customerAccessToken, avata
             offerLine={offerLine}
             sendLabel={g.sendAGift}
             orShowCard={g.orShowCard}
-            onSend={referralLink ? handleShare : null}
+            // Private view with a webhook for referral.friend_sent: choose
+            // "Enter your friend's details" or "Share your link". Else: share.
+            onSend={isFull && canSendFriend ? () => setSendSheetOpen(true) : referralLink ? handleShare : null}
             brandColor={brandColor}
             progress={isFull ? goalProgress : null}
             g={g}
@@ -913,6 +917,20 @@ export function LoyaltyHub({ access, gifts, memberId, customerAccessToken, avata
             )}
           </CardContent>
         </Card>
+        )}
+
+        {isFull && canSendFriend && (
+          <SendGiftSheet
+            open={sendSheetOpen}
+            onOpenChange={setSendSheetOpen}
+            memberId={memberId}
+            token={customerAccessToken}
+            studioName={studio.name}
+            defaultCountry={defaultCountry}
+            brandColor={brandColor}
+            onShare={referralLink ? handleShare : null}
+            g={g}
+          />
         )}
 
         {/* ===== 9. REFERRAL DETAIL SHEET ===== */}

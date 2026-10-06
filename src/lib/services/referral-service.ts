@@ -91,8 +91,9 @@ export function referrerBonusRate(referrer: MemberDeal, config: RewardsConfig): 
  * member's own permanent tier. NULL otherwise: never a downgrade, and a
  * member already on (or above) that tier stays where they are.
  *
- * At switched studios this is Inner Circle at 3 activated referrals (the
- * friends paid at the counter: activation_trigger first_full_payment).
+ * At switched studios this is Inner Circle at 3 activated referrals: 'full'
+ * studios activate at the friend's deposit (first_purchase), 'referral_only'
+ * studios at the first full payment.
  */
 export function referralUpgradeTier(
   config: Pick<RewardsConfig, 'tiers'>,

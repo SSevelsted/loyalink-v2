@@ -106,7 +106,7 @@ describe('gift block line', () => {
     const cfg = nickConfig()
     assert.equal(
       giftOfferLine(en, friendGift(cfg), giverThankYou(cfg, 'EUR'), eur),
-      'Your friend gets 25 € and 10% cashback. You get 25 € when they get tattooed.',
+      'Your friend gets 25 € and 10% cashback. You get 25 € when they pay their deposit.',
     )
   })
 
@@ -169,13 +169,16 @@ describe('gift copy', () => {
       assert.deepEqual(Object.keys(g).sort(), keys, lang)
       const samples = [
         g.giftFrom('Ana'), g.bonusOnYourCard('25 €'), g.plusCashbackAt(10, 'Studio'), g.cashbackAt(10, 'Studio'),
-        g.claimMyGift, g.howItWorks, g.howClaim, g.howBook('Studio'), g.howOnCardBonus('25 €', 10), g.howOnCardRate(10),
+        g.claimMyGift, g.howItWorks, g.howClaim, g.howConsult('Studio'), g.howTalk, g.howBookBonus('25 €', 10), g.howBookRate(10),
         g.trustLine, g.whereToSend, g.getMyCard, g.back, g.bonusWaiting('25 €'), g.cardReady, g.addCardLine('Studio'),
         g.phoneTaken, g.emailTaken, g.giveAGift, g.friendGetsBonus('25 €', 10), g.friendGetsRate(10),
         g.youGetThankYou('25 €'), g.youGetBoost(2), g.youGetCommissionPct(5, 60), g.youGetCommissionPct(5, 0),
         g.youGetCommissionFixed('5 €', 60), g.youGetCommissionFixed('5 €', 0), g.sendAGift, g.orShowCard,
         g.roadTo(15), g.progressOf(1, 3), g.moreFriends(1, 15), g.moreFriends(2, 15), g.youreIn('Inner Circle'),
         g.youEarnOnEverything(15), g.shareGift('Studio', '25 €', 10, 'https://x'), g.shareGift('Studio', null, 10, 'https://x'),
+        g.sendOptionFriend, g.sendOptionShare, g.friendFirstName, g.friendFirstNamePlaceholder, g.friendPhone, g.sendTheGift,
+        g.sending, g.friendSent('Studio', 'Ana'), g.sendAnother, g.sentToday('Ana, Jonas'), g.errSelf, g.errPhone, g.errLimit(10),
+        g.errUnavailable, g.errFailed,
       ]
       for (const text of samples) {
         assert.ok(text.trim().length > 0, `${lang}: empty string`)
@@ -195,5 +198,35 @@ describe('gift copy', () => {
   it('the share text names the gift in the right currency, never "kr" for EUR', () => {
     const text = getGiftTranslations('en').shareGift('Blood in Blood Out', eur(25), 10, 'https://loyalink.ai/refer/abc')
     assert.equal(text, 'A gift for you: 25 € on your card + 10% cashback at Blood in Blood Out. Claim it here: https://loyalink.ai/refer/abc')
+  })
+})
+
+describe('deposit and consultation copy (round 2)', () => {
+  it('the giver is thanked at the deposit; the bar counts friends who book', () => {
+    const en = getGiftTranslations('en')
+    assert.equal(en.youGetThankYou('25 €'), 'You get 25 € when they pay their deposit.')
+    assert.equal(en.moreFriends(2, 15), '2 more friends who book and you earn 15% on everything.')
+    assert.equal(en.moreFriends(1, 15), '1 more friend who books and you earn 15% on everything.')
+    for (const lang of GIFT_LANGUAGES) {
+      const g = getGiftTranslations(lang)
+      assert.ok(!/tattooed|tatover|tatuerad|tätowiert|tatoué|tatuado|getatoeëerd|wytatuowan/i.test(g.moreFriends(2, 15)), `${lang}: ${g.moreFriends(2, 15)}`)
+    }
+  })
+
+  it('how it works starts with the consultation; the last screen books the consultation', () => {
+    const en = getGiftTranslations('en')
+    assert.equal(en.howConsult('Simon Ink'), 'Simon Ink messages you to book a consultation.')
+    assert.equal(en.howBookBonus('25 €', 10), 'Book your tattoo. Your 25 € is already on your card, and every tattoo gives you 10% back.')
+    assert.equal(en.addCardLine('Simon Ink'), 'Add the card to your phone. Simon Ink will message you to book your consultation.')
+    assert.equal(en.friendSent('Simon Ink', 'Ana'), 'Done. Simon Ink will message Ana to book a consultation.')
+  })
+
+  it('builds E.164 from the picker and the national number', async () => {
+    const { toE164, countryCodeFor } = await import('@/lib/phone-country-codes')
+    assert.equal(toE164('+45', '20 12 34 56'), '+4520123456')
+    assert.equal(toE164('+44', '07700 900123'), '+447700900123')
+    assert.equal(toE164('+45', ''), '')
+    assert.equal(countryCodeFor('se'), '+46')
+    assert.equal(countryCodeFor(null), '+45')
   })
 })

@@ -8,6 +8,7 @@ export type WebhookEvent =
   | 'card.issued'
   | 'card.installed'
   | 'card.uninstalled'
+  | 'referral.friend_sent'
 
 export const WEBHOOK_EVENTS: { value: WebhookEvent; label: string }[] = [
   { value: 'member.created', label: 'Member Created' },
@@ -24,4 +25,7 @@ export const WEBHOOK_EVENTS: { value: WebhookEvent; label: string }[] = [
   { value: 'card.issued', label: 'Card Issued' },
   { value: 'card.installed', label: 'Card Installed' },
   { value: 'card.uninstalled', label: 'Card Uninstalled' },
+  // A member entered a friend's first name + phone on their member page ("Send
+  // a gift"). Loyalink creates no member; the receiver creates the lead.
+  { value: 'referral.friend_sent', label: 'Friend Sent (gift)' },
 ]

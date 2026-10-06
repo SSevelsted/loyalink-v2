@@ -67,8 +67,8 @@ export function fireWebhook(
   event: WebhookEvent,
   customerId: string,
   data: Record<string, unknown>,
-) {
-  return deliverWebhooks(studioId, event, customerId, data).catch((err) => {
+): Promise<void> {
+  return deliverWebhooks(studioId, event, customerId, data).then(() => undefined, (err) => {
     console.error('[webhook] top-level delivery error:', {
       studioId,
       event,
@@ -78,26 +78,52 @@ export function fireWebhook(
   })
 }
 
-async function deliverWebhooks(
-  studioId: string,
-  event: WebhookEvent,
-  customerId: string,
-  data: Record<string, unknown>,
-) {
+/** Does a webhook with this events list receive the event? An empty list means every event. */
+export function webhookListensTo(events: unknown, event: WebhookEvent): boolean {
+  const list = Array.isArray(events) ? events : []
+  return list.length === 0 || list.includes(event)
+}
+
+async function activeWebhooksFor(studioId: string, event: WebhookEvent) {
   const { data: webhooks } = await adminSupabase
     .from('studio_webhooks')
     .select('id, url, events')
     .eq('studio_id', studioId)
     .eq('active', true)
+  return (webhooks ?? []).filter((w) => webhookListensTo(w.events, event))
+}
 
-  if (!webhooks?.length) return
+/** Does the studio have an active webhook that receives this event? One read. */
+export async function studioHasWebhookFor(studioId: string, event: WebhookEvent): Promise<boolean> {
+  return (await activeWebhooksFor(studioId, event)).length > 0
+}
 
-  const matching = webhooks.filter((w) => {
-    const events = Array.isArray(w.events) ? w.events : []
-    return events.length === 0 || events.includes(event)
-  })
+/**
+ * Deliver now and wait (retry included). For a request that must know the
+ * receiver got it. matched = webhooks for the event, delivered = 2xx answers.
+ */
+export async function deliverWebhookNow(
+  studioId: string,
+  event: WebhookEvent,
+  customerId: string,
+  data: Record<string, unknown>,
+): Promise<{ matched: number; delivered: number }> {
+  try {
+    return await deliverWebhooks(studioId, event, customerId, data)
+  } catch (err) {
+    console.error('[webhook] delivery error:', { studioId, event, customerId, error: err instanceof Error ? err.message : err })
+    return { matched: 0, delivered: 0 }
+  }
+}
 
-  if (!matching.length) return
+async function deliverWebhooks(
+  studioId: string,
+  event: WebhookEvent,
+  customerId: string,
+  data: Record<string, unknown>,
+): Promise<{ matched: number; delivered: number }> {
+  const matching = await activeWebhooksFor(studioId, event)
+  if (!matching.length) return { matched: 0, delivered: 0 }
 
   const payload: WebhookPayload = {
     event,
@@ -108,9 +134,13 @@ async function deliverWebhooks(
   }
   const body = JSON.stringify(payload)
 
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     matching.map((webhook) => deliverToEndpoint(webhook.id, webhook.url, body)),
   )
+  return {
+    matched: matching.length,
+    delivered: results.filter((r) => r.status === 'fulfilled' && r.value).length,
+  }
 }
 
 async function deliverToEndpoint(
@@ -118,7 +148,7 @@ async function deliverToEndpoint(
   url: string,
   body: string,
   attempt = 1,
-) {
+): Promise<boolean> {
   // SSRF protection: block private/internal URLs
   if (await isPrivateUrl(url)) {
     console.warn(`[webhook] blocked delivery to private/internal URL: ${url}`)
@@ -133,7 +163,7 @@ async function deliverToEndpoint(
         attempt,
       })
     } catch { /* non-critical */ }
-    return
+    return false
   }
 
   let statusCode: number | null = null
@@ -176,4 +206,5 @@ async function deliverToEndpoint(
     await new Promise((r) => setTimeout(r, 3000))
     return deliverToEndpoint(webhookId, url, body, attempt + 1)
   }
+  return success
 }
