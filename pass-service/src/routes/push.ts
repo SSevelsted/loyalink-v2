@@ -5,6 +5,7 @@ import { apnsService } from '../services/apnsService.js';
 import { googleWalletService } from '../services/googleWalletService.js';
 import { requireInternalAuth } from '../middleware/internalAuth.js';
 import { loadGiftsReady } from '../utils/giftCounter.js';
+import { loadFriendGiftOn } from '../utils/qrHint.js';
 import { createMemberLinkToken } from '../utils/customerAccess.js';
 import {
   buildGoogleMessageId,
@@ -252,6 +253,7 @@ async function deliverGoogle(
       currency: (customer.currency as string | null) || 'DKK',
       language,
       giftsReady: await loadGiftsReady(pass.studio_id, customer.id),
+      qrHintOn: await loadFriendGiftOn(pass.studio_id),
     });
     if (ok) result.updated++;
 

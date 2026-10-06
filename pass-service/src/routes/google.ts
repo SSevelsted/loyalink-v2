@@ -4,6 +4,7 @@ import { googleWalletService } from '../services/googleWalletService.js';
 import { requireInternalAuth } from '../middleware/internalAuth.js';
 import { firePassLifecycle } from '../utils/lifecycle.js';
 import { loadGiftsReady } from '../utils/giftCounter.js';
+import { loadFriendGiftOn } from '../utils/qrHint.js';
 import { createMemberLinkToken } from '../utils/customerAccess.js';
 
 export const googleRoutes = Router();
@@ -166,6 +167,7 @@ googleRoutes.get('/save-url/:serialNumber', async (req: Request, res: Response) 
       currency: customer.currency || 'DKK',
       language: customer.language || studioLanguage,
       giftsReady: await loadGiftsReady(walletPass.studio_id, customer.id),
+      qrHintOn: await loadFriendGiftOn(walletPass.studio_id),
       studioName,
       logoUrl,
       heroImageUrl,
@@ -253,6 +255,7 @@ googleRoutes.post('/update/:serialNumber', requireInternalAuth, async (req: Requ
       currency: customer.currency || 'DKK',
       language: customer.language || studioLanguage,
       giftsReady: await loadGiftsReady(walletPass.studio_id, customer.id),
+      qrHintOn: await loadFriendGiftOn(walletPass.studio_id),
       memberLinkToken: createMemberLinkToken(customer.id, customer.link_token_version),
     });
 

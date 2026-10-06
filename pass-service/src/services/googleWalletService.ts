@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { GoogleAuth } from 'google-auth-library';
 import { googleConfig, appUrl, publicUrl } from '../config.js';
 import { giftPassField } from '../utils/giftCounter.js';
+import { qrHintText } from '../utils/qrHint.js';
 import {
   buildAddMessagePayload,
   giftLinkLabel,
@@ -74,6 +75,8 @@ interface LoyaltyObjectData {
   hexBackgroundColor?: string;
   /** "5 gifts to give" (1..5). Omitted or null: no module (studio switch off). */
   giftsReady?: number | null;
+  /** Show "Friends scan this to get their gift" under the QR (studio gives friends a gift). */
+  qrHintOn?: boolean;
   /** Member link token for the gift link (same link as the Apple back field). Never in the barcode. */
   memberLinkToken?: string;
 }
@@ -265,6 +268,7 @@ export class GoogleWalletService {
       barcode: {
         type: 'QR_CODE',
         value: `${appUrl}/refer/${data.memberId}`,
+        ...(data.qrHintOn ? { alternateText: qrHintText(data.language) } : {}),
       },
     };
 
@@ -452,6 +456,7 @@ export class GoogleWalletService {
               barcode: {
                 type: 'QR_CODE',
                 value: `${appUrl}/refer/${objectData.memberId}`,
+                ...(objectData.qrHintOn ? { alternateText: qrHintText(objectData.language) } : {}),
               },
             },
           ],
