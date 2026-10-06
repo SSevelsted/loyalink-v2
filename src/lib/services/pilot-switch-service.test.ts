@@ -209,7 +209,7 @@ describe('new StreamInk studio (POST /api/v1/studios)', () => {
     assert.equal(bonus('EUR'), 25)
     assert.equal(bonus('eur'), 25)
     assert.equal(bonus('SEK'), 250)
-    assert.equal(bonus('DKK'), 100)
+    assert.equal(bonus('DKK'), 200)
     assert.equal(bonus('NOK'), 150)
     assert.equal(bonus('USD'), 15)
     assert.equal(bonus('GBP'), 13)
@@ -274,9 +274,9 @@ describe('planPilotSwitch', () => {
   })
 
   it('blocks a currency that is not the studio currency, and a currency with no default bonus', async () => {
-    seed({ studios: [pilotStudio(STUDIO_ID, 'eur'), pilotStudio(OTHER_STUDIO_ID, 'dkk')] })
+    seed({ studios: [pilotStudio(STUDIO_ID, 'eur'), pilotStudio(OTHER_STUDIO_ID, 'nok')] })
     assert.match((await plan({ currency: 'SEK' })).blockers.join(), /does not match the studio currency EUR/)
-    assert.match((await plan({}, OTHER_STUDIO_ID)).blockers.join(), /No default welcome bonus for currency DKK/)
+    assert.match((await plan({}, OTHER_STUDIO_ID)).blockers.join(), /No default welcome bonus for currency NOK/)
     assert.deepEqual((await plan({ welcomeBonus: 185 }, OTHER_STUDIO_ID)).blockers, [])
   })
 

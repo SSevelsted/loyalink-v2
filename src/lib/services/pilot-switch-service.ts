@@ -47,7 +47,7 @@ import { STREAMINK_REWARDS_CONFIG, STREAMINK_WELCOME_BONUS } from '@/lib/templat
 export const PILOT_RATES = { base: 5, after_tattoo: 10, giver: 15 } as const
 
 /** Default friend welcome bonus per studio currency (Loyalink credits it on a referral sign-up). */
-export const DEFAULT_WELCOME_BONUS: Record<string, number> = { EUR: 25, SEK: 250 }
+export const DEFAULT_WELCOME_BONUS: Record<string, number> = { EUR: 25, SEK: 250, DKK: 200 }
 
 /** 2: Inner Circle at 3 activated referrals and 15% in both modes (was manual only). */
 export const PILOT_SWITCH_VERSION = 2
@@ -181,8 +181,8 @@ export function pilotTargetConfig(
 
 /**
  * Friend welcome bonus for a new StreamInk studio. The switch-day default
- * (EUR 25, SEK 250) where one exists; other currencies keep their StreamInk
- * template value (DKK 100, NOK 150, ...); an unknown currency takes the EUR
+ * (EUR 25, SEK 250, DKK 200) where one exists; other currencies keep their StreamInk
+ * template value (NOK 150, USD 15, ...); an unknown currency takes the EUR
  * default.
  */
 export function newStudioWelcomeBonus(currency: string | null | undefined): number {
