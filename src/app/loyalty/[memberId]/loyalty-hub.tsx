@@ -22,9 +22,9 @@ import type { RewardsConfig, Transaction } from '@/types/database'
 import { getReferralUnlockTier, computeReferralMilestones, isManualOnlyTrigger } from '@/types/database'
 import type { MemberPageData, MemberPageReferral } from '@/lib/services/member-page-service'
 import { amountSign, memberTransactionLabel, signedTransactionAmount } from '@/lib/transaction-display'
-import { getGiftTranslations, type GiftTranslations } from '@/lib/i18n/gift'
+import { getGiftTranslations, type GiftTranslations, type RewardMoment } from '@/lib/i18n/gift'
 import { SendGiftSheet } from './send-gift-sheet'
-import { friendGift, giftOfferLine, giverThankYou, referralGoalProgress, type ReferralGoalProgress } from '@/lib/referral-gift'
+import { friendGift, giftOfferLine, giverThankYou, referralGoalProgress, rewardMoment, type ReferralGoalProgress } from '@/lib/referral-gift'
 
 type Props = MemberPageData & { memberId: string }
 
@@ -423,7 +423,9 @@ export function LoyaltyHub({ access, gifts, canSendFriend, defaultCountry, membe
   const g = getGiftTranslations(language)
   const gift = friendGift(rewardsConfig)
   const formatMoney = (amount: number) => formatAmount(amount, currencyConfig)
-  const offerLine = giftOfferLine(g, gift, giverThankYou(rewardsConfig, currency), formatMoney)
+  // Deposit or tattoo wording follows the studio's activation trigger.
+  const moment = rewardMoment(rewardsConfig)
+  const offerLine = giftOfferLine(g, gift, giverThankYou(rewardsConfig, currency), formatMoney, moment)
   const goalProgress = referralGoalProgress(rewardsConfig, customer.loyalty_stage, activatedCount)
   const shareMessage = g.shareGift(
     studio.name,
@@ -597,6 +599,7 @@ export function LoyaltyHub({ access, gifts, canSendFriend, defaultCountry, membe
             onSend={isFull && canSendFriend ? () => setSendSheetOpen(true) : referralLink ? handleShare : null}
             brandColor={brandColor}
             progress={isFull ? goalProgress : null}
+            moment={moment}
             g={g}
           />
         )}
@@ -1039,6 +1042,7 @@ function GiftBlock({
   onSend,
   brandColor,
   progress,
+  moment,
   g,
 }: {
   title: string
@@ -1050,6 +1054,7 @@ function GiftBlock({
   brandColor: string
   /** null in the public view (no referral data loaded). */
   progress: ReferralGoalProgress | null
+  moment: RewardMoment
   g: GiftTranslations
 }) {
   return (
@@ -1093,7 +1098,7 @@ function GiftBlock({
               />
             ))}
           </div>
-          <p className="text-xs text-muted-foreground">{g.moreFriends(progress.remaining, progress.rate)}</p>
+          <p className="text-xs text-muted-foreground">{g.moreFriends(progress.remaining, progress.rate, moment)}</p>
         </div>
       )}
       {progress?.kind === 'reached' && (

@@ -2,7 +2,7 @@
 // (/refer/[memberId]) and the gift block on the member page
 // (/loyalty/[memberId]). Pure functions only, so they are unit tested.
 
-import type { GiftTranslations } from '@/lib/i18n/gift'
+import type { GiftTranslations, RewardMoment } from '@/lib/i18n/gift'
 import type { RewardsConfig, TierConfig } from '@/types/database'
 
 /**
@@ -75,6 +75,18 @@ export function giverThankYou(config: RewardsConfig, currency: string | null | u
 }
 
 /**
+ * When the giver's reward lands, from the studio's REAL activation trigger
+ * (not from "is switched"): first_purchase activates on any transaction, the
+ * deposit included, so 'deposit' ("when they pay their deposit", "friends who
+ * book"). Every other trigger (first_full_payment at Ink Nation, and at Nick
+ * until scripts/activation-trigger-to-deposit.ts runs) is 'tattoo' ("when
+ * they get tattooed", "tattooed friends").
+ */
+export function rewardMoment(config: Pick<RewardsConfig, 'referrals'>): RewardMoment {
+  return config.referrals.activation_trigger?.type === 'first_purchase' ? 'deposit' : 'tattoo'
+}
+
+/**
  * The one line under the gift block headline: what the friend gets, then the
  * giver's thank-you (left out when there is none). formatMoney formats an
  * amount in the member's currency.
@@ -84,12 +96,13 @@ export function giftOfferLine(
   gift: FriendGift,
   thanks: GiverThankYou,
   formatMoney: (amount: number) => string,
+  moment: RewardMoment,
 ): string {
   const parts = [gift.bonus > 0 ? g.friendGetsBonus(formatMoney(gift.bonus), gift.rate) : g.friendGetsRate(gift.rate)]
   if (thanks?.kind === 'switched') {
-    parts.push(g.youGetThankYou(formatMoney(thanks.amount)))
+    parts.push(g.youGetThankYou(formatMoney(thanks.amount), moment))
   } else if (thanks?.kind === 'loyalink') {
-    if (thanks.cashbackBoost > 0) parts.push(g.youGetBoost(thanks.cashbackBoost))
+    if (thanks.cashbackBoost > 0) parts.push(g.youGetBoost(thanks.cashbackBoost, moment))
     if (thanks.commission) {
       parts.push(
         thanks.commission.type === 'fixed'

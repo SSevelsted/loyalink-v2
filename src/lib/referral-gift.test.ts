@@ -11,6 +11,7 @@ import {
   giftOfferLine,
   giverThankYou,
   referralGoalProgress,
+  rewardMoment,
   referralGoalTier,
   thankYouAmount,
 } from '@/lib/referral-gift'
@@ -105,20 +106,20 @@ describe('gift block line', () => {
   it('switched: friend gift + thank-you', () => {
     const cfg = nickConfig()
     assert.equal(
-      giftOfferLine(en, friendGift(cfg), giverThankYou(cfg, 'EUR'), eur),
+      giftOfferLine(en, friendGift(cfg), giverThankYou(cfg, 'EUR'), eur, rewardMoment(cfg)),
       'Your friend gets 25 € and 10% cashback. You get 25 € when they pay their deposit.',
     )
   })
 
   it('no bonus and no thank-you: the friend part only', () => {
     const cfg = { ...nickConfig({ friend_welcome_bonus: 0, friend_cashback_rate: 9 }), pilot_switched_at: undefined }
-    assert.equal(giftOfferLine(en, friendGift(cfg), giverThankYou(cfg, 'DKK'), eur), 'Your friend gets 9% cashback.')
+    assert.equal(giftOfferLine(en, friendGift(cfg), giverThankYou(cfg, 'DKK'), eur, rewardMoment(cfg)), 'Your friend gets 9% cashback.')
   })
 
-  it('not switched with a cashback boost', () => {
-    const cfg = { ...nickConfig({ friend_welcome_bonus: 15, friend_cashback_rate: 15, referrer_cashback_bonus_per_ref: 2 }), pilot_switched_at: undefined }
+  it('not switched with a cashback boost (full-payment trigger)', () => {
+    const cfg = { ...nickConfig({ friend_welcome_bonus: 15, friend_cashback_rate: 15, referrer_cashback_bonus_per_ref: 2, activation_trigger: { type: 'first_full_payment' } }), pilot_switched_at: undefined }
     assert.equal(
-      giftOfferLine(en, friendGift(cfg), giverThankYou(cfg, 'EUR'), eur),
+      giftOfferLine(en, friendGift(cfg), giverThankYou(cfg, 'EUR'), eur, rewardMoment(cfg)),
       'Your friend gets 15 € and 15% cashback. You get +2% cashback when they get tattooed.',
     )
   })
@@ -172,9 +173,9 @@ describe('gift copy', () => {
         g.claimMyGift, g.howItWorks, g.howClaim, g.howConsult('Studio'), g.howTalk, g.howBookBonus('25 €', 10), g.howBookRate(10),
         g.trustLine, g.whereToSend, g.getMyCard, g.back, g.bonusWaiting('25 €'), g.cardReady, g.addCardLine('Studio'),
         g.phoneTaken, g.emailTaken, g.giveAGift, g.friendGetsBonus('25 €', 10), g.friendGetsRate(10),
-        g.youGetThankYou('25 €'), g.youGetBoost(2), g.youGetCommissionPct(5, 60), g.youGetCommissionPct(5, 0),
+        g.youGetThankYou('25 €', 'deposit'), g.youGetThankYou('25 €', 'tattoo'), g.youGetBoost(2, 'deposit'), g.youGetBoost(2, 'tattoo'), g.youGetCommissionPct(5, 60), g.youGetCommissionPct(5, 0),
         g.youGetCommissionFixed('5 €', 60), g.youGetCommissionFixed('5 €', 0), g.sendAGift, g.orShowCard,
-        g.roadTo(15), g.progressOf(1, 3), g.moreFriends(1, 15), g.moreFriends(2, 15), g.youreIn('Inner Circle'),
+        g.roadTo(15), g.progressOf(1, 3), g.moreFriends(1, 15, 'deposit'), g.moreFriends(2, 15, 'deposit'), g.moreFriends(1, 15, 'tattoo'), g.moreFriends(2, 15, 'tattoo'), g.youreIn('Inner Circle'),
         g.youEarnOnEverything(15), g.shareGift('Studio', '25 €', 10, 'https://x'), g.shareGift('Studio', null, 10, 'https://x'),
         g.sendOptionFriend, g.sendOptionShare, g.friendFirstName, g.friendFirstNamePlaceholder, g.friendPhone, g.sendTheGift,
         g.sending, g.friendSent('Studio', 'Ana'), g.sendAnother, g.sentToday('Ana, Jonas'), g.errSelf, g.errPhone, g.errLimit(10),
@@ -204,12 +205,12 @@ describe('gift copy', () => {
 describe('deposit and consultation copy (round 2)', () => {
   it('the giver is thanked at the deposit; the bar counts friends who book', () => {
     const en = getGiftTranslations('en')
-    assert.equal(en.youGetThankYou('25 €'), 'You get 25 € when they pay their deposit.')
-    assert.equal(en.moreFriends(2, 15), '2 more friends who book and you earn 15% on everything.')
-    assert.equal(en.moreFriends(1, 15), '1 more friend who books and you earn 15% on everything.')
+    assert.equal(en.youGetThankYou('25 €', 'deposit'), 'You get 25 € when they pay their deposit.')
+    assert.equal(en.moreFriends(2, 15, 'deposit'), '2 more friends who book and you earn 15% on everything.')
+    assert.equal(en.moreFriends(1, 15, 'deposit'), '1 more friend who books and you earn 15% on everything.')
     for (const lang of GIFT_LANGUAGES) {
       const g = getGiftTranslations(lang)
-      assert.ok(!/tattooed|tatover|tatuerad|tätowiert|tatoué|tatuado|getatoeëerd|wytatuowan/i.test(g.moreFriends(2, 15)), `${lang}: ${g.moreFriends(2, 15)}`)
+      assert.ok(!/tattooed|tatover|tatuerad|tätowiert|tatoué|tatuado|getatoeëerd|wytatuowan/i.test(g.moreFriends(2, 15, 'deposit')), `${lang}: ${g.moreFriends(2, 15, 'deposit')}`)
     }
   })
 
@@ -228,5 +229,43 @@ describe('deposit and consultation copy (round 2)', () => {
     assert.equal(toE164('+45', ''), '')
     assert.equal(countryCodeFor('se'), '+46')
     assert.equal(countryCodeFor(null), '+45')
+  })
+})
+
+describe('reward wording follows the real activation trigger', () => {
+  const en = getGiftTranslations('en')
+  const line = (cfg: RewardsConfig) => giftOfferLine(en, friendGift(cfg), giverThankYou(cfg, 'EUR'), eur, rewardMoment(cfg))
+
+  it('first_purchase (deposit included): "pay their deposit" and "friends who book"', () => {
+    const cfg = nickConfig({ activation_trigger: { type: 'first_purchase' } })
+    assert.equal(rewardMoment(cfg), 'deposit')
+    assert.equal(line(cfg), 'Your friend gets 25 € and 10% cashback. You get 25 € when they pay their deposit.')
+    assert.equal(en.moreFriends(2, 15, rewardMoment(cfg)), '2 more friends who book and you earn 15% on everything.')
+  })
+
+  it('first_full_payment (Ink Nation; Nick before the script): "get tattooed" and "tattooed friends", even when switched', () => {
+    const cfg = nickConfig({ activation_trigger: { type: 'first_full_payment' } })
+    assert.ok(cfg.pilot_switched_at)
+    assert.equal(rewardMoment(cfg), 'tattoo')
+    assert.equal(line(cfg), 'Your friend gets 25 € and 10% cashback. You get 25 € when they get tattooed.')
+    assert.equal(en.moreFriends(2, 15, rewardMoment(cfg)), '2 more tattooed friends and you earn 15% on everything.')
+    assert.equal(en.moreFriends(1, 15, rewardMoment(cfg)), '1 more tattooed friend and you earn 15% on everything.')
+  })
+
+  it('a not-switched studio boost follows its trigger too', () => {
+    const base = { ...nickConfig({ referrer_cashback_bonus_per_ref: 2, friend_welcome_bonus: 0 }), pilot_switched_at: undefined }
+    const dep = { ...base, referrals: { ...base.referrals, activation_trigger: { type: 'first_purchase' as const } } }
+    const tat = { ...base, referrals: { ...base.referrals, activation_trigger: { type: 'first_full_payment' as const } } }
+    assert.equal(line(dep), 'Your friend gets 10% cashback. You get +2% cashback when they pay their deposit.')
+    assert.equal(line(tat), 'Your friend gets 10% cashback. You get +2% cashback when they get tattooed.')
+  })
+
+  it('every language has both wordings and they differ', () => {
+    for (const lang of GIFT_LANGUAGES) {
+      const g = getGiftTranslations(lang)
+      assert.notEqual(g.youGetThankYou('25 €', 'deposit'), g.youGetThankYou('25 €', 'tattoo'), lang)
+      assert.notEqual(g.youGetBoost(2, 'deposit'), g.youGetBoost(2, 'tattoo'), lang)
+      assert.notEqual(g.moreFriends(2, 15, 'deposit'), g.moreFriends(2, 15, 'tattoo'), lang)
+    }
   })
 })

@@ -10,6 +10,9 @@
  * Amounts arrive formatted (formatAmount), rates as numbers.
  */
 
+/** 'deposit': the referral activates at the deposit. 'tattoo': at the full payment. */
+export type RewardMoment = 'deposit' | 'tattoo'
+
 export type GiftTranslations = {
   // Friend page, step 1: the gift
   giftFrom: (giver: string) => string
@@ -45,8 +48,9 @@ export type GiftTranslations = {
   giveAGift: string
   friendGetsBonus: (bonus: string, rate: number) => string
   friendGetsRate: (rate: number) => string
-  youGetThankYou: (amount: string) => string
-  youGetBoost: (rate: number) => string
+  /** moment: when the giver's reward lands (rewardMoment: the studio's activation trigger). */
+  youGetThankYou: (amount: string, moment: RewardMoment) => string
+  youGetBoost: (rate: number, moment: RewardMoment) => string
   /** days = referrer_commission_duration_days; 0 = no end. */
   youGetCommissionPct: (rate: number, days: number) => string
   youGetCommissionFixed: (amount: string, days: number) => string
@@ -54,7 +58,7 @@ export type GiftTranslations = {
   orShowCard: string
   roadTo: (rate: number) => string
   progressOf: (done: number, total: number) => string
-  moreFriends: (n: number, rate: number) => string
+  moreFriends: (n: number, rate: number, moment: RewardMoment) => string
   youreIn: (tier: string) => string
   youEarnOnEverything: (rate: number) => string
   // "Send a gift" sheet (private view): the member sends a friend, or shares the link
@@ -105,18 +109,18 @@ const en: GiftTranslations = {
   giveAGift: 'Give a friend a gift',
   friendGetsBonus: (b, r) => `Your friend gets ${b} and ${r}% cashback.`,
   friendGetsRate: (r) => `Your friend gets ${r}% cashback.`,
-  youGetThankYou: (a) => `You get ${a} when they pay their deposit.`,
-  youGetBoost: (r) => `You get +${r}% cashback when they get tattooed.`,
+  youGetThankYou: (a, m) => (m === 'deposit' ? `You get ${a} when they pay their deposit.` : `You get ${a} when they get tattooed.`),
+  youGetBoost: (r, m) => (m === 'deposit' ? `You get +${r}% cashback when they pay their deposit.` : `You get +${r}% cashback when they get tattooed.`),
   youGetCommissionPct: (r, d) => (d > 0 ? `You get ${r}% of what they spend for ${d} days.` : `You get ${r}% of what they spend.`),
   youGetCommissionFixed: (a, d) => (d > 0 ? `For ${d} days, you get ${a} each time they pay.` : `You get ${a} each time they pay.`),
   sendAGift: 'Send a gift',
   orShowCard: 'Or show your card. They scan it.',
   roadTo: (r) => `Road to ${r}% cashback`,
   progressOf: (d, t) => `${d} of ${t}`,
-  moreFriends: (n, r) =>
-    n === 1
-      ? `1 more friend who books and you earn ${r}% on everything.`
-      : `${n} more friends who book and you earn ${r}% on everything.`,
+  moreFriends: (n, r, m) =>
+    m === 'deposit'
+      ? (n === 1 ? `1 more friend who books and you earn ${r}% on everything.` : `${n} more friends who book and you earn ${r}% on everything.`)
+      : (n === 1 ? `1 more tattooed friend and you earn ${r}% on everything.` : `${n} more tattooed friends and you earn ${r}% on everything.`),
   youreIn: (tier) => `You're in ${tier}`,
   youEarnOnEverything: (r) => `You earn ${r}% on everything.`,
   sendOptionFriend: "Enter your friend's details",
@@ -168,18 +172,18 @@ const da: GiftTranslations = {
   giveAGift: 'Giv en ven en gave',
   friendGetsBonus: (b, r) => `Din ven får ${b} og ${r}% cashback.`,
   friendGetsRate: (r) => `Din ven får ${r}% cashback.`,
-  youGetThankYou: (a) => `Du får ${a}, når de betaler deres depositum.`,
-  youGetBoost: (r) => `Du får +${r}% cashback, når de bliver tatoveret.`,
+  youGetThankYou: (a, m) => (m === 'deposit' ? `Du får ${a}, når de betaler deres depositum.` : `Du får ${a}, når de bliver tatoveret.`),
+  youGetBoost: (r, m) => (m === 'deposit' ? `Du får +${r}% cashback, når de betaler deres depositum.` : `Du får +${r}% cashback, når de bliver tatoveret.`),
   youGetCommissionPct: (r, d) => (d > 0 ? `Du får ${r}% af det, de bruger, i ${d} dage.` : `Du får ${r}% af det, de bruger.`),
   youGetCommissionFixed: (a, d) => (d > 0 ? `I ${d} dage får du ${a}, hver gang de betaler.` : `Du får ${a}, hver gang de betaler.`),
   sendAGift: 'Send en gave',
   orShowCard: 'Eller vis dit kort. De scanner det.',
   roadTo: (r) => `Vejen til ${r}% cashback`,
   progressOf: (d, t) => `${d} af ${t}`,
-  moreFriends: (n, r) =>
-    n === 1
-      ? `1 ven mere, der booker, så får du ${r}% på alt.`
-      : `${n} venner mere, der booker, så får du ${r}% på alt.`,
+  moreFriends: (n, r, m) =>
+    m === 'deposit'
+      ? (n === 1 ? `1 ven mere, der booker, så får du ${r}% på alt.` : `${n} venner mere, der booker, så får du ${r}% på alt.`)
+      : (n === 1 ? `1 tatoveret ven mere, så får du ${r}% på alt.` : `${n} tatoverede venner mere, så får du ${r}% på alt.`),
   youreIn: (tier) => `Du er i ${tier}`,
   youEarnOnEverything: (r) => `Du får ${r}% på alt.`,
   sendOptionFriend: 'Indtast din vens oplysninger',
@@ -231,18 +235,18 @@ const sv: GiftTranslations = {
   giveAGift: 'Ge en vän en present',
   friendGetsBonus: (b, r) => `Din vän får ${b} och ${r}% cashback.`,
   friendGetsRate: (r) => `Din vän får ${r}% cashback.`,
-  youGetThankYou: (a) => `Du får ${a} när de betalar sin handpenning.`,
-  youGetBoost: (r) => `Du får +${r}% cashback när de tatuerar sig.`,
+  youGetThankYou: (a, m) => (m === 'deposit' ? `Du får ${a} när de betalar sin handpenning.` : `Du får ${a} när de tatuerar sig.`),
+  youGetBoost: (r, m) => (m === 'deposit' ? `Du får +${r}% cashback när de betalar sin handpenning.` : `Du får +${r}% cashback när de tatuerar sig.`),
   youGetCommissionPct: (r, d) => (d > 0 ? `Du får ${r}% av det de handlar för i ${d} dagar.` : `Du får ${r}% av det de handlar för.`),
   youGetCommissionFixed: (a, d) => (d > 0 ? `I ${d} dagar får du ${a} varje gång de betalar.` : `Du får ${a} varje gång de betalar.`),
   sendAGift: 'Skicka en present',
   orShowCard: 'Eller visa ditt kort. De skannar det.',
   roadTo: (r) => `Vägen till ${r}% cashback`,
   progressOf: (d, t) => `${d} av ${t}`,
-  moreFriends: (n, r) =>
-    n === 1
-      ? `1 vän till som bokar, så får du ${r}% på allt.`
-      : `${n} vänner till som bokar, så får du ${r}% på allt.`,
+  moreFriends: (n, r, m) =>
+    m === 'deposit'
+      ? (n === 1 ? `1 vän till som bokar, så får du ${r}% på allt.` : `${n} vänner till som bokar, så får du ${r}% på allt.`)
+      : (n === 1 ? `1 tatuerad vän till, så får du ${r}% på allt.` : `${n} tatuerade vänner till, så får du ${r}% på allt.`),
   youreIn: (tier) => `Du är i ${tier}`,
   youEarnOnEverything: (r) => `Du får ${r}% på allt.`,
   sendOptionFriend: 'Fyll i din väns uppgifter',
@@ -294,18 +298,18 @@ const nb: GiftTranslations = {
   giveAGift: 'Gi en venn en gave',
   friendGetsBonus: (b, r) => `Vennen din får ${b} og ${r}% cashback.`,
   friendGetsRate: (r) => `Vennen din får ${r}% cashback.`,
-  youGetThankYou: (a) => `Du får ${a} når de betaler depositumet.`,
-  youGetBoost: (r) => `Du får +${r}% cashback når de tatoverer seg.`,
+  youGetThankYou: (a, m) => (m === 'deposit' ? `Du får ${a} når de betaler depositumet.` : `Du får ${a} når de tatoverer seg.`),
+  youGetBoost: (r, m) => (m === 'deposit' ? `Du får +${r}% cashback når de betaler depositumet.` : `Du får +${r}% cashback når de tatoverer seg.`),
   youGetCommissionPct: (r, d) => (d > 0 ? `Du får ${r}% av det de bruker i ${d} dager.` : `Du får ${r}% av det de bruker.`),
   youGetCommissionFixed: (a, d) => (d > 0 ? `I ${d} dager får du ${a} hver gang de betaler.` : `Du får ${a} hver gang de betaler.`),
   sendAGift: 'Send en gave',
   orShowCard: 'Eller vis kortet ditt. De skanner det.',
   roadTo: (r) => `Veien til ${r}% cashback`,
   progressOf: (d, t) => `${d} av ${t}`,
-  moreFriends: (n, r) =>
-    n === 1
-      ? `1 venn til som booker, så får du ${r}% på alt.`
-      : `${n} venner til som booker, så får du ${r}% på alt.`,
+  moreFriends: (n, r, m) =>
+    m === 'deposit'
+      ? (n === 1 ? `1 venn til som booker, så får du ${r}% på alt.` : `${n} venner til som booker, så får du ${r}% på alt.`)
+      : (n === 1 ? `1 tatovert venn til, så får du ${r}% på alt.` : `${n} tatoverte venner til, så får du ${r}% på alt.`),
   youreIn: (tier) => `Du er i ${tier}`,
   youEarnOnEverything: (r) => `Du får ${r}% på alt.`,
   sendOptionFriend: 'Skriv inn vennens detaljer',
@@ -357,18 +361,18 @@ const de: GiftTranslations = {
   giveAGift: 'Mach einem Freund ein Geschenk',
   friendGetsBonus: (b, r) => `Dein Freund bekommt ${b} und ${r}% Cashback.`,
   friendGetsRate: (r) => `Dein Freund bekommt ${r}% Cashback.`,
-  youGetThankYou: (a) => `Du bekommst ${a}, sobald dein Freund die Anzahlung zahlt.`,
-  youGetBoost: (r) => `Du bekommst +${r}% Cashback, sobald das Tattoo gestochen ist.`,
+  youGetThankYou: (a, m) => (m === 'deposit' ? `Du bekommst ${a}, sobald dein Freund die Anzahlung zahlt.` : `Du bekommst ${a}, sobald das Tattoo gestochen ist.`),
+  youGetBoost: (r, m) => (m === 'deposit' ? `Du bekommst +${r}% Cashback, sobald dein Freund die Anzahlung zahlt.` : `Du bekommst +${r}% Cashback, sobald das Tattoo gestochen ist.`),
   youGetCommissionPct: (r, d) => (d > 0 ? `Du bekommst ${d} Tage lang ${r}% von dem, was dein Freund ausgibt.` : `Du bekommst ${r}% von dem, was dein Freund ausgibt.`),
   youGetCommissionFixed: (a, d) => (d > 0 ? `Du bekommst ${d} Tage lang ${a} bei jeder Zahlung deines Freundes.` : `Du bekommst ${a} bei jeder Zahlung deines Freundes.`),
   sendAGift: 'Geschenk senden',
   orShowCard: 'Oder zeig deine Karte. Dein Freund scannt sie.',
   roadTo: (r) => `Auf dem Weg zu ${r}% Cashback`,
   progressOf: (d, t) => `${d} von ${t}`,
-  moreFriends: (n, r) =>
-    n === 1
-      ? `Noch 1 Freund, der bucht, und du bekommst ${r}% auf alles.`
-      : `Noch ${n} Freunde, die buchen, und du bekommst ${r}% auf alles.`,
+  moreFriends: (n, r, m) =>
+    m === 'deposit'
+      ? (n === 1 ? `Noch 1 Freund, der bucht, und du bekommst ${r}% auf alles.` : `Noch ${n} Freunde, die buchen, und du bekommst ${r}% auf alles.`)
+      : (n === 1 ? `Noch 1 tätowierter Freund und du bekommst ${r}% auf alles.` : `Noch ${n} tätowierte Freunde und du bekommst ${r}% auf alles.`),
   youreIn: (tier) => `Du bist im ${tier}`,
   youEarnOnEverything: (r) => `Du bekommst ${r}% auf alles.`,
   sendOptionFriend: 'Daten deines Freundes eingeben',
@@ -420,18 +424,18 @@ const fr: GiftTranslations = {
   giveAGift: 'Offrez un cadeau à un ami',
   friendGetsBonus: (b, r) => `Votre ami reçoit ${b} et ${r}% de cashback.`,
   friendGetsRate: (r) => `Votre ami reçoit ${r}% de cashback.`,
-  youGetThankYou: (a) => `Vous recevez ${a} quand votre ami paie son acompte.`,
-  youGetBoost: (r) => `Vous recevez +${r}% de cashback une fois son tatouage fait.`,
+  youGetThankYou: (a, m) => (m === 'deposit' ? `Vous recevez ${a} quand votre ami paie son acompte.` : `Vous recevez ${a} une fois son tatouage fait.`),
+  youGetBoost: (r, m) => (m === 'deposit' ? `Vous recevez +${r}% de cashback quand votre ami paie son acompte.` : `Vous recevez +${r}% de cashback une fois son tatouage fait.`),
   youGetCommissionPct: (r, d) => (d > 0 ? `Vous recevez ${r}% de ses dépenses pendant ${d} jours.` : `Vous recevez ${r}% de ses dépenses.`),
   youGetCommissionFixed: (a, d) => (d > 0 ? `Pendant ${d} jours, vous recevez ${a} à chacun de ses paiements.` : `Vous recevez ${a} à chacun de ses paiements.`),
   sendAGift: 'Offrir un cadeau',
   orShowCard: 'Ou montrez votre carte. Votre ami la scanne.',
   roadTo: (r) => `En route vers ${r}% de cashback`,
   progressOf: (d, t) => `${d} sur ${t}`,
-  moreFriends: (n, r) =>
-    n === 1
-      ? `Encore 1 ami qui réserve et vous gagnez ${r}% sur tout.`
-      : `Encore ${n} amis qui réservent et vous gagnez ${r}% sur tout.`,
+  moreFriends: (n, r, m) =>
+    m === 'deposit'
+      ? (n === 1 ? `Encore 1 ami qui réserve et vous gagnez ${r}% sur tout.` : `Encore ${n} amis qui réservent et vous gagnez ${r}% sur tout.`)
+      : (n === 1 ? `Encore 1 ami tatoué et vous gagnez ${r}% sur tout.` : `Encore ${n} amis tatoués et vous gagnez ${r}% sur tout.`),
   youreIn: (tier) => `Bienvenue dans ${tier}`,
   youEarnOnEverything: (r) => `Vous gagnez ${r}% sur tout.`,
   sendOptionFriend: 'Saisir les coordonnées de votre ami',
@@ -484,18 +488,18 @@ const es: GiftTranslations = {
   giveAGift: 'Hazle un regalo a un amigo',
   friendGetsBonus: (b, r) => `Tu amigo recibe ${b} y un ${r}% de cashback.`,
   friendGetsRate: (r) => `Tu amigo recibe un ${r}% de cashback.`,
-  youGetThankYou: (a) => `Tú recibes ${a} cuando pague su depósito.`,
-  youGetBoost: (r) => `Tú recibes +${r}% de cashback cuando se tatúe.`,
+  youGetThankYou: (a, m) => (m === 'deposit' ? `Tú recibes ${a} cuando pague su depósito.` : `Tú recibes ${a} cuando se tatúe.`),
+  youGetBoost: (r, m) => (m === 'deposit' ? `Tú recibes +${r}% de cashback cuando pague su depósito.` : `Tú recibes +${r}% de cashback cuando se tatúe.`),
   youGetCommissionPct: (r, d) => (d > 0 ? `Tú recibes un ${r}% de lo que gaste durante ${d} días.` : `Tú recibes un ${r}% de lo que gaste.`),
   youGetCommissionFixed: (a, d) => (d > 0 ? `Durante ${d} días, tú recibes ${a} cada vez que pague.` : `Tú recibes ${a} cada vez que pague.`),
   sendAGift: 'Enviar un regalo',
   orShowCard: 'O enseña tu tarjeta. Tu amigo la escanea.',
   roadTo: (r) => `Camino al ${r}% de cashback`,
   progressOf: (d, t) => `${d} de ${t}`,
-  moreFriends: (n, r) =>
-    n === 1
-      ? `1 amigo más que reserve y ganas un ${r}% en todo.`
-      : `${n} amigos más que reserven y ganas un ${r}% en todo.`,
+  moreFriends: (n, r, m) =>
+    m === 'deposit'
+      ? (n === 1 ? `1 amigo más que reserve y ganas un ${r}% en todo.` : `${n} amigos más que reserven y ganas un ${r}% en todo.`)
+      : (n === 1 ? `1 amigo tatuado más y ganas un ${r}% en todo.` : `${n} amigos tatuados más y ganas un ${r}% en todo.`),
   youreIn: (tier) => `Estás en ${tier}`,
   youEarnOnEverything: (r) => `Ganas un ${r}% en todo.`,
   sendOptionFriend: 'Introduce los datos de tu amigo',
@@ -547,18 +551,18 @@ const nl: GiftTranslations = {
   giveAGift: 'Geef een vriend een cadeau',
   friendGetsBonus: (b, r) => `Je vriend krijgt ${b} en ${r}% cashback.`,
   friendGetsRate: (r) => `Je vriend krijgt ${r}% cashback.`,
-  youGetThankYou: (a) => `Jij krijgt ${a} als ze hun aanbetaling doen.`,
-  youGetBoost: (r) => `Jij krijgt +${r}% cashback als ze getatoeëerd zijn.`,
+  youGetThankYou: (a, m) => (m === 'deposit' ? `Jij krijgt ${a} als ze hun aanbetaling doen.` : `Jij krijgt ${a} als ze getatoeëerd zijn.`),
+  youGetBoost: (r, m) => (m === 'deposit' ? `Jij krijgt +${r}% cashback als ze hun aanbetaling doen.` : `Jij krijgt +${r}% cashback als ze getatoeëerd zijn.`),
   youGetCommissionPct: (r, d) => (d > 0 ? `Jij krijgt ${d} dagen lang ${r}% van wat ze uitgeven.` : `Jij krijgt ${r}% van wat ze uitgeven.`),
   youGetCommissionFixed: (a, d) => (d > 0 ? `Jij krijgt ${d} dagen lang ${a} elke keer dat ze betalen.` : `Jij krijgt ${a} elke keer dat ze betalen.`),
   sendAGift: 'Stuur een cadeau',
   orShowCard: 'Of laat je kaart zien. Zij scannen hem.',
   roadTo: (r) => `Op weg naar ${r}% cashback`,
   progressOf: (d, t) => `${d} van ${t}`,
-  moreFriends: (n, r) =>
-    n === 1
-      ? `Nog 1 vriend die boekt en je krijgt ${r}% op alles.`
-      : `Nog ${n} vrienden die boeken en je krijgt ${r}% op alles.`,
+  moreFriends: (n, r, m) =>
+    m === 'deposit'
+      ? (n === 1 ? `Nog 1 vriend die boekt en je krijgt ${r}% op alles.` : `Nog ${n} vrienden die boeken en je krijgt ${r}% op alles.`)
+      : (n === 1 ? `Nog 1 getatoeëerde vriend en je krijgt ${r}% op alles.` : `Nog ${n} getatoeëerde vrienden en je krijgt ${r}% op alles.`),
   youreIn: (tier) => `Je zit in ${tier}`,
   youEarnOnEverything: (r) => `Je krijgt ${r}% op alles.`,
   sendOptionFriend: 'Vul de gegevens van je vriend in',
@@ -610,18 +614,18 @@ const pl: GiftTranslations = {
   giveAGift: 'Daj znajomemu prezent',
   friendGetsBonus: (b, r) => `Twój znajomy dostaje ${b} i ${r}% cashbacku.`,
   friendGetsRate: (r) => `Twój znajomy dostaje ${r}% cashbacku.`,
-  youGetThankYou: (a) => `Ty dostajesz ${a}, gdy znajomy wpłaci zaliczkę.`,
-  youGetBoost: (r) => `Ty dostajesz +${r}% cashbacku, gdy zrobi tatuaż.`,
+  youGetThankYou: (a, m) => (m === 'deposit' ? `Ty dostajesz ${a}, gdy znajomy wpłaci zaliczkę.` : `Ty dostajesz ${a}, gdy zrobi tatuaż.`),
+  youGetBoost: (r, m) => (m === 'deposit' ? `Ty dostajesz +${r}% cashbacku, gdy znajomy wpłaci zaliczkę.` : `Ty dostajesz +${r}% cashbacku, gdy zrobi tatuaż.`),
   youGetCommissionPct: (r, d) => (d > 0 ? `Ty dostajesz ${r}% z tego, co wyda, przez ${d} dni.` : `Ty dostajesz ${r}% z tego, co wyda.`),
   youGetCommissionFixed: (a, d) => (d > 0 ? `Przez ${d} dni dostajesz ${a} przy każdej jego płatności.` : `Ty dostajesz ${a} przy każdej jego płatności.`),
   sendAGift: 'Wyślij prezent',
   orShowCard: 'Albo pokaż swoją kartę. Znajomy ją zeskanuje.',
   roadTo: (r) => `Droga do ${r}% cashbacku`,
   progressOf: (d, t) => `${d} z ${t}`,
-  moreFriends: (n, r) =>
-    n === 1
-      ? `Jeszcze 1 znajomy, który się umówi, i dostajesz ${r}% na wszystko.`
-      : `Jeszcze ${n} znajomych, którzy się umówią, i dostajesz ${r}% na wszystko.`,
+  moreFriends: (n, r, m) =>
+    m === 'deposit'
+      ? (n === 1 ? `Jeszcze 1 znajomy, który się umówi, i dostajesz ${r}% na wszystko.` : `Jeszcze ${n} znajomych, którzy się umówią, i dostajesz ${r}% na wszystko.`)
+      : (n === 1 ? `Jeszcze 1 wytatuowany znajomy i dostajesz ${r}% na wszystko.` : `Jeszcze ${n} wytatuowanych znajomych i dostajesz ${r}% na wszystko.`),
   youreIn: (tier) => `Jesteś w ${tier}`,
   youEarnOnEverything: (r) => `Dostajesz ${r}% na wszystko.`,
   sendOptionFriend: 'Wpisz dane znajomego',
