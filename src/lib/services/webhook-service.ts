@@ -201,7 +201,7 @@ async function deliverToEndpoint(
     })
   } catch { /* non-critical */ }
 
-  // Retry once on failure after 3s
+  // Retry once on failure after 3s, with the same body (same timestamp and data).
   if (!success && attempt < 2) {
     await new Promise((r) => setTimeout(r, 3000))
     return deliverToEndpoint(webhookId, url, body, attempt + 1)

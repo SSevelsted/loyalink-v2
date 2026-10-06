@@ -87,6 +87,8 @@ export async function sendGiftToFriend(
     return { status: 429, error: 'daily_limit', message: `At most ${SEND_GIFT_DAILY_LIMIT} friends in 24 hours` }
   }
 
+  // sent_at is fixed here, once per accepted send. deliverWebhookNow builds
+  // one body and every retry (deliverToEndpoint) sends that same body.
   const payload = buildFriendSentPayload({ referrer: customer, friend: input.value, sentAt: now })
   const { delivered } = await deliver(customer.studio_id, FRIEND_SENT_EVENT, customer.id, payload)
   if (delivered === 0) {

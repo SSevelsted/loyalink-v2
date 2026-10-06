@@ -58,12 +58,19 @@ export function validateFriendInput(
 
 /** The data of the referral.friend_sent webhook (the envelope adds event, studio_id, customer_id, timestamp). */
 export type FriendSentPayload = {
+  /** customers.id (UUID), the long id. */
   referrer_member_id: string
+  /** customers.member_id, the short id on the card (12 characters); null on old rows. */
+  referrer_short_member_id: string | null
   referrer_referral_code: string | null
   friend_first_name: string
   /** E.164 */
   friend_phone: string
-  /** ISO time */
+  /**
+   * ISO time the send was accepted. Set once per send and part of the one
+   * body every delivery retry reuses: StreamInk dedupes on (studio,
+   * referrer, hashed friend phone, sent_at).
+   */
   sent_at: string
 }
 
@@ -73,7 +80,8 @@ export function buildFriendSentPayload(args: {
   sentAt: Date
 }): FriendSentPayload {
   return {
-    referrer_member_id: args.referrer.member_id || args.referrer.id,
+    referrer_member_id: args.referrer.id,
+    referrer_short_member_id: args.referrer.member_id || null,
     referrer_referral_code: args.referrer.referral_code ?? null,
     friend_first_name: args.friend.firstName,
     friend_phone: args.friend.phone,
