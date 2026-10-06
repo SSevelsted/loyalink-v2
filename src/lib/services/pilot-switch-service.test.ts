@@ -159,6 +159,83 @@ describe('pilotTargetConfig', () => {
   })
 })
 
+// Owner decision 2026-10-06: a studio StreamInk creates (POST /api/v1/studios)
+// starts switched, exactly as Nick Schestag runs since switch day.
+describe('new StreamInk studio (POST /api/v1/studios)', () => {
+  const CREATED = '2026-10-06T12:00:00.000Z'
+
+  it('starts on the full switched setup', () => {
+    const config = service.streaminkStudioRewardsConfig({ currency: 'EUR', migrated: false, createdAt: CREATED })
+    assert.deepEqual(config, {
+      enabled: true,
+      tiers: [
+        { slug: 'base', name: 'Base', cashback_rate: 5, unlocks_referrals: true },
+        { slug: 'loyalty_club', name: 'Loyalty Club', cashback_rate: 10, upgrade_trigger: { type: 'first_full_payment' }, unlocks_referrals: false },
+        { slug: 'inner_circle', name: 'Inner Circle', cashback_rate: 15, upgrade_trigger: { type: 'referral_count', threshold: 3 }, unlocks_referrals: false },
+      ],
+      referrals: {
+        enabled: true,
+        referrer_commission_rate: 0,
+        referrer_commission_type: 'percentage',
+        referrer_commission_duration_days: 60,
+        referrer_cashback_bonus_per_ref: 0,
+        referrer_cashback_cap: 25,
+        friend_tier_slug: 'loyalty_club',
+        friend_cashback_rate: 10,
+        friend_welcome_bonus: 25,
+        activation_trigger: { type: 'first_full_payment' },
+      },
+      cashback_on_cashback_balance: false,
+      pilot_switched_at: CREATED,
+      pilot_switch_mode: 'full',
+    })
+  })
+
+  it('is what switch day gives the StreamInk template, and reads back unchanged', async () => {
+    const { STREAMINK_REWARDS_CONFIG } = await import('@/lib/templates/streamink-template')
+    const config = service.newStudioRewardsConfig({ currency: 'EUR', createdAt: CREATED })
+    assert.deepEqual(config, service.pilotTargetConfig(STREAMINK_REWARDS_CONFIG, { mode: 'full', welcomeBonus: 25, switchedAt: CREATED }))
+    // GET /api/v1/studios/:id/rewards-config runs this normalizer.
+    const read = migrateRewardsConfig(config)
+    assert.equal(read.pilot_switched_at, CREATED)
+    assert.equal(read.pilot_switch_mode, 'full')
+    assert.deepEqual(read.tiers.map((t) => [t.slug, t.cashback_rate]), [['base', 5], ['loyalty_club', 10], ['inner_circle', 15]])
+    assert.deepEqual(read.tiers[2].upgrade_trigger, { type: 'referral_count', threshold: 3 })
+  })
+
+  it('takes the welcome bonus per currency: switch-day default first, then the old template value', () => {
+    const bonus = (currency: string | null) =>
+      service.streaminkStudioRewardsConfig({ currency, migrated: false, createdAt: CREATED }).referrals.friend_welcome_bonus
+    assert.equal(bonus('EUR'), 25)
+    assert.equal(bonus('eur'), 25)
+    assert.equal(bonus('SEK'), 250)
+    assert.equal(bonus('DKK'), 200)
+    assert.equal(bonus('NOK'), 150)
+    assert.equal(bonus('USD'), 15)
+    assert.equal(bonus('GBP'), 13)
+    assert.equal(bonus('CHF'), 25)
+    assert.equal(bonus(null), 25)
+  })
+
+  it('a migrated studio (legacy_studio_id) keeps the old StreamInk template, not switched', () => {
+    const config = service.streaminkStudioRewardsConfig({ currency: 'SEK', migrated: true, createdAt: CREATED })
+    assert.deepEqual(config.tiers.map((t) => [t.slug, t.cashback_rate]), [['base', 7.5], ['loyalty_club', 15], ['inner_circle', 20]])
+    assert.equal(config.referrals.referrer_cashback_bonus_per_ref, 2.5)
+    assert.equal(config.referrals.referrer_commission_rate, 5)
+    assert.equal(config.referrals.friend_welcome_bonus, 150)
+    assert.deepEqual(config.referrals.activation_trigger, { type: 'first_purchase' })
+    assert.equal(config.pilot_switched_at, undefined)
+    assert.equal(config.pilot_switch_mode, undefined)
+  })
+
+  it('switch day refuses to run again on a new studio', async () => {
+    const config = service.newStudioRewardsConfig({ currency: 'EUR', createdAt: CREATED })
+    seed({ studios: [pilotStudio(STUDIO_ID, 'EUR', config), pilotStudio(OTHER_STUDIO_ID)] })
+    const p = await plan()
+    assert.ok(p.blockers.some((b) => b.startsWith(`Already switched at ${CREATED}`)), p.blockers.join('; '))
+  })
+})
+
 describe('planPilotSwitch', () => {
   it('existing members keep their deal; only the rate-less row is pinned', async () => {
     seed()
@@ -197,9 +274,9 @@ describe('planPilotSwitch', () => {
   })
 
   it('blocks a currency that is not the studio currency, and a currency with no default bonus', async () => {
-    seed({ studios: [pilotStudio(STUDIO_ID, 'eur'), pilotStudio(OTHER_STUDIO_ID, 'dkk')] })
+    seed({ studios: [pilotStudio(STUDIO_ID, 'eur'), pilotStudio(OTHER_STUDIO_ID, 'nok')] })
     assert.match((await plan({ currency: 'SEK' })).blockers.join(), /does not match the studio currency EUR/)
-    assert.match((await plan({}, OTHER_STUDIO_ID)).blockers.join(), /No default welcome bonus for currency DKK/)
+    assert.match((await plan({}, OTHER_STUDIO_ID)).blockers.join(), /No default welcome bonus for currency NOK/)
     assert.deepEqual((await plan({ welcomeBonus: 185 }, OTHER_STUDIO_ID)).blockers, [])
   })
 

@@ -4,12 +4,8 @@ import { validateApiKey } from '@/lib/api-keys'
 import { apiSuccess, apiError } from '@/lib/api-response'
 import { generateUniqueSlug } from '@/lib/slug'
 import { DEFAULT_CARD_FIELDS, DEFAULT_STATIC_TEXTS } from '@/types/database'
-import {
-  STREAMINK_REWARDS_CONFIG,
-  STREAMINK_WELCOME_BONUS,
-  STREAMINK_TIER_THEMES,
-  STREAMINK_PROMOTIONS,
-} from '@/lib/templates/streamink-template'
+import { STREAMINK_TIER_THEMES, STREAMINK_PROMOTIONS } from '@/lib/templates/streamink-template'
+import { streaminkStudioRewardsConfig } from '@/lib/services/pilot-switch-service'
 import { getDefaultLandingPageCopy } from '@/lib/landing-page-defaults'
 import { WEBHOOK_EVENTS } from '@/lib/webhook-events'
 
@@ -38,14 +34,13 @@ export async function POST(request: NextRequest) {
     // studios. Studios created here are always agency, so no extra gating is needed.
     const legacyStudioId = typeof legacy_studio_id === 'string' ? legacy_studio_id.trim() : ''
 
-    // Set welcome bonus based on currency
-    const rewardsConfig = {
-      ...STREAMINK_REWARDS_CONFIG,
-      referrals: {
-        ...STREAMINK_REWARDS_CONFIG.referrals,
-        friend_welcome_bonus: STREAMINK_WELCOME_BONUS[studioCurrency] ?? STREAMINK_WELCOME_BONUS.EUR,
-      },
-    }
+    // A new studio starts switched (owner decision 2026-10-06); a migrated
+    // studio keeps the old StreamInk template. See streaminkStudioRewardsConfig.
+    const rewardsConfig = streaminkStudioRewardsConfig({
+      currency: studioCurrency,
+      migrated: Boolean(legacyStudioId),
+      createdAt: new Date().toISOString(),
+    })
 
     // Create studio
     const { data: studio, error: studioError } = await adminSupabase
