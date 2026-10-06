@@ -1,9 +1,14 @@
 import type { RewardsConfig } from '@/types/database'
 
 /**
- * StreamInk-specific rewards configuration.
- * Used only when creating studios via the v1 API (source: 'streamink').
+ * StreamInk-specific rewards configuration (the setup before switch day).
  * NOT visible in the Loyalink UI or available to regular signups.
+ *
+ * Since 2026-10-06 a NEW studio created via the v1 API does not get this
+ * config as is: it gets the switched setup built on it
+ * (newStudioRewardsConfig in pilot-switch-service). This config is still
+ * stored as is for a migrated studio (legacy_studio_id), and it is the shape
+ * the switch builds on (tier slugs and names, referral fields).
  */
 
 export const STREAMINK_REWARDS_CONFIG: RewardsConfig = {
@@ -50,8 +55,11 @@ export const STREAMINK_REWARDS_CONFIG: RewardsConfig = {
 }
 
 /**
- * Welcome bonus amounts by currency.
+ * Welcome bonus amounts by currency for STREAMINK_REWARDS_CONFIG.
  * €15 / 100 DKK / 150 SEK / 150 NOK
+ *
+ * A new studio takes DEFAULT_WELCOME_BONUS (pilot-switch-service: EUR 25,
+ * SEK 250) first and this table for the other currencies.
  */
 export const STREAMINK_WELCOME_BONUS: Record<string, number> = {
   EUR: 15,

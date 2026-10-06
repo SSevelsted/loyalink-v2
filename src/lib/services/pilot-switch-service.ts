@@ -17,6 +17,7 @@ import {
   rewriteTierMembers,
   type DealPromotion,
 } from '@/lib/services/member-deal-service'
+import { STREAMINK_REWARDS_CONFIG, STREAMINK_WELCOME_BONUS } from '@/lib/templates/streamink-template'
 
 /**
  * Switch day: move one studio to the StreamInk pilot rewards (owner decisions
@@ -52,7 +53,9 @@ export const DEFAULT_WELCOME_BONUS: Record<string, number> = { EUR: 25, SEK: 250
 export const PILOT_SWITCH_VERSION = 2
 
 /**
- * full           new studios: pilot tiers + the gift/referral rules
+ * full           new studios: pilot tiers + the gift/referral rules (also what
+ *                POST /api/v1/studios gives a new StreamInk studio, see
+ *                newStudioRewardsConfig)
  * referral_only  current studios: the gift/referral rules, and the giver tier
  *                (tiers[2]) becomes Inner Circle: 15% at 3 activated
  *                referrals. The other tier rates, the friend tier and every
@@ -172,6 +175,63 @@ export function pilotTargetConfig(
     pilot_switched_at: opts.switchedAt,
     pilot_switch_mode: 'full',
   })
+}
+
+// ─── New StreamInk studios ───────────────────────────────────────────────────
+
+/**
+ * Friend welcome bonus for a new StreamInk studio. The switch-day default
+ * (EUR 25, SEK 250) where one exists; other currencies keep their StreamInk
+ * template value (DKK 100, NOK 150, ...); an unknown currency takes the EUR
+ * default.
+ */
+export function newStudioWelcomeBonus(currency: string | null | undefined): number {
+  const code = String(currency ?? '').trim().toUpperCase()
+  return DEFAULT_WELCOME_BONUS[code] ?? STREAMINK_WELCOME_BONUS[code] ?? DEFAULT_WELCOME_BONUS.EUR
+}
+
+/**
+ * Rewards config for a studio StreamInk creates through POST /api/v1/studios
+ * (owner decision 2026-10-06): the studio starts switched, exactly as Nick
+ * Schestag runs since switch day. It is the 'full' switch applied to the
+ * StreamInk template on the day the studio is created, so the numbers live in
+ * one place (PILOT_RATES, INNER_CIRCLE_TRIGGER, the welcome bonus).
+ *
+ * The platform pays the giver from this day (its "payout" switch); Loyalink
+ * pays the giver nothing.
+ */
+export function newStudioRewardsConfig(opts: { currency: string | null | undefined; createdAt: string }): RewardsConfig {
+  return pilotTargetConfig(STREAMINK_REWARDS_CONFIG, {
+    mode: 'full',
+    welcomeBonus: newStudioWelcomeBonus(opts.currency),
+    switchedAt: opts.createdAt,
+  })
+}
+
+/**
+ * The rewards config POST /api/v1/studios stores for a StreamInk studio.
+ *
+ *   new studio       starts switched (newStudioRewardsConfig)
+ *   migrated studio  (legacy_studio_id) keeps the StreamInk template it has
+ *                    always had: its clients already hold cards, and moving it
+ *                    is a switch-day decision (scripts/switch-day.ts), not a
+ *                    creation one. StreamInk reads pilot_switched_at from the
+ *                    created studio, so its payout stays off for this studio.
+ */
+export function streaminkStudioRewardsConfig(opts: {
+  currency: string | null | undefined
+  migrated: boolean
+  createdAt: string
+}): RewardsConfig {
+  if (!opts.migrated) return newStudioRewardsConfig(opts)
+  const code = String(opts.currency ?? '').trim().toUpperCase()
+  return {
+    ...STREAMINK_REWARDS_CONFIG,
+    referrals: {
+      ...STREAMINK_REWARDS_CONFIG.referrals,
+      friend_welcome_bonus: STREAMINK_WELCOME_BONUS[code] ?? STREAMINK_WELCOME_BONUS.EUR,
+    },
+  }
 }
 
 /** Every leaf that differs between two configs, as dotted paths. */
