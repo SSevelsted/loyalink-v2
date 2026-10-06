@@ -31,6 +31,24 @@ export function useStudio() {
   return useContext(StudioContext)
 }
 
+// A `?studio=<id>` deep link (StreamInk admin opens a studio's settings or
+// card designer) wins over the last selected studio, but only when the user
+// can see that studio. It is stored like a switcher pick and then removed from
+// the URL, so a later switch is not undone by a reload.
+function pickStudioId(allowedIds: string[]): string | undefined {
+  const params = new URLSearchParams(window.location.search)
+  const requested = params.get('studio')
+  if (requested && allowedIds.includes(requested)) {
+    localStorage.setItem('loyalink_studio_id', requested)
+    params.delete('studio')
+    const query = params.toString()
+    window.history.replaceState(null, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash)
+    return requested
+  }
+  const stored = localStorage.getItem('loyalink_studio_id')
+  return stored && allowedIds.includes(stored) ? stored : allowedIds[0]
+}
+
 export function useStudioLoader() {
   const { user } = useAuth()
   const [studios, setStudios] = useState<Studio[]>([])
@@ -94,10 +112,9 @@ export function useStudioLoader() {
 
         setMemberships([...members, ...syntheticMemberships])
 
-        // Restore last selected or pick first
-        const stored = localStorage.getItem('loyalink_studio_id')
+        // Deep link first, then last selected, then first
         const allIds = allStudioList.map((s) => s.id)
-        const validId = stored && allIds.includes(stored) ? stored : allIds[0]
+        const validId = pickStudioId(allIds)
         setCurrentStudioId(validId ?? null)
       } else {
         setMemberships(members)
@@ -110,10 +127,9 @@ export function useStudioLoader() {
 
         setStudios(studioList ?? [])
 
-        // Restore last selected or pick first
-        const stored = localStorage.getItem('loyalink_studio_id')
-        const validId = stored && studioIds.includes(stored) ? stored : studioIds[0]
-        setCurrentStudioId(validId)
+        // Deep link first, then last selected, then first
+        const validId = pickStudioId(studioIds)
+        setCurrentStudioId(validId ?? null)
       }
 
       setLoading(false)

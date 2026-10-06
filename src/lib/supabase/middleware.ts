@@ -151,9 +151,10 @@ export async function updateSession(request: NextRequest) {
     path.startsWith('/embed/')
 
   if (!user && !isPublicRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    url.searchParams.set('redirect', path)
+    // Keep the query string in `redirect` so a deep link
+    // (`/settings?studio=…&section=…`) survives the login step.
+    const url = new URL('/login', request.nextUrl.origin)
+    url.searchParams.set('redirect', path + request.nextUrl.search)
     return NextResponse.redirect(url)
   }
 
