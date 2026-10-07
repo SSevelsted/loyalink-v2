@@ -1,6 +1,7 @@
 'use client'
 
 import { ChevronLeft, QrCode, ScanLine, Sparkles, Wallet, X } from 'lucide-react'
+import { readableTextOn } from '@/lib/readable-color'
 
 type Size = 'sm' | 'md' | 'lg'
 
@@ -279,7 +280,7 @@ export function LandingPageMockup({
           {/* CTA */}
           <div
             className={`mt-1.5 w-full ${fieldH} ${s.cardRadius} flex items-center justify-center font-semibold tracking-tight shadow-[0_8px_20px_-6px_rgba(0,0,0,0.4)] ${s.bodyText} truncate px-1`}
-            style={{ backgroundColor: accent, color: readableText(accent) }}
+            style={{ backgroundColor: accent, color: readableTextOn(accent) }}
           >
             {landing.buttonText}
           </div>
@@ -591,7 +592,7 @@ export function RecordTransactionMockup({
         {/* Record button */}
         <div
           className={`mt-2 mb-1 ${s.cardRadius} flex items-center justify-center font-semibold ${s.bodyText}`}
-          style={{ height: ctaH, backgroundColor: accent, color: readableText(accent) }}
+          style={{ height: ctaH, backgroundColor: accent, color: readableTextOn(accent) }}
         >
           Record {amountValue}
         </div>
@@ -756,8 +757,3 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 // Pick black or white text for legibility on a given background colour.
-function readableText(hex: string): string {
-  const [r, g, b] = parseHex(hex)
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  return luminance > 0.6 ? '#1a1a1a' : '#ffffff'
-}
