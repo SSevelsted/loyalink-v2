@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { brandSurface } from '@/lib/readable-color'
 import { Check, ChevronLeft, ChevronRight, Loader2, Share2, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -176,8 +177,8 @@ export function SendGiftSheet({
               <Button
                 type="submit"
                 disabled={sending || !firstName.trim() || !phone.trim()}
-                className="h-12 w-full rounded-xl text-base font-semibold text-white"
-                style={{ backgroundColor: brandColor }}
+                className="h-12 w-full rounded-xl text-base font-semibold"
+                style={brandSurface(brandColor)}
               >
                 {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : g.sendTheGift}
               </Button>
@@ -199,8 +200,8 @@ export function SendGiftSheet({
               <Button
                 type="button"
                 onClick={() => reset('form')}
-                className="h-12 w-full rounded-xl text-base font-semibold text-white"
-                style={{ backgroundColor: brandColor }}
+                className="h-12 w-full rounded-xl text-base font-semibold"
+                style={brandSurface(brandColor)}
               >
                 <UserPlus className="h-5 w-5" />
                 {g.sendAnother}

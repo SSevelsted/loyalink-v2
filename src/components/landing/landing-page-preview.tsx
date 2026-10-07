@@ -7,6 +7,7 @@ import { Star } from 'lucide-react'
 import { generateDefaultBenefits, BENEFIT_ICON_MAP } from '@/components/landing/value-stack'
 import { getTriggerDisplayText } from '@/lib/format'
 import { getSignupTranslations } from '@/lib/i18n/signup'
+import { brandSurface } from '@/lib/readable-color'
 
 type Props = {
   headline: string
@@ -111,7 +112,7 @@ export function LandingPagePreview({ headline, description, settings, rewardsCon
                 ))}
                 <div
                   className="h-8 rounded-md flex items-center justify-center text-xs font-medium"
-                  style={{ backgroundColor: settings.brandColor, color: '#FFFFFF' }}
+                  style={brandSurface(settings.brandColor || '#7C3AED')}
                 >
                   {settings.buttonText || t.joinButton}
                 </div>
@@ -215,7 +216,7 @@ export function LandingPagePreview({ headline, description, settings, rewardsCon
                 <div className="space-y-1.5 pt-2">
                   <div
                     className="h-8 rounded-md flex items-center justify-center gap-1.5 text-xs font-medium"
-                    style={{ backgroundColor: settings.brandColor, color: '#FFFFFF' }}
+                    style={brandSurface(settings.brandColor || '#7C3AED')}
                   >
                     {t.addToAppleWallet}
                   </div>

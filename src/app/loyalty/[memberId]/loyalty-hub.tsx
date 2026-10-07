@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { brandSurface } from '@/lib/readable-color'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -570,7 +571,7 @@ export function LoyaltyHub({ access, gifts, canSendFriend, defaultCountry, membe
             <div className="flex items-center justify-center gap-1.5 mt-1">
               <span className="text-sm text-muted-foreground">{studio.name}</span>
               <span className="text-muted-foreground/40">·</span>
-              <Badge style={{ backgroundColor: brandColor, color: '#fff' }}>
+              <Badge style={brandSurface(brandColor)}>
                 {customer.loyalty_stage.replace('_', ' ')}
               </Badge>
             </div>
@@ -1073,8 +1074,8 @@ function GiftBlock({
 
       {onSend && (
         <Button
-          className="mt-6 h-12 w-full gap-2 rounded-xl text-base font-semibold text-white"
-          style={{ backgroundColor: brandColor }}
+          className="mt-6 h-12 w-full gap-2 rounded-xl text-base font-semibold"
+          style={brandSurface(brandColor)}
           onClick={onSend}
         >
           <Gift className="h-5 w-5" />

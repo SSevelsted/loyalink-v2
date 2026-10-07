@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { brandSurface } from '@/lib/readable-color'
 import { Check, ChevronLeft, Gift } from 'lucide-react'
 import { JoinForm, type JoinSuccess } from '@/components/landing/join-form'
 import { getGiftTranslations } from '@/lib/i18n/gift'
@@ -88,8 +89,8 @@ export function GiftFlow({
               <button
                 type="button"
                 onClick={() => setStep('claim')}
-                className="mt-10 h-14 w-full rounded-2xl text-base font-semibold text-white transition-all hover:brightness-110 active:scale-[0.98]"
-                style={{ backgroundColor: brandColor }}
+                className="mt-10 h-14 w-full rounded-2xl text-base font-semibold transition-all hover:brightness-110 active:scale-[0.98]"
+                style={brandSurface(brandColor)}
               >
                 {g.claimMyGift}
               </button>
@@ -241,8 +242,8 @@ function ReadyStep({
         type="button"
         onClick={() => add(platform)}
         disabled={opening}
-        className="mt-10 flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl text-base font-semibold text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-70"
-        style={{ backgroundColor: brandColor }}
+        className="mt-10 flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl text-base font-semibold transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-70"
+        style={brandSurface(brandColor)}
       >
         <WalletIcon platform={platform} />
         {opening ? t.opening : t.addToWallet(platform)}
