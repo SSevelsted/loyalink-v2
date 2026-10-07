@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { contrastRatio } from '@/lib/readable-color'
 import { Switch } from '@/components/ui/switch'
 import { usePassTemplates, useUpdatePassTemplate, useEnsureDefaultTemplate } from '@/hooks/use-wallet'
 import { useImageUpload } from '@/hooks/use-image-upload'
@@ -675,6 +676,13 @@ export default function WalletPage() {
                         </div>
                       </div>
                     </div>
+                    {/* Readability: button text picks black or white by itself (readable-color.ts); these 2 cases a studio must fix by hand. */}
+                    {lpSettings.backgroundColor && lpSettings.textColor && contrastRatio(lpSettings.textColor, lpSettings.backgroundColor) < 4.5 && (
+                      <p className="text-xs text-amber-500">Text is hard to read on this background. Pick a text color with more contrast.</p>
+                    )}
+                    {lpSettings.backgroundColor && lpSettings.brandColor && contrastRatio(lpSettings.brandColor, lpSettings.backgroundColor) < 1.5 && (
+                      <p className="text-xs text-amber-500">Buttons blend into the background. Pick a brand color that stands out from it.</p>
+                    )}
                     <div className="space-y-2">
                       <Label>Button Text</Label>
                       <Input value={lpSettings.buttonText} onChange={(e) => updateLpSetting('buttonText', e.target.value)} />

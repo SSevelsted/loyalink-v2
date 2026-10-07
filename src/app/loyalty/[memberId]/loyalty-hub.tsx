@@ -23,6 +23,7 @@ import { getReferralUnlockTier, computeReferralMilestones, isManualOnlyTrigger }
 import type { MemberPageData, MemberPageReferral } from '@/lib/services/member-page-service'
 import { amountSign, memberTransactionLabel, signedTransactionAmount } from '@/lib/transaction-display'
 import { GIFTS_PER_ROUND } from '@/lib/gift-counter'
+import { brandSurface } from '@/lib/readable-color'
 
 type Props = MemberPageData & { memberId: string }
 
@@ -558,7 +559,7 @@ export function LoyaltyHub({ access, gifts, memberId, customerAccessToken, avata
             <div className="flex items-center justify-center gap-1.5 mt-1">
               <span className="text-sm text-muted-foreground">{studio.name}</span>
               <span className="text-muted-foreground/40">·</span>
-              <Badge style={{ backgroundColor: brandColor, color: '#fff' }}>
+              <Badge style={brandSurface(brandColor)}>
                 {customer.loyalty_stage.replace('_', ' ')}
               </Badge>
             </div>
@@ -685,7 +686,7 @@ export function LoyaltyHub({ access, gifts, memberId, customerAccessToken, avata
             {referralLink && (
               <Button
                 className="w-full h-12 text-base font-semibold gap-2"
-                style={{ backgroundColor: brandColor }}
+                style={brandSurface(brandColor)}
                 onClick={handleShare}
               >
                 <Share2 className="h-5 w-5" />

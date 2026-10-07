@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og'
 import { createClient } from '@supabase/supabase-js'
+import { readableTextOn } from '@/lib/readable-color'
 
 export const alt = 'Your loyalty card'
 export const size = { width: 1200, height: 630 }
@@ -120,7 +121,7 @@ export default async function Image({ params }: Props) {
               justifyContent: 'center',
               fontSize: 96,
               fontWeight: 700,
-              color: '#fff',
+              color: readableTextOn(accent),
               marginBottom: 48,
             }}
           >

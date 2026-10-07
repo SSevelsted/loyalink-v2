@@ -7,6 +7,7 @@ import { TrustBar } from '@/components/landing/trust-bar'
 import { Gift, Sparkles, CreditCard, Wallet } from 'lucide-react'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { getSignupTranslations } from '@/lib/i18n/signup'
+import { brandSurface } from '@/lib/readable-color'
 
 function detectPlatform(): 'apple' | 'google' {
   if (typeof navigator === 'undefined') return 'apple'
@@ -245,8 +246,8 @@ export function SuccessHub({
             <button
               onClick={() => handlePassDownload(primaryPlatform)}
               disabled={downloading}
-              className="flex items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-white font-semibold text-base transition-all active:scale-[0.98] hover:brightness-110 w-full disabled:opacity-70"
-              style={{ backgroundColor: accent }}
+              className="flex items-center justify-center gap-2.5 rounded-xl px-6 py-4 font-semibold text-base transition-all active:scale-[0.98] hover:brightness-110 w-full disabled:opacity-70"
+              style={brandSurface(accent)}
             >
               {primaryPlatform === 'apple' ? (
                 <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">

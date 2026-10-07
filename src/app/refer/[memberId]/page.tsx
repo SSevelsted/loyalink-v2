@@ -10,6 +10,7 @@ import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig } from '@/types/database'
 import type { RewardsConfig } from '@/types/database'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { getSignupTranslations } from '@/lib/i18n/signup'
+import { brandSurface } from '@/lib/readable-color'
 
 type Props = {
   params: Promise<{ memberId: string }>
@@ -127,7 +128,7 @@ export default async function ReferralLandingPage({ params }: Props) {
         <div className="text-center space-y-3">
           <Badge
             className="text-sm px-4 py-1"
-            style={settings.brandColor ? { backgroundColor: settings.brandColor, color: '#fff' } : undefined}
+            style={settings.brandColor ? brandSurface(settings.brandColor) : undefined}
           >
             {t.referredBy(customer.name)}
           </Badge>
