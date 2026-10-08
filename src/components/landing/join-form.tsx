@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { brandSurface } from '@/lib/readable-color'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,30 +17,9 @@ import { AlertCircle, Loader2 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { formatPhone } from '@/lib/format'
 import { getSignupTranslations } from '@/lib/i18n/signup'
-import { brandSurface } from '@/lib/readable-color'
+import { getGiftTranslations } from '@/lib/i18n/gift'
+import { COUNTRY_CODES, countryCodeFor } from '@/lib/phone-country-codes'
 
-const COUNTRY_CODES = [
-  { code: '+45', flag: '\u{1F1E9}\u{1F1F0}', country: 'DK' },
-  { code: '+46', flag: '\u{1F1F8}\u{1F1EA}', country: 'SE' },
-  { code: '+47', flag: '\u{1F1F3}\u{1F1F4}', country: 'NO' },
-  { code: '+358', flag: '\u{1F1EB}\u{1F1EE}', country: 'FI' },
-  { code: '+49', flag: '\u{1F1E9}\u{1F1EA}', country: 'DE' },
-  { code: '+44', flag: '\u{1F1EC}\u{1F1E7}', country: 'GB' },
-  { code: '+1', flag: '\u{1F1FA}\u{1F1F8}', country: 'US' },
-  { code: '+33', flag: '\u{1F1EB}\u{1F1F7}', country: 'FR' },
-  { code: '+34', flag: '\u{1F1EA}\u{1F1F8}', country: 'ES' },
-  { code: '+39', flag: '\u{1F1EE}\u{1F1F9}', country: 'IT' },
-  { code: '+31', flag: '\u{1F1F3}\u{1F1F1}', country: 'NL' },
-  { code: '+43', flag: '\u{1F1E6}\u{1F1F9}', country: 'AT' },
-  { code: '+41', flag: '\u{1F1E8}\u{1F1ED}', country: 'CH' },
-  { code: '+48', flag: '\u{1F1F5}\u{1F1F1}', country: 'PL' },
-  { code: '+351', flag: '\u{1F1F5}\u{1F1F9}', country: 'PT' },
-  { code: '+32', flag: '\u{1F1E7}\u{1F1EA}', country: 'BE' },
-  { code: '+353', flag: '\u{1F1EE}\u{1F1EA}', country: 'IE' },
-  { code: '+354', flag: '\u{1F1EE}\u{1F1F8}', country: 'IS' },
-  { code: '+91', flag: '\u{1F1EE}\u{1F1F3}', country: 'IN' },
-  { code: '+61', flag: '\u{1F1E6}\u{1F1FA}', country: 'AU' },
-]
 
 function detectPlatform(): 'apple' | 'google' {
   if (typeof navigator === 'undefined') return 'apple'
@@ -49,6 +29,15 @@ function detectPlatform(): 'apple' | 'google' {
   if (/CrOS/i.test(ua)) return 'google'
   if (/macintosh|mac os/i.test(ua)) return 'apple'
   return 'apple'
+}
+
+export type JoinSuccess = {
+  customerId: string
+  customerAccessToken: string
+  passUrl: string | null
+  platform: 'apple' | 'google'
+  /** null: no referral code was sent. false: the code did not link, so no welcome bonus. */
+  referralLinked: boolean | null
 }
 
 export function JoinForm({
@@ -67,6 +56,8 @@ export function JoinForm({
   termsUrl,
   language,
   defaultCountry,
+  onSuccess,
+  bare = false,
 }: {
   studioId: string
   landingPageId: string
@@ -83,14 +74,16 @@ export function JoinForm({
   termsUrl?: string
   language?: string
   defaultCountry?: string
+  /** When set, the caller shows its own success step: no redirect, no built-in success card. */
+  onSuccess?: (result: JoinSuccess) => void
+  /** No card chrome: the form sits straight on the page. */
+  bare?: boolean
 }) {
   const t = getSignupTranslations(language)
+  const g = getGiftTranslations(language)
   const [form, setForm] = useState({ name: '', email: '', phone: '' })
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
-  const initialCountryCode =
-    COUNTRY_CODES.find(
-      (c) => c.country === (defaultCountry ?? '').toUpperCase(),
-    )?.code ?? '+45'
+  const initialCountryCode = countryCodeFor(defaultCountry)
   const [countryCode, setCountryCode] = useState(initialCountryCode)
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [passUrl, setPassUrl] = useState<string | null>(null)
@@ -162,8 +155,9 @@ export function JoinForm({
         body: JSON.stringify({
           studioId,
           landingPageId,
-          name: form.name,
-          email: form.email,
+          name: form.name.trim(),
+          // Email is optional end to end; a hidden field never sends one.
+          email: showEmail ? form.email.trim() || null : null,
           phone: fullPhone,
           platform,
           referralCode: referralCode || undefined,
@@ -174,11 +168,25 @@ export function JoinForm({
       const data = await res.json()
 
       if (!res.ok) {
+        // The server answers in English: show the visitor's language instead.
         if (res.status === 409 && data.error?.includes('email')) {
           setDuplicateEmail(form.email)
           setResendStatus('idle')
+          throw new Error(g.emailTaken)
         }
-        throw new Error(data.error || t.somethingWentWrong)
+        if (res.status === 409 && data.error?.includes('phone')) throw new Error(g.phoneTaken)
+        throw new Error(t.somethingWentWrong)
+      }
+
+      if (onSuccess && data.customerId) {
+        onSuccess({
+          customerId: data.customerId,
+          customerAccessToken: data.customerAccessToken,
+          passUrl: data.passUrl ?? null,
+          platform,
+          referralLinked: data.referral_linked ?? null,
+        })
+        return
       }
 
       // Referral signups → redirect to dedicated success page
@@ -442,10 +450,10 @@ export function JoinForm({
 
   return (
     <Card
-      className="animate-in fade-in slide-in-from-bottom-4 duration-500"
-      style={backgroundColor ? { backgroundColor, borderColor: `${textColor}20` } : undefined}
+      className={bare ? 'border-0 bg-transparent py-0 shadow-none' : 'animate-in fade-in slide-in-from-bottom-4 duration-500'}
+      style={!bare && backgroundColor ? { backgroundColor, borderColor: `${textColor}20` } : undefined}
     >
-      <CardContent className="py-8">
+      <CardContent className={bare ? 'px-0 py-0' : 'py-8'}>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
             <Label htmlFor="name" style={textColor ? { color: textColor } : undefined}>{t.fullNameLabel}</Label>

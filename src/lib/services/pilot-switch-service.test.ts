@@ -130,7 +130,7 @@ afterEach(() => { fetchStub.restore() })
 after(() => { adminSupabase.from = originalFrom })
 
 describe('pilotTargetConfig', () => {
-  it('reuses the slugs and sets 5 / 10 / 15, the friend tier, no giver bonus, first full payment', () => {
+  it('reuses the slugs and sets 5 / 10 / 15, the friend tier, no giver bonus, activation at the deposit', () => {
     const target = service.pilotTargetConfig(migrateRewardsConfig(ALL_INK_CONFIG), { welcomeBonus: 25, switchedAt: '2026-10-01T08:00:00.000Z' })
     assert.deepEqual(target.tiers.map((t) => [t.slug, t.cashback_rate, t.upgrade_trigger?.type ?? null, t.upgrade_trigger?.threshold ?? null]), [
       ['base', 5, null, null],
@@ -143,7 +143,8 @@ describe('pilotTargetConfig', () => {
     assert.equal(target.referrals.friend_welcome_bonus, 25)
     assert.equal(target.referrals.referrer_cashback_bonus_per_ref, 0)
     assert.equal(target.referrals.referrer_commission_rate, 0)
-    assert.deepEqual(target.referrals.activation_trigger, { type: 'first_full_payment' })
+    // first_purchase = any transaction, the deposit included (referralTriggerMet)
+    assert.deepEqual(target.referrals.activation_trigger, { type: 'first_purchase' })
     assert.equal(target.pilot_switched_at, '2026-10-01T08:00:00.000Z')
     assert.equal(target.pilot_switch_mode, 'full')
     // Survives the normalizer every reader runs (GET /api/v1/studios/:id/rewards-config).
@@ -183,7 +184,7 @@ describe('new StreamInk studio (POST /api/v1/studios)', () => {
         friend_tier_slug: 'loyalty_club',
         friend_cashback_rate: 10,
         friend_welcome_bonus: 25,
-        activation_trigger: { type: 'first_full_payment' },
+        activation_trigger: { type: 'first_purchase' },
       },
       cashback_on_cashback_balance: false,
       pilot_switched_at: CREATED,
@@ -354,13 +355,12 @@ describe('after the switch', () => {
     assert.equal(referral.referrer_customer_id, 'club')
     assert.equal(referral.status, 'pending')
 
-    // A deposit does not activate the referral.
+    // The deposit activates the referral (owner decision 2026-10-06). The
+    // giver keeps 15%, gets no commission.
     await transactions.processTransaction({ customerId: friendId, studioId: STUDIO_ID, amount: 100, isDeposit: true })
-    assert.equal(fake.rows('referrals')[0].status, 'pending')
-
-    // The first full payment does. The giver keeps 15%, gets no commission.
-    await transactions.processTransaction({ customerId: friendId, studioId: STUDIO_ID, amount: 1000 })
     assert.equal(fake.rows('referrals')[0].status, 'activated')
+    // The full payment later does not count the friend twice.
+    await transactions.processTransaction({ customerId: friendId, studioId: STUDIO_ID, amount: 1000 })
     const giver = fake.row('customers', 'club')
     assert.equal(Number(giver.cashback_rate), 15)
     assert.equal(giver.referral_count, 1)
@@ -368,7 +368,7 @@ describe('after the switch', () => {
     assert.deepEqual(fake.rows('transactions').filter((t) => t.type === 'referral_commission'), [])
   })
 
-  it('upgrades the giver to inner_circle at the 3rd friend\'s payment, not on spend', async () => {
+  it('upgrades the giver to inner_circle at the 3rd friend\'s deposit, not on spend', async () => {
     const fake = seed()
     await switchStudio()
     const friends: string[] = []
@@ -381,15 +381,14 @@ describe('after the switch', () => {
     await transactions.processTransaction({ customerId: 'club', studioId: STUDIO_ID, amount: 50000 })
     assert.equal(fake.row('customers', 'club').loyalty_stage, 'loyalty_club')
 
-    // 2 friends pay: no upgrade. A deposit from the 3rd does not count.
-    await transactions.processTransaction({ customerId: friends[0], studioId: STUDIO_ID, amount: 1000 })
+    // 2 friends pay a deposit: no upgrade yet.
+    await transactions.processTransaction({ customerId: friends[0], studioId: STUDIO_ID, amount: 100, isDeposit: true })
     await transactions.processTransaction({ customerId: friends[1], studioId: STUDIO_ID, amount: 1000 })
-    await transactions.processTransaction({ customerId: friends[2], studioId: STUDIO_ID, amount: 100, isDeposit: true })
     assert.equal(fake.row('customers', 'club').loyalty_stage, 'loyalty_club')
     assert.equal(fake.row('customers', 'club').referral_count, 2)
 
-    // The 3rd friend pays in full: the giver is Inner Circle at 15%, no Loyalink money.
-    await transactions.processTransaction({ customerId: friends[2], studioId: STUDIO_ID, amount: 1000 })
+    // The 3rd friend's deposit: the giver is Inner Circle at 15%, no Loyalink money.
+    await transactions.processTransaction({ customerId: friends[2], studioId: STUDIO_ID, amount: 100, isDeposit: true })
     const giver = fake.row('customers', 'club')
     assert.equal(giver.loyalty_stage, 'inner_circle')
     assert.equal(Number(giver.cashback_rate), 15)
@@ -487,6 +486,8 @@ describe('referral-only mode (current studios)', () => {
     ])
     assert.equal(p.target.referrals.friend_tier_slug, 'loyalty_club')
     assert.equal(p.target.referrals.referrer_commission_rate, 0)
+    // Ink Nation stays on the full payment: the deposit does not activate.
+    assert.deepEqual(p.target.referrals.activation_trigger, { type: 'first_full_payment' })
     assert.equal(p.members.keep, p.members.total - p.members.pin.length)
     assert.deepEqual(p.members.change, [])
   })
@@ -649,5 +650,58 @@ describe('--update-inner-circle (studios already switched)', () => {
     const settings = fake.row('studios', STUDIO_ID).settings as Row
     settings.rewards_config = { ...INK_NATION_SWITCHED, enabled: false }
     await assert.rejects(service.applyInnerCircleUpdate(p), /changed since the dry run/)
+  })
+})
+
+describe('activation at the deposit (scripts/activation-trigger-to-deposit.ts)', () => {
+  const switched = (id: string, mode: 'full' | 'referral_only', trigger: string) => ({
+    id,
+    name: id,
+    settings: {
+      currency: 'EUR',
+      rewards_config: {
+        ...migrateRewardsConfig(ALL_INK_CONFIG),
+        referrals: { ...migrateRewardsConfig(ALL_INK_CONFIG).referrals, activation_trigger: { type: trigger } },
+        pilot_switched_at: '2026-10-01T08:00:00.000Z',
+        pilot_switch_mode: mode,
+      },
+    },
+  })
+
+  it('plans full studios only; referral_only (Ink Nation) is kept; not switched is not listed', () => {
+    const rows = service.planDepositTrigger([
+      switched('nick', 'full', 'first_full_payment'),
+      switched('new', 'full', 'first_purchase'),
+      switched('ink-nation', 'referral_only', 'first_full_payment'),
+      { id: 'all-ink', name: 'All Ink', settings: { rewards_config: ALL_INK_CONFIG } },
+    ])
+    assert.deepEqual(rows.map((r) => [r.studio_id, r.mode, r.trigger_before, r.action]), [
+      ['nick', 'full', 'first_full_payment', 'set'],
+      ['new', 'full', 'first_purchase', 'already'],
+      ['ink-nation', 'referral_only', 'first_full_payment', 'skip_referral_only'],
+    ])
+  })
+
+  it('apply changes only the activation trigger of the full studios', async () => {
+    const fake = seed({
+      studios: [switched(STUDIO_ID, 'full', 'first_full_payment'), switched(OTHER_STUDIO_ID, 'referral_only', 'first_full_payment')],
+    })
+    const before = structuredClone(fake.tables.studios)
+    const rows = await service.loadDepositTriggerPlan()
+    assert.deepEqual(await service.applyDepositTrigger(rows), [STUDIO_ID])
+    const after = fake.row('studios', STUDIO_ID).settings as { rewards_config: RewardsConfig }
+    assert.deepEqual(after.rewards_config.referrals.activation_trigger, { type: 'first_purchase' })
+    const expected = structuredClone(before.find((s) => s.id === STUDIO_ID)!) as { settings: { rewards_config: RewardsConfig } }
+    expected.settings.rewards_config.referrals.activation_trigger = { type: 'first_purchase' }
+    assert.deepEqual(fake.row('studios', STUDIO_ID), expected)
+    assert.deepEqual(fake.row('studios', OTHER_STUDIO_ID), before.find((s) => s.id === OTHER_STUDIO_ID))
+    assert.equal(fake.writes('studios').length, 1)
+  })
+
+  it('apply refuses a config that changed since the dry run', async () => {
+    const fake = seed({ studios: [switched(STUDIO_ID, 'full', 'first_full_payment'), switched(OTHER_STUDIO_ID, 'full', 'first_purchase')] })
+    const rows = await service.loadDepositTriggerPlan()
+    ;(fake.row('studios', STUDIO_ID).settings as { rewards_config: { enabled: boolean } }).rewards_config.enabled = false
+    await assert.rejects(service.applyDepositTrigger(rows), /changed since the dry run/)
   })
 })

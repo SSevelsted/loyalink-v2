@@ -15,12 +15,12 @@
  *
  * Target (src/lib/services/pilot-switch-service.ts, full mode, new studios):
  *   - tiers 5% base, 10% after the tattoo (first full payment), 15% Inner
- *     Circle at 3 activated referrals (3 friends who paid at the counter;
+ *     Circle at 3 activated referrals (full: 3 friends who paid a deposit;
  *     Loyalink upgrades the giver at the 3rd friend's payment);
  *     the slugs of today's first 3 tiers are reused
  *   - friend joins on the 10% tier and gets the welcome bonus from Loyalink
  *   - giver: no Loyalink cashback bonus, no commission; referral activates on
- *     the friend's first full payment
+ *     the friend's first payment, the deposit included (first_purchase)
  *   - existing members keep their tier and rate, promotion fallbacks included
  *
  * --apply writes, and refuses when the dry run shows a blocker:

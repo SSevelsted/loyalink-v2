@@ -2,6 +2,8 @@ import { adminSupabase } from '@/lib/studio-access'
 import { createCustomerAccessToken, hasPersonalDataAccess, memberLinkVersion } from '@/lib/customer-access'
 import { firstName, friendDisplayName } from '@/lib/member-privacy'
 import { loadGiftCounters } from '@/lib/services/gift-counter-service'
+import { studioHasWebhookFor } from '@/lib/services/webhook-service'
+import { FRIEND_SENT_EVENT } from '@/lib/send-gift'
 import type { GiftCounter } from '@/lib/gift-counter'
 import { DEFAULT_REWARDS_CONFIG, migrateRewardsConfig } from '@/types/database'
 import type { RewardsConfig, Referral, Transaction } from '@/types/database'
@@ -52,6 +54,13 @@ export type MemberPageData = {
   language: string
   /** "5 gifts to give". null when the studio has gift_counter_enabled off. Shown in both views: a count, no names. */
   gifts: GiftCounter | null
+  /**
+   * "Enter your friend's details" in the Send a gift sheet: private view only,
+   * referrals on, and a studio webhook receives referral.friend_sent.
+   */
+  canSendFriend: boolean
+  /** The studio's ISO country (address_country), for the phone country picker. */
+  defaultCountry: string | null
 }
 
 const TOKEN_TTL_SECONDS = 24 * 60 * 60
@@ -132,6 +141,8 @@ export async function loadMemberPage(memberId: string, token: string | null | un
 
   const gifts = (await loadGiftCounters(customer.studio_id, [customer.id], rewardsConfig)).get(customer.id) ?? null
   const full = access === 'full'
+  const canSendFriend = full && rewardsConfig.referrals.enabled
+    && await studioHasWebhookFor(customer.studio_id, FRIEND_SENT_EVENT)
   return {
     access,
     customerAccessToken: createCustomerAccessToken(customer.id, TOKEN_TTL_SECONDS, { passOnly: !full }),
@@ -154,5 +165,7 @@ export async function loadMemberPage(memberId: string, token: string | null | un
     currency,
     language,
     gifts,
+    canSendFriend,
+    defaultCountry: typeof studioSettings.address_country === 'string' ? studioSettings.address_country : null,
   }
 }

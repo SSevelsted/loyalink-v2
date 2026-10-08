@@ -24,13 +24,16 @@ import { STREAMINK_REWARDS_CONFIG, STREAMINK_WELCOME_BONUS } from '@/lib/templat
  * 2026-10-01). Used by scripts/switch-day.ts.
  *
  *   tiers      base 5% -> after the tattoo 10% (first full payment) -> Inner Circle 15%
- *              at 3 activated referrals, i.e. 3 friends who paid at the counter
- *              (owner decision 2026-10-06; Loyalink upgrades the giver at the
- *              3rd friend's payment, see referral-service referralUpgradeTier)
+ *              at 3 activated referrals (owner decision 2026-10-06; Loyalink
+ *              upgrades the giver when the 3rd referral activates, see
+ *              referral-service referralUpgradeTier)
  *   friend     joins on the 10% tier + a welcome bonus Loyalink credits itself
  *   giver      no Loyalink bonus and no commission: the platform pays the giver
- *              (EUR 25 / 250 kr per tattooed friend)
- *   referral   activates on the friend's first full payment (not a deposit)
+ *              (EUR 25 / SEK 250 / DKK 200 when the friend pays the deposit)
+ *   referral   full: activates on the friend's first payment, the deposit
+ *              included (owner decision 2026-10-06; a later refund or cancel
+ *              claws nothing back). referral_only (Ink Nation): stays on the
+ *              first full payment.
  *
  * Existing members keep exactly what they have. The switch only replaces the
  * rewards config: rows and promotion fallbacks keep their explicit rates. Two
@@ -63,7 +66,17 @@ export const PILOT_SWITCH_VERSION = 2
  */
 export type { PilotSwitchMode }
 
-/** Friends who must have paid at the counter (activated referrals) to reach Inner Circle. */
+/**
+ * Activation trigger of a 'full' switched studio: the friend's first payment,
+ * the deposit included (referralTriggerMet: first_purchase = any transaction).
+ * Inner Circle counts activated referrals, so it moves to the deposit too.
+ */
+export const DEPOSIT_ACTIVATION_TRIGGER = { type: 'first_purchase' } as const
+
+/** referral_only studios keep this one: the deposit does not activate. */
+export const FULL_PAYMENT_ACTIVATION_TRIGGER = { type: 'first_full_payment' } as const
+
+/** Friends whose referral activated (full mode: paid the deposit) to reach Inner Circle. */
 export const INNER_CIRCLE_FRIENDS = 3
 
 /** tiers[2] trigger at switched studios: Loyalink upgrades at the 3rd activated referral. */
@@ -128,7 +141,7 @@ export function pilotTargetConfig(
         referrer_cashback_bonus_per_ref: 0,
         referrer_commission_rate: 0,
         referrer_commission_type: 'percentage',
-        activation_trigger: { type: 'first_full_payment' },
+        activation_trigger: { ...FULL_PAYMENT_ACTIVATION_TRIGGER },
       },
       pilot_switched_at: opts.switchedAt,
       pilot_switch_mode: 'referral_only',
@@ -170,7 +183,7 @@ export function pilotTargetConfig(
       referrer_cashback_bonus_per_ref: 0,
       referrer_commission_rate: 0,
       referrer_commission_type: 'percentage',
-      activation_trigger: { type: 'first_full_payment' },
+      activation_trigger: { ...DEPOSIT_ACTIVATION_TRIGGER },
     },
     pilot_switched_at: opts.switchedAt,
     pilot_switch_mode: 'full',
@@ -836,4 +849,76 @@ export async function applyInnerCircleUpdate(
     rate: PILOT_RATES.giver,
   })
   return { configSaved, membersRaised: result.members.length, promotionsUpdated: result.promotionsUpdated }
+}
+
+// ─── Activation at the deposit for 'full' switched studios ───────────────────
+
+/**
+ * Owner decision 2026-10-06: at a 'full' switched studio the giver's reward
+ * and the Inner Circle count happen when the friend pays the deposit. Studios
+ * switched before that run first_full_payment. Used by
+ * scripts/activation-trigger-to-deposit.ts. 'referral_only' studios (Ink
+ * Nation) are never touched.
+ */
+export type DepositTriggerRow = {
+  studio_id: string
+  studio_name: string
+  mode: PilotSwitchMode
+  trigger_before: string
+  action: 'set' | 'already' | 'skip_referral_only'
+  /** The stored rewards_config, exactly as read: apply refuses if it changed. */
+  storedConfig: unknown
+}
+
+export function planDepositTrigger(
+  studios: Array<{ id: string; name: string | null; settings: Record<string, unknown> | null }>,
+): DepositTriggerRow[] {
+  const out: DepositTriggerRow[] = []
+  for (const s of studios) {
+    const stored = s.settings?.rewards_config as Record<string, unknown> | undefined
+    const mode = stored?.pilot_switch_mode
+    if (mode !== 'full' && mode !== 'referral_only') continue
+    const trigger = (stored?.referrals as { activation_trigger?: { type?: unknown } } | undefined)?.activation_trigger
+    const type = typeof trigger === 'string' ? trigger : String(trigger?.type ?? '(none)')
+    out.push({
+      studio_id: s.id,
+      studio_name: s.name ?? s.id,
+      mode,
+      trigger_before: type,
+      action: mode === 'referral_only' ? 'skip_referral_only' : type === DEPOSIT_ACTIVATION_TRIGGER.type ? 'already' : 'set',
+      storedConfig: stored,
+    })
+  }
+  return out
+}
+
+export async function loadDepositTriggerPlan(): Promise<DepositTriggerRow[]> {
+  const { data, error } = await adminSupabase.from('studios').select('id, name, settings')
+  if (error) throw new PilotSwitchError(`Failed to read studios: ${error.message}`)
+  return planDepositTrigger((data ?? []) as Array<{ id: string; name: string | null; settings: Record<string, unknown> | null }>)
+}
+
+/** Writes only the rows with action 'set'. Changes nothing but referrals.activation_trigger. */
+export async function applyDepositTrigger(rows: DepositTriggerRow[]): Promise<string[]> {
+  const updated: string[] = []
+  for (const row of rows) {
+    if (row.action !== 'set' || row.mode !== 'full') continue
+    const { data: studio, error } = await adminSupabase.from('studios').select('settings').eq('id', row.studio_id).single()
+    if (error || !studio) throw new PilotSwitchError(`Failed to reload ${row.studio_id}: ${error?.message ?? 'not found'}`)
+    const settings = (studio.settings as Record<string, unknown> | null) ?? {}
+    const stored = settings.rewards_config as Record<string, unknown> | undefined
+    if (JSON.stringify(stored ?? null) !== JSON.stringify(row.storedConfig ?? null)) {
+      throw new PilotSwitchError(`The rewards config of ${row.studio_id} changed since the dry run. Run it again.`)
+    }
+    if (stored?.pilot_switch_mode !== 'full') continue
+    const referrals = (stored.referrals as Record<string, unknown> | undefined) ?? {}
+    const rewards_config = { ...stored, referrals: { ...referrals, activation_trigger: { ...DEPOSIT_ACTIVATION_TRIGGER } } }
+    const { error: saveError } = await adminSupabase
+      .from('studios')
+      .update({ settings: { ...settings, rewards_config } })
+      .eq('id', row.studio_id)
+    if (saveError) throw new PilotSwitchError(`Failed to save ${row.studio_id}: ${saveError.message}`)
+    updated.push(row.studio_id)
+  }
+  return updated
 }
