@@ -2,11 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { friendGiftOnFromSettings, qrHintText, qrHintToggleOn } from './qrHint.js';
 
-test('QR line per language, English fallback, no em dash', () => {
-  assert.equal(qrHintText('da'), 'Venner scanner her og får deres gave');
-  assert.equal(qrHintText('SV'), 'Vänner skannar här och får sin gåva');
-  assert.equal(qrHintText('pt'), 'Friends scan this to get their gift');
-  assert.equal(qrHintText(undefined), 'Friends scan this to get their gift');
+test('QR line per language, English fallback, no em dash, short', () => {
+  assert.equal(qrHintText('da'), 'Lad en ven scanne for en gave');
+  assert.equal(qrHintText('SV'), 'Låt en vän skanna för en gåva');
+  assert.equal(qrHintText('pt'), 'Let a friend scan for a gift');
+  assert.equal(qrHintText(undefined), 'Let a friend scan for a gift');
   for (const l of ['en', 'da', 'sv', 'no', 'nb', 'de', 'fr', 'es', 'nl', 'pl']) {
     assert.ok(!qrHintText(l).includes('—'), l);
   }

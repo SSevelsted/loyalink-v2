@@ -51,7 +51,7 @@ export default function DesignerPage() {
   const [cardFields, setCardFields] = useState<CardField[]>(DEFAULT_CARD_FIELDS)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [stripUrl, setStripUrl] = useState<string | null>(null)
-  // "Friends scan this to get their gift" under the QR. On unless turned off.
+  // "Let a friend scan for a gift" under the QR. On unless turned off.
   const [qrHint, setQrHint] = useState(true)
   const [dirty, setDirty] = useState(false)
 

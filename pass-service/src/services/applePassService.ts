@@ -241,7 +241,7 @@ interface PassData {
   memberLinkToken?: string;
   /** "5 gifts to give" (1..5). Omitted or null: no field (studio switch off). */
   giftsReady?: number | null;
-  /** Show "Friends scan this to get their gift" under the QR (studio gives friends a gift). */
+  /** Show "Let a friend scan for a gift" under the QR (studio gives friends a gift). */
   qrHintOn?: boolean;
 }
 
