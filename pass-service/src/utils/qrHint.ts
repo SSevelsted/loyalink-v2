@@ -1,21 +1,21 @@
 // The line under the QR code on the card: friends scan it to get their gift.
-// Short on purpose (Simon, 8 Oct 2026): 1 line under the QR.
+// Short on purpose and names the friend (Simon, 8 Oct 2026): 1 line under the QR.
 // The QR opens /refer/{memberId}, the friend's gift page. Shown only where the
 // studio gives a friend a gift with an amount (referrals on and a
 // friend_welcome_bonus above 0), so the card never promises a gift that is not
 // there, and only while the card designer toggle is on (missing = on). Unknown languages fall back to English. No em dashes.
 
 const QR_HINT: Record<string, string> = {
-  en: 'Scan for a gift',
-  da: 'Scan for en gave',
-  sv: 'Skanna för en gåva',
-  no: 'Skann for en gave',
-  nb: 'Skann for en gave',
-  de: 'Für ein Geschenk scannen',
-  fr: 'Scannez pour un cadeau',
-  es: 'Escanea para un regalo',
-  nl: 'Scan voor een cadeau',
-  pl: 'Zeskanuj po prezent',
+  en: 'Friends scan for a gift',
+  da: 'Venner scanner for en gave',
+  sv: 'Vänner skannar för en gåva',
+  no: 'Venner skanner for en gave',
+  nb: 'Venner skanner for en gave',
+  de: 'Freunde scannen für ein Geschenk',
+  fr: 'Vos amis scannent pour un cadeau',
+  es: 'Amigos: escanea para un regalo',
+  nl: 'Vrienden scannen voor een cadeau',
+  pl: 'Znajomi skanują po prezent',
 };
 
 export function qrHintText(language?: string | null): string {

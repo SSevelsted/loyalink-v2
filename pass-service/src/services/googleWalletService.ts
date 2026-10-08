@@ -75,7 +75,7 @@ interface LoyaltyObjectData {
   hexBackgroundColor?: string;
   /** "5 gifts to give" (1..5). Omitted or null: no module (studio switch off). */
   giftsReady?: number | null;
-  /** Show "Scan for a gift" under the QR (studio gives friends a gift). */
+  /** Show "Friends scan for a gift" under the QR (studio gives friends a gift). */
   qrHintOn?: boolean;
   /** Member link token for the gift link (same link as the Apple back field). Never in the barcode. */
   memberLinkToken?: string;

@@ -13,7 +13,7 @@ type CardPreviewProps = {
   onClickLogo?: () => void
   onClickStrip?: () => void
   onClickIcon?: () => void
-  /** Line under the QR code, e.g. "Scan for a gift". Null: none. */
+  /** Line under the QR code, e.g. "Friends scan for a gift". Null: none. */
   qrHint?: string | null
 }
 

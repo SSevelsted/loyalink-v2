@@ -1,10 +1,10 @@
-// "Scan for a gift" under the QR code on the wallet card.
+// "Friends scan for a gift" under the QR code on the wallet card.
 // The pass service renders it per language (pass-service/src/utils/qrHint.ts).
 // A studio turns it on or off in the card designer; it is stored as
 // pass_templates.static_texts.qrHint. Missing means ON, so every new studio
 // gets it. It shows only where friends get a welcome gift amount.
 
-export const QR_HINT_EN = 'Scan for a gift'
+export const QR_HINT_EN = 'Friends scan for a gift'
 
 /** The designer toggle: on unless set to false. Pure. */
 export function qrHintOnFromStaticTexts(staticTexts: unknown): boolean {
