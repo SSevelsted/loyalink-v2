@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminSupabase, verifyStudioAccess } from '@/lib/studio-access'
-import { passServiceFetch } from '@/lib/pass-service'
+import { pushStudioPasses } from '@/lib/pass-push'
 import { migrateRewardsConfig, syncReferralFriendRate } from '@/types/database'
 import { migrateExistingMembers, RewardsMigrationError } from '@/lib/services/rewards-migration-service'
 import type { RewardsConfig } from '@/types/database'
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     // 5. Trigger batch wallet pass updates
     if (applyToExisting && migratedMembers > 0) {
-      void passServiceFetch(`/api/push/studio/${studioId}`, { method: 'POST' }).catch(() => {})
+      pushStudioPasses(studioId)
     }
 
     return NextResponse.json({ success: true, migratedMembers, migratedPromotions })

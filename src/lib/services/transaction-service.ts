@@ -1,7 +1,7 @@
 import { adminSupabase } from '@/lib/studio-access'
 import { DEFAULT_REWARDS_CONFIG, isManualOnlyTrigger, migrateRewardsConfig } from '@/types/database'
 import type { RewardsConfig, TierConfig, UpgradeTriggerConfig } from '@/types/database'
-import { passServiceFetch } from '@/lib/pass-service'
+import { pushCustomerPass } from '@/lib/pass-push'
 import { expirePromotion } from '@/lib/services/promotion-service'
 import { fireWebhook } from '@/lib/services/webhook-service'
 import { sendTierUpgrade } from '@/lib/email/send'
@@ -645,7 +645,7 @@ function shouldUpgrade(
 }
 
 function triggerPassUpdate(customerId: string) {
-  void passServiceFetch(`/api/push/customer/${customerId}`, { method: 'POST' }).catch(() => {})
+  pushCustomerPass(customerId)
 }
 
 export class TransactionError extends Error {

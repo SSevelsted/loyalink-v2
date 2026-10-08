@@ -1,5 +1,5 @@
 import { adminSupabase } from '@/lib/studio-access'
-import { passServiceFetch } from '@/lib/pass-service'
+import { pushCustomerPass } from '@/lib/pass-push'
 import { memberLinkVersion } from '@/lib/customer-access'
 import { memberInviteLink } from '@/lib/member-links'
 
@@ -37,6 +37,6 @@ export async function rotateMemberLink(studioId: string, customerId: string): Pr
   if (error) throw new MemberLinkError(`Failed to rotate link: ${error.message}`, 500)
   if (!updated || updated.length === 0) throw new MemberLinkError('Link was rotated at the same time; try again', 409)
 
-  void passServiceFetch(`/api/push/customer/${customerId}`, { method: 'POST' }).catch(() => {})
+  pushCustomerPass(customerId)
   return { invite_link: memberInviteLink(updated[0]), link_token_version: next }
 }

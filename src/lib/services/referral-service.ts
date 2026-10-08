@@ -1,5 +1,5 @@
 import { adminSupabase } from '@/lib/studio-access'
-import { passServiceFetch } from '@/lib/pass-service'
+import { pushCustomerPass } from '@/lib/pass-push'
 import { fireWebhook } from '@/lib/services/webhook-service'
 import { sendReferralReward, sendTierUpgrade } from '@/lib/email/send'
 import {
@@ -229,7 +229,7 @@ async function creditReferrer(
       config.referrals.referrer_cashback_bonus_per_ref,
     )
 
-    void passServiceFetch(`/api/push/customer/${referrerId}`, { method: 'POST' }).catch(() => {})
+    pushCustomerPass(referrerId)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('[referrals] referral bonus failed:', { referrerId, studioId, message })

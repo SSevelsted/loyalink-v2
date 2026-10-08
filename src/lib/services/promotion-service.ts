@@ -1,5 +1,5 @@
 import { adminSupabase } from '@/lib/studio-access'
-import { passServiceFetch } from '@/lib/pass-service'
+import { pushCustomerPass } from '@/lib/pass-push'
 import type { RewardsConfig } from '@/types/database'
 import { dealRow, loadRewardsConfig, MemberDealError } from '@/lib/services/member-deal-service'
 
@@ -121,7 +121,7 @@ export async function applyPromotion(input: ApplyPromotionInput) {
     throw new PromotionError(`Promotion started but the member row failed to update: ${rowError.message}`, 500)
   }
 
-  void passServiceFetch(`/api/push/customer/${customerId}`, { method: 'POST' }).catch(() => {})
+  pushCustomerPass(customerId)
 
   return memberPromo
 }
@@ -155,7 +155,7 @@ export async function revokePromotion(memberPromotionId: string, studioId: strin
     .eq('id', memberPromotionId)
 
   // Push pass update
-  void passServiceFetch(`/api/push/customer/${promo.customer_id}`, { method: 'POST' }).catch(() => {})
+  pushCustomerPass(promo.customer_id)
 
   return { revoked: true }
 }
@@ -174,7 +174,7 @@ export async function expirePromotion(memberPromotionId: string, customerId: str
     .update({ status: 'expired', expired_at: new Date().toISOString() })
     .eq('id', memberPromotionId)
 
-  void passServiceFetch(`/api/push/customer/${customerId}`, { method: 'POST' }).catch(() => {})
+  pushCustomerPass(customerId)
 }
 
 export class PromotionError extends Error {

@@ -1,5 +1,5 @@
 import { adminSupabase } from '@/lib/studio-access'
-import { passServiceFetch } from '@/lib/pass-service'
+import { pushCustomerPass } from '@/lib/pass-push'
 import { giftCounterEnabled } from '@/lib/gift-counter'
 import { loadStudioRewardsConfig } from '@/lib/services/gift-counter-service'
 import type { RewardsConfig } from '@/types/database'
@@ -53,7 +53,7 @@ async function existingReferralFor(customerId: string) {
 /** Push the giver's pass so a gift counter on it refreshes. Only when the switch is on. */
 export function pushGiverPass(referrerId: string, config: RewardsConfig) {
   if (!giftCounterEnabled(config)) return
-  void passServiceFetch(`/api/push/customer/${referrerId}`, { method: 'POST' }).catch(() => {})
+  pushCustomerPass(referrerId)
 }
 
 export async function attachReferral(input: {

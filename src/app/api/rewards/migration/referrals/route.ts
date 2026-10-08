@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminSupabase, verifyStudioAccess } from '@/lib/studio-access'
-import { passServiceFetch } from '@/lib/pass-service'
+import { pushStudioPasses } from '@/lib/pass-push'
 import { migrateRewardsConfig, DEFAULT_REWARDS_CONFIG } from '@/types/database'
 import type { RewardsConfig } from '@/types/database'
 import { applyFriendRateToMembers, RewardsMigrationError } from '@/lib/services/rewards-migration-service'
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     // 4. Trigger pass updates if friends were updated
     if (updatedFriends > 0) {
-      void passServiceFetch(`/api/push/studio/${studioId}`, { method: 'POST' }).catch(() => {})
+      pushStudioPasses(studioId)
     }
 
     return NextResponse.json({ success: true, updatedFriends, updatedReferrals })
