@@ -11,6 +11,7 @@ import type { RewardsConfig } from '@/types/database'
 import { getCurrencyConfig, formatAmount } from '@/lib/currency'
 import { getSignupTranslations } from '@/lib/i18n/signup'
 import { brandSurface } from '@/lib/readable-color'
+import { studioCountry } from '@/lib/studio-country'
 
 type Props = {
   params: Promise<{ memberId: string }>
@@ -175,7 +176,11 @@ export default async function ReferralLandingPage({ params }: Props) {
           showPhone={settings.showPhone ?? true}
           referralCode={referralCode}
           language={language}
-          defaultCountry={(studioSettings.address_country as string) ?? undefined}
+          defaultCountry={studioCountry({
+            country: studioSettings.address_country,
+            language: studioSettings.language,
+            currency: studioSettings.currency,
+          })}
         />
       </div>
     </div>
