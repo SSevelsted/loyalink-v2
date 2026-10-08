@@ -1,5 +1,5 @@
 import { adminSupabase } from '@/lib/studio-access'
-import { passServiceFetch } from '@/lib/pass-service'
+import { pushCustomerPass } from '@/lib/pass-push'
 import { migrateRewardsConfig, DEFAULT_REWARDS_CONFIG, type RewardsConfig } from '@/types/database'
 
 /**
@@ -285,7 +285,7 @@ export async function applyPermanentDeal(input: PermanentDealInput): Promise<Per
   }
 
   if (input.pushPass) {
-    void passServiceFetch(`/api/push/customer/${customerId}`, { method: 'POST' }).catch(() => {})
+    pushCustomerPass(customerId)
   }
 
   const effective = dealRow(promo, newTier, newRate, config.tiers, current.customer.loyalty_stage)

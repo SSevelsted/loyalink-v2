@@ -1,5 +1,5 @@
 import { adminSupabase } from '@/lib/studio-access'
-import { passServiceFetch } from '@/lib/pass-service'
+import { pushCustomerPass } from '@/lib/pass-push'
 import { applyPermanentDeal, MemberDealError } from '@/lib/services/member-deal-service'
 
 /**
@@ -134,7 +134,7 @@ export async function adjustBalance(input: AdjustBalanceInput): Promise<{ balanc
 
   await adminSupabase.from('customers').update({ balance: newBalance }).eq('id', customerId)
 
-  void passServiceFetch(`/api/push/customer/${customerId}`, { method: 'POST' }).catch(() => {})
+  pushCustomerPass(customerId)
 
   return { balance: newBalance }
 }
