@@ -9,6 +9,7 @@ import { ReferralBanner } from '@/components/landing/referral-banner'
 import { migrateRewardsConfig } from '@/types/database'
 import { WalletTrustBadge } from '@/components/landing/wallet-trust-badge'
 import { MARKETING_URL } from '@/lib/constants'
+import { studioCountry } from '@/lib/studio-country'
 import {
   localizeLandingPageSettingsDefaults,
   resolveLandingPageCopy,
@@ -195,7 +196,11 @@ export default async function JoinPage({ params, searchParams }: Props) {
           successMessage={localizedSettings.successMessage}
           termsUrl={localizedSettings.termsUrl || `${MARKETING_URL}/join/${slug}/terms`}
           language={language}
-          defaultCountry={(pageSettings.address_country as string) ?? (studioSettings.address_country as string) ?? undefined}
+          defaultCountry={studioCountry({
+            country: pageSettings.address_country || studioSettings.address_country,
+            language: studioSettings.language ?? language,
+            currency: studioSettings.currency ?? currency,
+          })}
         />
 
         <WalletTrustBadge textColor={txtColor} />

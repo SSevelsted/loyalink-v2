@@ -8,6 +8,7 @@ import { STREAMINK_TIER_THEMES, STREAMINK_PROMOTIONS } from '@/lib/templates/str
 import { streaminkStudioRewardsConfig } from '@/lib/services/pilot-switch-service'
 import { getDefaultLandingPageCopy } from '@/lib/landing-page-defaults'
 import { WEBHOOK_EVENTS } from '@/lib/webhook-events'
+import { studioCountry } from '@/lib/studio-country'
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, email, phone, address, currency, language, streamink_workspace_id, legacy_studio_id } = body
+    const { name, email, phone, address, country, currency, language, streamink_workspace_id, legacy_studio_id } = body
 
     if (!name?.trim()) {
       return apiError('name is required', 400)
@@ -59,6 +60,10 @@ export async function POST(request: NextRequest) {
           email: email || null,
           phone: phone || null,
           address: address || null,
+          // The default phone code on the join and refer pages (owner decision
+          // 2026-10-08): the country StreamInk sends, else the language, else
+          // the currency. Null when nothing points to one.
+          address_country: studioCountry({ country, language: studioLanguage, currency: studioCurrency }) ?? null,
           currency: studioCurrency,
           language: studioLanguage,
           rewards_config: rewardsConfig,
